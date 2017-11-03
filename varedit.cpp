@@ -101,7 +101,6 @@ int main(int argc, char* argv[]){
             std::cout << help_str;
             return -1;
       }
-      // TODO: add interactive mode
       mem_map vmem = ints_in_stack((pid_t)std::stoi(argv[1]));
       if(argc > 2){
             if(strcmp(argv[2], "-p") == 0){
@@ -121,16 +120,30 @@ int main(int argc, char* argv[]){
                   return 0;
             }
             else if(strcmp(argv[2], "-f") == 0){
+                  std::string tmp_str;
                   int tmp_val;
                   while(1){
-                        std::cout << "enter current variable value" << std::endl;
-                        std::cin >> tmp_val;
+                        std::cout << "enter current variable value or 'w' to enter write mode" << std::endl;
+                        std::cin >> tmp_str;
+                        if(tmp_str == "w"){
+                              while(1){
+                                    int c = 0;
+                                    std::pair<void*, int> n_vm[vmem.mmap.size()];
+                                    for(std::map<void*, int>::iterator it = vmem.mmap.begin(); it != vmem.mmap.end(); ++it){
+                                          n_vm[c] = *it;
+                                          std::cout << c++ << ": (" << it->first << ": " << it->second << ")" << std::endl; 
+                                    }
+                                    // TODO: maybe allow multiple values separated by some delim like ','
+                                    int to_w;
+                                    std::cout << "enter number [0-" << vmem.mmap.size()-1 << "], followed by value to write" << std::endl;
+                                    std::cin >> tmp_val >> to_w;
+                                    write_int_from_pid_mem(vmem.pid, n_vm[tmp_val].first, to_w);
+                              }
+                        }
+                        tmp_val = std::stoi(tmp_str);
                         narrow_mem_map(vmem, tmp_val);
                         std::cout << "matches are now:" << std::endl;
                         print_mmap(vmem);
-                        // maybe allow for writing of values from here
-                        // map each result to an int for easy editing
-                        // prompt for small ints rather than full hex address
                   }
                   return 0;
             }
