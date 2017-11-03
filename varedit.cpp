@@ -102,7 +102,7 @@ void logic_swap(mem_map mem){
 
 
 int main(int argc, char* argv[]){
-      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-i] [-w <virtual memory addres> <value>] [-f]}\n    -p : prints all integers in stack with virtual memory addresses. optional filter\n    -i : inverts all 1s and 0s in stack\n    -w : writes value to virtual memory address\n    -f : interactively tracks down memory locations of variables\n";
+      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-i] [-w <virtual memory addres> <value>] [-f]}\n    -p : prints all integers in stack with virtual memory addresses. optional filter\n    -r : read single integer from virtual memory address\n    -i : inverts all 1s and 0s in stack\n    -w : writes value to virtual memory address\n    -f : interactively tracks down memory locations of variables\n";
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             std::cout << help_str;
             return -1;
@@ -117,6 +117,10 @@ int main(int argc, char* argv[]){
                   print_mmap(vmem);
                   return 0;
             }
+            else if(strcmp(argv[2], "-r") == 0){
+                  std::cout << vmem.mmap[(void*)strtoul(argv[3], 0, 16)] << std::endl;
+                  return 0;
+            }
             else if(strcmp(argv[2], "-i") == 0){
                   logic_swap(vmem);
                   return 0;
@@ -126,6 +130,7 @@ int main(int argc, char* argv[]){
                   return 0;
             }
             else if(strcmp(argv[2], "-f") == 0){
+            f:
                   std::string tmp_str;
                   int tmp_val;
                   while(1){
@@ -172,5 +177,5 @@ int main(int argc, char* argv[]){
                   return 0;
             }
       }
-      print_mmap(vmem);
+      goto f; //default to find var/interactive mode
 }
