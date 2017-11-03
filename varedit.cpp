@@ -76,6 +76,15 @@ void print_mmap(mem_map mem, std::string contains=""){
       }
 }
 
+void narrow_mem_map(mem_map &mem, int match){
+      std::string match_str = std::to_string(match);
+      for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
+            if(std::to_string(it->second).find(match_str) == std::string::npos){
+                  mem.mmap.erase(it);
+            }
+      }
+}
+
 void logic_swap(mem_map mem){
       for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
             if(it->second == 0 || it->second == 1)
@@ -83,15 +92,15 @@ void logic_swap(mem_map mem){
       }
 }
 
+
+
 int main(int argc, char* argv[]){
-      // TODO: write help string
-      std::string help_str = "";
-      if(argc == 1){
+      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-i] [-w <virtual memory addres> <value>] [-f]}\n    -p : prints all integers in stack with virtual memory addresses. optional filter\n    -i : inverts all 1s and 0s in stack\n    -w : writes value to virtual memory address\n    -f : interactively tracks down memory locations of variables\n";
+      if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             std::cout << help_str;
             return -1;
       }
       // TODO: add interactive mode
-      // TODO: add -f mode to track down variables
       mem_map vmem = ints_in_stack((pid_t)std::stoi(argv[1]));
       if(argc > 2){
             if(strcmp(argv[2], "-p") == 0){
@@ -108,6 +117,20 @@ int main(int argc, char* argv[]){
             }
             else if(strcmp(argv[2], "-w") == 0){
                   write_int_from_pid_mem(vmem.pid, (void*)strtoul(argv[3], 0, 16), std::stoi(argv[4]));
+                  return 0;
+            }
+            else if(strcmp(argv[2], "-f") == 0){
+                  int tmp_val;
+                  while(1){
+                        std::cout << "enter current variable value" << std::endl;
+                        std::cin >> tmp_val;
+                        narrow_mem_map(vmem, tmp_val);
+                        std::cout << "matches are now:" << std::endl;
+                        print_mmap(vmem);
+                        // maybe allow for writing of values from here
+                        // map each result to an int for easy editing
+                        // prompt for small ints rather than full hex address
+                  }
                   return 0;
             }
       }
