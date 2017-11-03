@@ -33,7 +33,7 @@ char read_str_from_pid_mem(int pid, void* vm, int strlen){
       return *buf;
 }
 
-int write_int_from_pid_mem(int pid, void* vm, int value){
+int write_int_to_pid_mem(int pid, void* vm, int value){
       int buff_sz = 4; // sizeof int
       int buf[buff_sz];
       buf[0] = value;
@@ -76,6 +76,12 @@ void print_mmap(mem_map mem, std::string contains=""){
       }
 }
 
+void update_mem_map(mem_map &mem){
+      for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
+            it->second = read_int_from_pid_mem(mem.pid, it->first);
+      }
+}
+
 void narrow_mem_map(mem_map &mem, int match){
       std::string match_str = std::to_string(match);
       for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
@@ -89,7 +95,7 @@ void narrow_mem_map(mem_map &mem, int match){
 void logic_swap(mem_map mem){
       for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
             if(it->second == 0 || it->second == 1)
-            write_int_from_pid_mem(mem.pid, it->first, (int)!it->second);
+            write_int_to_pid_mem(mem.pid, it->first, (int)!it->second);
       }
 }
 
@@ -116,7 +122,7 @@ int main(int argc, char* argv[]){
                   return 0;
             }
             else if(strcmp(argv[2], "-w") == 0){
-                  write_int_from_pid_mem(vmem.pid, (void*)strtoul(argv[3], 0, 16), std::stoi(argv[4]));
+                  write_int_to_pid_mem(vmem.pid, (void*)strtoul(argv[3], 0, 16), std::stoi(argv[4]));
                   return 0;
             }
             else if(strcmp(argv[2], "-f") == 0){
@@ -126,18 +132,42 @@ int main(int argc, char* argv[]){
                         std::cout << "enter current variable value or 'w' to enter write mode" << std::endl;
                         std::cin >> tmp_str;
                         if(tmp_str == "w"){
+                              int c, to_w, vl_c;
+                              std::string tmp_num, v_loc_s;
+                              int v_loc[2]; // right now v_loc is meant to store start and end of a range
                               while(1){
-                                    int c = 0;
+                                    c = 0;
                                     std::pair<void*, int> n_vm[vmem.mmap.size()];
                                     for(std::map<void*, int>::iterator it = vmem.mmap.begin(); it != vmem.mmap.end(); ++it){
                                           n_vm[c] = *it;
                                           std::cout << c++ << ": (" << it->first << ": " << it->second << ")" << std::endl; 
                                     }
                                     // TODO: maybe allow multiple values separated by some delim like ','
-                                    int to_w;
-                                    std::cout << "enter number [0-" << vmem.mmap.size()-1 << "], followed by value to write" << std::endl;
-                                    std::cin >> tmp_val >> to_w;
-                                    write_int_from_pid_mem(vmem.pid, n_vm[tmp_val].first, to_w);
+                                    std::cout << "enter a number from [0-" << vmem.mmap.size()-1 << "] or a range with a '-', followed by value to write" << std::endl;
+                                    std::cin >> v_loc_s >> to_w;
+                                    vl_c = 0;
+                                    tmp_num = "";
+                                    for(int i = 0; i < v_loc_s.size(); ++i){
+                                          if(v_loc_s[i] == '-'){
+                                                //range_mode = true;
+                                                std::cout << "appending " << tmp_num << std::endl;
+                                                v_loc[vl_c++] = std::stoi(tmp_num);
+                                                tmp_num = "";
+                                          }
+                                          else{
+                                                tmp_num += v_loc_s[i];
+                                          }
+                                    }
+                                    v_loc[vl_c] = std::stoi(tmp_num); // c? c++? to keep track of len
+                                    std::cout << "appending " << tmp_num << std::endl;
+                                    std::cout << to_w << std::endl;
+                                    for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){ // write all ints in range or between commas
+                                          std::cout << "trying with " << n_vm[i].first << std::endl;
+                                          write_int_to_pid_mem(vmem.pid, n_vm[i].first, to_w);
+                                    }
+                                    //write_int_to_pid_mem(vmem.pid, n_vm[tmp_val].first, to_w);
+                                    update_mem_map(vmem); // to make sure accurate values are printed
+                                    //n_vm[tmp_val].second = to_w; // so change is reflected in output
                               }
                         }
                         tmp_val = std::stoi(tmp_str);
