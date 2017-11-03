@@ -7,6 +7,9 @@
 
 #include "vmem_parser.h"
 
+#define STACK 0
+#define HEAP 1
+
 int read_int_from_pid_mem(int pid, void* vm){
       int buff_sz = 4; // sizeof int
       int buf[buff_sz];
@@ -15,7 +18,7 @@ int read_int_from_pid_mem(int pid, void* vm){
       local[0].iov_base = buf;
       local[0].iov_len = buff_sz;
       remote[0].iov_len = buff_sz;
-      remote[0].iov_base = vm; // if using void* for vm param
+      remote[0].iov_base = vm;
       ssize_t nread = process_vm_readv((pid_t)pid, local, 1, remote, 1, 0);
       return *buf;
 }
@@ -46,12 +49,20 @@ int write_int_to_pid_mem(int pid, void* vm, int value){
       ssize_t nread = process_vm_writev((pid_t)pid, local, 1, remote, 1, 0);
 }
 
-mem_map ints_in_stack(pid_t pid){
+mem_map ints_in_mem(pid_t pid, int stack_or_heap=STACK){
       mem_map ret;
       ret.pid = pid;
       mem_rgn rgn = get_vmem_locations(pid);
-      void* vm_l = rgn.stack_start_addr;
-      void* vm_l_end = rgn.stack_end_addr;
+      void* vm_l;
+      void* vm_l_end;
+      if(stack_or_heap == STACK){
+            vm_l = rgn.stack_start_addr;
+            vm_l_end = rgn.stack_end_addr;
+      }
+      if(stack_or_heap == HEAP){
+            vm_l = rgn.heap_start_addr;
+            vm_l_end = rgn.heap_end_addr;
+      }
       int tmp;
       //           casting to char* to increment, then back to void*
       for(; vm_l != vm_l_end; vm_l = (void*)(((char*)vm_l)+1)){
@@ -102,12 +113,15 @@ void logic_swap(mem_map mem){
 
 
 int main(int argc, char* argv[]){
-      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-i] [-w <virtual memory addres> <value>] [-f]}\n    -p : prints all integers in stack with virtual memory addresses. optional filter\n    -r : read single integer from virtual memory address\n    -i : inverts all 1s and 0s in stack\n    -w : writes value to virtual memory address\n    -f : interactively tracks down memory locations of variables\n";
+      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-i] [-w <virtual memory addres> <value>] [-f] [-H]}\n    -p : prints all integers in stack with virtual memory addresses. optional filter\n    -r : read single integer from virtual memory address\n    -i : inverts all 1s and 0s in stack\n    -w : writes value to virtual memory address\n    -f : interactively tracks down memory locations of variables\n    -H : use heap instead of stack\n";
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             std::cout << help_str;
             return -1;
       }
-      mem_map vmem = ints_in_stack((pid_t)std::stoi(argv[1]));
+      mem_map vmem;
+      if(strcmp(argv[argc-1], "-H") == 0)vmem = ints_in_mem((pid_t)std::stoi(argv[1]), HEAP);
+      else vmem = ints_in_mem((pid_t)std::stoi(argv[1]), STACK);
+      
       if(argc > 2){
             if(strcmp(argv[2], "-p") == 0){
                   if(argc == 4){
