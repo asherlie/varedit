@@ -150,7 +150,6 @@ int main(int argc, char* argv[]){
                                     for(int i = 0; i < v_loc_s.size(); ++i){
                                           if(v_loc_s[i] == '-'){
                                                 //range_mode = true;
-                                                std::cout << "appending " << tmp_num << std::endl;
                                                 v_loc[vl_c++] = std::stoi(tmp_num);
                                                 tmp_num = "";
                                           }
@@ -158,16 +157,11 @@ int main(int argc, char* argv[]){
                                                 tmp_num += v_loc_s[i];
                                           }
                                     }
-                                    v_loc[vl_c] = std::stoi(tmp_num); // c? c++? to keep track of len
-                                    std::cout << "appending " << tmp_num << std::endl;
-                                    std::cout << to_w << std::endl;
+                                    v_loc[vl_c] = std::stoi(tmp_num);
                                     for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){ // write all ints in range or between commas
-                                          std::cout << "trying with " << n_vm[i].first << std::endl;
                                           write_int_to_pid_mem(vmem.pid, n_vm[i].first, to_w);
                                     }
-                                    //write_int_to_pid_mem(vmem.pid, n_vm[tmp_val].first, to_w);
                                     update_mem_map(vmem); // to make sure accurate values are printed
-                                    //n_vm[tmp_val].second = to_w; // so change is reflected in output
                               }
                         }
                         tmp_val = std::stoi(tmp_str);
