@@ -79,7 +79,8 @@ void print_mmap(mem_map mem, std::string contains=""){
 void narrow_mem_map(mem_map &mem, int match){
       std::string match_str = std::to_string(match);
       for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
-            if(std::to_string(it->second).find(match_str) == std::string::npos){
+            //if(std::to_string(it->second).find(match_str) == std::string::npos){ // contains
+            if(std::to_string(it->second) != match_str){ // exact
                   mem.mmap.erase(it);
             }
       }
