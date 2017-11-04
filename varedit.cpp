@@ -7,9 +7,6 @@
 
 #include "vmem_parser.h"
 
-#define STACK 0
-#define HEAP 1
-
 int read_int_from_pid_mem(int pid, void* vm){
       int buff_sz = 4; // sizeof int
       int buf[buff_sz];
@@ -49,17 +46,17 @@ int write_int_to_pid_mem(int pid, void* vm, int value){
       ssize_t nread = process_vm_writev((pid_t)pid, local, 1, remote, 1, 0);
 }
 
-mem_map ints_in_mem(pid_t pid, int stack_or_heap=STACK){
+mem_map ints_in_mem(pid_t pid, bool stack=true){
       mem_map ret;
       ret.pid = pid;
       mem_rgn rgn = get_vmem_locations(pid);
       void* vm_l;
       void* vm_l_end;
-      if(stack_or_heap == STACK){
+      if(stack){
             vm_l = rgn.stack_start_addr;
             vm_l_end = rgn.stack_end_addr;
       }
-      if(stack_or_heap == HEAP){
+      else{
             vm_l = rgn.heap_start_addr;
             vm_l_end = rgn.heap_end_addr;
       }
@@ -118,9 +115,9 @@ int main(int argc, char* argv[]){
             std::cout << help_str;
             return -1;
       }
-      mem_map vmem;
-      if(strcmp(argv[argc-1], "-H") == 0)vmem = ints_in_mem((pid_t)std::stoi(argv[1]), HEAP);
-      else vmem = ints_in_mem((pid_t)std::stoi(argv[1]), STACK);
+      bool stack = true;
+      if(strcmp(argv[argc-1], "-H") == 0)stack = false;
+      mem_map vmem = ints_in_mem((pid_t)std::stoi(argv[1]), stack);
       
       if(argc > 2){
             if(strcmp(argv[2], "-p") == 0){
@@ -185,8 +182,15 @@ int main(int argc, char* argv[]){
                         }
                         tmp_val = std::stoi(tmp_str);
                         narrow_mem_map(vmem, tmp_val);
-                        std::cout << "matches are now:" << std::endl;
-                        print_mmap(vmem);
+                        if(vmem.mmap.empty()){
+                              std::cout << "nothing matches your search of: " << tmp_val << std::endl << "resetting mem map" << std::endl;
+                              vmem = ints_in_mem(vmem.pid, stack);
+
+                        }
+                        else{
+                              std::cout << "matches are now:" << std::endl;
+                              print_mmap(vmem);
+                        }
                   }
                   return 0;
             }
