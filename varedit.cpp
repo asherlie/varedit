@@ -16,7 +16,7 @@ int read_int_from_pid_mem(int pid, void* vm){
       local[0].iov_len = buff_sz;
       remote[0].iov_len = buff_sz;
       remote[0].iov_base = vm;
-      ssize_t nread = process_vm_readv((pid_t)pid, local, 1, remote, 1, 0);
+      process_vm_readv((pid_t)pid, local, 1, remote, 1, 0);
       return *buf;
 }
 
@@ -29,11 +29,11 @@ char read_str_from_pid_mem(int pid, void* vm, int strlen){
       local[0].iov_len = buff_sz;
       remote[0].iov_len = buff_sz;
       remote[0].iov_base = (void*)vm;
-      ssize_t nread = process_vm_readv((pid_t)pid, local, 1, remote, 1, 0);
+      process_vm_readv((pid_t)pid, local, 1, remote, 1, 0);
       return *buf;
 }
 
-int write_int_to_pid_mem(int pid, void* vm, int value){
+bool write_int_to_pid_mem(int pid, void* vm, int value){
       int buff_sz = 4; // sizeof int
       int buf[buff_sz];
       buf[0] = value;
@@ -43,7 +43,7 @@ int write_int_to_pid_mem(int pid, void* vm, int value){
       local[0].iov_len = buff_sz;
       remote[0].iov_len = buff_sz;
       remote[0].iov_base = vm;
-      ssize_t nread = process_vm_writev((pid_t)pid, local, 1, remote, 1, 0);
+      return (buff_sz == process_vm_writev((pid_t)pid, local, 1, remote, 1, 0));
 }
 
 mem_map ints_in_mem(pid_t pid, bool stack=true){
@@ -163,7 +163,7 @@ int main(int argc, char* argv[]){
                                     std::cin >> v_loc_s >> to_w;
                                     vl_c = 0;
                                     tmp_num = "";
-                                    for(int i = 0; i < v_loc_s.size(); ++i){
+                                    for(unsigned int i = 0; i < v_loc_s.size(); ++i){
                                           if(v_loc_s[i] == '-'){
                                                 //range_mode = true;
                                                 v_loc[vl_c++] = std::stoi(tmp_num);

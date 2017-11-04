@@ -9,7 +9,7 @@ mem_rgn get_vmem_locations(pid_t pid){
       std::ifstream ifs(map_path);
       std::string start_add, end_add, desc;
       bool found_desc;
-      int i;
+      unsigned int i;
       mem_rgn vmem;
       while(std::getline(ifs, tmp)){
             start_add = "";
