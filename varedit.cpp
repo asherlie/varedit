@@ -20,19 +20,6 @@ int read_int_from_pid_mem(int pid, void* vm){
       return *buf;
 }
 
-char read_str_from_pid_mem(int pid, void* vm, int strlen){
-      int buff_sz = strlen;
-      char buf[buff_sz];
-      struct iovec local[1];
-      struct iovec remote[1];
-      local[0].iov_base = buf;
-      local[0].iov_len = buff_sz;
-      remote[0].iov_len = buff_sz;
-      remote[0].iov_base = (void*)vm;
-      process_vm_readv((pid_t)pid, local, 1, remote, 1, 0);
-      return *buf;
-}
-
 char read_char_from_pid_mem(int pid, void* vm){
       int buff_sz = 1;
       char buf[buff_sz];
@@ -59,7 +46,15 @@ bool write_int_to_pid_mem(int pid, void* vm, int value){
       return (buff_sz == process_vm_writev((pid_t)pid, local, 1, remote, 1, 0));
 }
 
-//mem_map ints_in_mem(pid_t pid, bool stack=true){
+bool write_str_to_pid_mem(pid_t pid, void* vm, std::string str){
+      int s_c = 0;
+      unsigned int written = 0; 
+      for(void* i = vm; i != (void*)(((char*)vm)+str.size()); i = (void*)((char*)i+1)){
+            written += write_int_to_pid_mem(pid, i, str[s_c++]);
+      }
+      return written == str.size();
+}
+
 mem_map vars_in_mem(pid_t pid, bool stack=true, bool integers=true){
       mem_map ret;
       ret.pid = pid;
@@ -86,8 +81,6 @@ mem_map vars_in_mem(pid_t pid, bool stack=true, bool integers=true){
             char tmp; 
             std::string tmp_str;
             void* tmp_str_addr;
-            // chars
-            //for(; vm_l != vm_l_end; vm_l = (void*)(((char*)vm_l)+4)){
             for(; vm_l != vm_l_end; vm_l = (void*)(((char*)vm_l)+1)){
                   tmp_str = "";
                   tmp = read_char_from_pid_mem(pid, vm_l);
@@ -218,9 +211,8 @@ int main(int argc, char* argv[]){
                         write_int_to_pid_mem(vmem.pid, (void*)strtoul(argv[3], 0, 16), std::stoi(argv[4]));
                         return 0;
                   }
-                  std::cout << "write mode is not yet supported with strings" << std::endl;
-                  return -1;
-                  // TODO: implement write_str_to_pid_mem()
+                  write_str_to_pid_mem(vmem.pid, (void*)strtoul(argv[3], 0, 16), argv[4]);
+                  return 0;
             }
             // TODO: implement interactive mode w/ string/char mode
             else if(strcmp(argv[2], "-f") == 0){
