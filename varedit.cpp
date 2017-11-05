@@ -136,13 +136,23 @@ void update_mem_map(mem_map &mem){
       }
 }
 
-//TODO: make this work with string/char mode
-void narrow_mem_map(mem_map &mem, int match){
+void narrow_mem_map_int(mem_map &mem, int match){
       std::string match_str = std::to_string(match);
       for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
             //if(std::to_string(it->second).find(match_str) == std::string::npos){ // contains
             if(std::to_string(it->second) != match_str){ // exact
                   mem.mmap.erase(it);
+            }
+      }
+}
+
+void narrow_mem_map_str(mem_map &mem, std::string match, bool exact=true){
+      for(std::map<void*, std::string>::iterator it = mem.cp_mmap.begin(); it != mem.cp_mmap.end(); ++it){
+            if(exact){
+                  if(it->second != match)mem.cp_mmap.erase(it);
+            }
+            else{
+                  if(it->second.find(match) == std::string::npos)mem.cp_mmap.erase(it);
             }
       }
 }
@@ -223,18 +233,32 @@ int main(int argc, char* argv[]){
                         std::cout << "enter current variable value or 'w' to enter write mode" << std::endl;
                         std::cin >> tmp_str;
                         if(tmp_str == "w"){
-                              int c, to_w, vl_c;
-                              std::string tmp_num, v_loc_s;
+                              int c, vl_c;
+                              std::string tmp_num, v_loc_s, to_w;
                               int v_loc[2]; // right now v_loc is meant to store start and end of a range
                               while(1){
                                     c = 0;
-                                    std::pair<void*, int> n_vm[vmem.mmap.size()];
-                                    for(std::map<void*, int>::iterator it = vmem.mmap.begin(); it != vmem.mmap.end(); ++it){
-                                          n_vm[c] = *it;
-                                          std::cout << c++ << ": (" << it->first << ": " << it->second << ")" << std::endl; 
+                                    // renamed and moved initialization here so n_vm's are in scope when needed TODO: fix this later
+                                    std::pair<void*, int> n_vm_i[vmem.mmap.size()];
+                                    std::pair<void*, std::string> n_vm_s[vmem.cp_mmap.size()];
+                                    if(integers){
+                                          //std::pair<void*, int> n_vm[vmem.mmap.size()];
+                                          for(std::map<void*, int>::iterator it = vmem.mmap.begin(); it != vmem.mmap.end(); ++it){
+                                                n_vm_i[c] = *it;
+                                                std::cout << c++ << ": (" << it->first << ": " << it->second << ")" << std::endl; 
+                                          }
+                                    }
+                                    else{
+                                          //std::pair<void*, std::string> n_vm[vmem.cp_mmap.size()];
+                                          for(std::map<void*, std::string>::iterator it = vmem.cp_mmap.begin(); it != vmem.cp_mmap.end(); ++it){
+                                                n_vm_s[c] = *it;
+                                                std::cout << c++ << ": (" << it->first << ": \"" << it->second << "\")" << std::endl; 
+                                          }
                                     }
                                     // TODO: maybe allow multiple values separated by some delim like ','
-                                    std::cout << "enter a number from [0-" << vmem.mmap.size()-1 << "] or a range with a '-', followed by value to write" << std::endl;
+                                    if(integers)c = vmem.mmap.size()-1;
+                                    else c = vmem.cp_mmap.size()-1;
+                                    if(integers)std::cout << "enter a number from [0-" << c << "] or a range with a '-', followed by value to write" << std::endl;
                                     std::cin >> v_loc_s >> to_w;
                                     vl_c = 0;
                                     tmp_num = "";
@@ -249,21 +273,27 @@ int main(int argc, char* argv[]){
                                     }
                                     v_loc[vl_c] = std::stoi(tmp_num);
                                     for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){ // write all ints in range or between commas
-                                          write_int_to_pid_mem(vmem.pid, n_vm[i].first, to_w);
+                                          if(integers)write_int_to_pid_mem(vmem.pid, n_vm_i[i].first, std::stoi(to_w));
+                                          else write_str_to_pid_mem(vmem.pid, n_vm_s[i].first, to_w);
                                     }
                                     update_mem_map(vmem); // to make sure accurate values are printed
                               }
                         }
-                        tmp_val = std::stoi(tmp_str);
-                        narrow_mem_map(vmem, tmp_val);
-                        if(vmem.mmap.empty()){
-                              std::cout << "nothing matches your search of: " << tmp_val << std::endl << "resetting mem map" << std::endl;
+                        // tmp_str != "w"
+                        if(integers){
+                              tmp_val = std::stoi(tmp_str);
+                              narrow_mem_map_int(vmem, tmp_val);
+                        }
+                        else{
+                              narrow_mem_map_str(vmem, tmp_str, false);
+                        }
+                        if(vmem.mmap.empty() && vmem.cp_mmap.empty()){
+                              std::cout << "nothing matches your search of: " << tmp_str << std::endl << "resetting mem map" << std::endl;
                               vmem = vars_in_mem(vmem.pid, stack, integers);
-
                         }
                         else{
                               std::cout << "matches are now:" << std::endl;
-                              print_mmap(vmem);
+                              print_mmap(vmem, "", integers);
                         }
                   }
                   return 0;
