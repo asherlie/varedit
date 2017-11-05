@@ -33,6 +33,19 @@ char read_str_from_pid_mem(int pid, void* vm, int strlen){
       return *buf;
 }
 
+char read_char_from_pid_mem(int pid, void* vm){
+      int buff_sz = 1;
+      char buf[buff_sz];
+      struct iovec local[1];
+      struct iovec remote[1];
+      local[0].iov_base = buf;
+      local[0].iov_len = buff_sz;
+      remote[0].iov_len = buff_sz;
+      remote[0].iov_base = vm;
+      process_vm_readv((pid_t)pid, local, 1, remote, 1, 0);      
+      return *buf;
+}
+
 bool write_int_to_pid_mem(int pid, void* vm, int value){
       int buff_sz = 4; // sizeof int
       int buf[buff_sz];
@@ -46,7 +59,8 @@ bool write_int_to_pid_mem(int pid, void* vm, int value){
       return (buff_sz == process_vm_writev((pid_t)pid, local, 1, remote, 1, 0));
 }
 
-mem_map ints_in_mem(pid_t pid, bool stack=true){
+//mem_map ints_in_mem(pid_t pid, bool stack=true){
+mem_map vars_in_mem(pid_t pid, bool stack=true, bool integers=true){
       mem_map ret;
       ret.pid = pid;
       mem_rgn rgn = get_vmem_locations(pid);
@@ -60,26 +74,65 @@ mem_map ints_in_mem(pid_t pid, bool stack=true){
             vm_l = rgn.heap_start_addr;
             vm_l_end = rgn.heap_end_addr;
       }
-      int tmp;
-      //           casting to char* to increment, then back to void*
-      for(; vm_l != vm_l_end; vm_l = (void*)(((char*)vm_l)+1)){
-            tmp = read_int_from_pid_mem(pid, vm_l);
-            ret.mmap[vm_l] = tmp;
+      if(integers){
+            int tmp;
+            //           casting to char* to increment, then back to void*
+            for(; vm_l != vm_l_end; vm_l = (void*)(((char*)vm_l)+1)){
+                  tmp = read_int_from_pid_mem(pid, vm_l);
+                  ret.mmap[vm_l] = tmp;
+            }
+      }
+      else{
+            char tmp; 
+            std::string tmp_str;
+            void* tmp_str_addr;
+            // chars
+            //for(; vm_l != vm_l_end; vm_l = (void*)(((char*)vm_l)+4)){
+            for(; vm_l != vm_l_end; vm_l = (void*)(((char*)vm_l)+1)){
+                  tmp_str = "";
+                  tmp = read_char_from_pid_mem(pid, vm_l);
+                  // if valid ascii char
+                  if(tmp > 0 && tmp < 127){
+                        tmp_str_addr = vm_l;
+                        while(tmp > 0 && tmp < 127){
+                              tmp_str += tmp;      
+                              vm_l = (void*)(((char*)vm_l)+1);
+                              tmp = read_char_from_pid_mem(pid, vm_l);
+                        }
+                        ret.cp_mmap[tmp_str_addr] = tmp_str;
+                  }
+            }
       }
       return ret;
 }
 
-void print_mmap(mem_map mem, std::string contains=""){
-      if(contains != ""){
-            for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
-                  if(std::to_string(it->second).find(contains) != std::string::npos){
+void print_mmap(mem_map mem, std::string contains="", bool integers=true){
+      if(integers){
+            if(contains != ""){
+                  for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
+                        if(std::to_string(it->second).find(contains) != std::string::npos){
+                              std::cout << it->first << ": " << it->second << std::endl; 
+                        }
+                  }
+            }
+            else{
+                  for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
                         std::cout << it->first << ": " << it->second << std::endl; 
                   }
             }
       }
       else{
-            for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
-                  std::cout << it->first << ": " << it->second << std::endl; 
+            if(contains != ""){
+                  for(std::map<void*, std::string>::iterator it = mem.cp_mmap.begin(); it != mem.cp_mmap.end(); ++it){
+                        if(it->second.find(contains) != std::string::npos){
+                              std::cout << it->first << ": " << it->second << std::endl;
+                        }
+                  }
+            }
+            else{
+                  for(std::map<void*, std::string>::iterator it = mem.cp_mmap.begin(); it != mem.cp_mmap.end(); ++it){
+                        std::cout << it->first << ": " << it->second << std::endl;
+                  }
             }
       }
 }
@@ -90,6 +143,7 @@ void update_mem_map(mem_map &mem){
       }
 }
 
+//TODO: make this work with string/char mode
 void narrow_mem_map(mem_map &mem, int match){
       std::string match_str = std::to_string(match);
       for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
@@ -110,36 +164,65 @@ void logic_swap(mem_map mem){
 
 
 int main(int argc, char* argv[]){
-      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-i] [-w <virtual memory addres> <value>] [-f] [-H]}\n    -p : prints all integers in stack with virtual memory addresses. optional filter\n    -r : read single integer from virtual memory address\n    -i : inverts all 1s and 0s in stack\n    -w : writes value to virtual memory address\n    -f : interactively tracks down memory locations of variables\n    -H : use heap instead of stack\n";
+      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-i] [-w <virtual memory addres> <value>] [-f] [-H] [-c]}\n    -p : prints all integers in stack with virtual memory addresses. optional filter\n    -r : read single integer from virtual memory address\n    -i : inverts all 1s and 0s in stack\n    -w : writes value to virtual memory address\n    -f : interactively tracks down memory locations of variables\n    -H : use heap instead of stack\n    -c : use char/string mode\n";
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             std::cout << help_str;
             return -1;
       }
+      bool integers = true;
+      for(int i = 0; i < argc; ++i){
+            // maybe check for heap up here too
+            if(strcmp(argv[i], "-c") == 0){
+                  integers = false;
+                  break;
+            }
+      }
       bool stack = true;
       if(strcmp(argv[argc-1], "-H") == 0)stack = false;
-      mem_map vmem = ints_in_mem((pid_t)std::stoi(argv[1]), stack);
+      mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), stack, integers);
       
       if(argc > 2){
             if(strcmp(argv[2], "-p") == 0){
-                  if(argc == 4){
-                        print_mmap(vmem, argv[3]);
-                        return 0;
+                  if(integers){
+                        if(argc == 4){
+                              print_mmap(vmem, argv[3], integers);
+                              return 0;
+                        }
                   }
-                  print_mmap(vmem);
+                  if(argc == 5){
+                       print_mmap(vmem, argv[3], integers);
+                       return 0;
+                  }
+                  print_mmap(vmem, "", integers);
                   return 0;
             }
             else if(strcmp(argv[2], "-r") == 0){
-                  std::cout << vmem.mmap[(void*)strtoul(argv[3], 0, 16)] << std::endl;
+                  if(integers){
+                        std::cout << vmem.mmap[(void*)strtoul(argv[3], 0, 16)] << std::endl;
+                  }
+                  else{
+                        std::cout << vmem.cp_mmap[(void*)strtoul(argv[3], 0, 16)] << std::endl;
+                  }
                   return 0;
             }
             else if(strcmp(argv[2], "-i") == 0){
+                  if(!integers){
+                        std::cout << "cannot invert string/char*" << std::endl;
+                        return -1;
+                  }
                   logic_swap(vmem);
                   return 0;
             }
             else if(strcmp(argv[2], "-w") == 0){
-                  write_int_to_pid_mem(vmem.pid, (void*)strtoul(argv[3], 0, 16), std::stoi(argv[4]));
-                  return 0;
+                  if(integers){
+                        write_int_to_pid_mem(vmem.pid, (void*)strtoul(argv[3], 0, 16), std::stoi(argv[4]));
+                        return 0;
+                  }
+                  std::cout << "write mode is not yet supported with strings" << std::endl;
+                  return -1;
+                  // TODO: implement write_str_to_pid_mem()
             }
+            // TODO: implement interactive mode w/ string/char mode
             else if(strcmp(argv[2], "-f") == 0){
             f:
                   std::string tmp_str;
@@ -165,7 +248,6 @@ int main(int argc, char* argv[]){
                                     tmp_num = "";
                                     for(unsigned int i = 0; i < v_loc_s.size(); ++i){
                                           if(v_loc_s[i] == '-'){
-                                                //range_mode = true;
                                                 v_loc[vl_c++] = std::stoi(tmp_num);
                                                 tmp_num = "";
                                           }
@@ -184,7 +266,7 @@ int main(int argc, char* argv[]){
                         narrow_mem_map(vmem, tmp_val);
                         if(vmem.mmap.empty()){
                               std::cout << "nothing matches your search of: " << tmp_val << std::endl << "resetting mem map" << std::endl;
-                              vmem = ints_in_mem(vmem.pid, stack);
+                              vmem = vars_in_mem(vmem.pid, stack, integers);
 
                         }
                         else{
