@@ -247,6 +247,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
                   }
             }
             // tmp_str != "w"
+            update_mem_map(vmem, integers);
             if(integers){
                   tmp_val = std::stoi(tmp_str);
                   narrow_mem_map_int(vmem, tmp_val);
