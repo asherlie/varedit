@@ -11,7 +11,7 @@
 #define HEAP  1
 #define BOTH  2
 
-int read_int_from_pid_mem(int pid, void* vm){
+int read_int_from_pid_mem(pid_t pid, void* vm){
       int buff_sz = 4; // sizeof int
       int buf[buff_sz];
       struct iovec local[1];
@@ -24,7 +24,7 @@ int read_int_from_pid_mem(int pid, void* vm){
       return *buf;
 }
 
-char read_char_from_pid_mem(int pid, void* vm){
+char read_char_from_pid_mem(pid_t pid, void* vm){
       int buff_sz = 1;
       char buf[buff_sz];
       struct iovec local[1];
@@ -52,7 +52,7 @@ std::string read_str_from_mem_block(pid_t pid, void* mb_start, void* mb_end=null
       return ret;
 }
 
-bool write_int_to_pid_mem(int pid, void* vm, int value){
+bool write_int_to_pid_mem(pid_t pid, void* vm, int value){
       int buff_sz = 4; // sizeof int
       int buf[buff_sz];
       buf[0] = value;
@@ -286,9 +286,20 @@ int main(int argc, char* argv[]){
                   d_rgn = BOTH;
             }
       }
-      mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, integers);
-      
       if(argc > 2){
+            // -r and -w can be done without slowly loading a complete mem_map
+            if(strcmp(argv[2], "-r") == 0){
+                  if(integers)std::cout << read_int_from_pid_mem((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16)) << std::endl;
+                  else std::cout << read_str_from_mem_block((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16)) << std::endl;
+                  return 0;
+            }
+            if(strcmp(argv[2], "-w") == 0){
+                  if(integers)write_int_to_pid_mem((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16), std::stoi(argv[4]));
+                  else write_str_to_pid_mem((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16), argv[4]);
+                  return 0;
+            }
+            // mem_map is needed for all other flags
+            mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, integers);
             if(strcmp(argv[2], "-p") == 0){
                   if(integers){
                         if(argc == 4){
@@ -303,16 +314,7 @@ int main(int argc, char* argv[]){
                   print_mmap(vmem, "", integers);
                   return 0;
             }
-            else if(strcmp(argv[2], "-r") == 0){
-                  if(integers){
-                        std::cout << vmem.mmap[(void*)strtoul(argv[3], 0, 16)] << std::endl;
-                  }
-                  else{
-                        std::cout << vmem.cp_mmap[(void*)strtoul(argv[3], 0, 16)] << std::endl;
-                  }
-                  return 0;
-            }
-            else if(strcmp(argv[2], "-i") == 0){
+            if(strcmp(argv[2], "-i") == 0){
                   if(!integers){
                         std::cout << "cannot invert string/char*" << std::endl;
                         return -1;
@@ -320,19 +322,12 @@ int main(int argc, char* argv[]){
                   logic_swap(vmem);
                   return 0;
             }
-            else if(strcmp(argv[2], "-w") == 0){
-                  if(integers){
-                        write_int_to_pid_mem(vmem.pid, (void*)strtoul(argv[3], 0, 16), std::stoi(argv[4]));
-                        return 0;
-                  }
-                  write_str_to_pid_mem(vmem.pid, (void*)strtoul(argv[3], 0, 16), argv[4]);
-                  return 0;
-            }
-            else if(strcmp(argv[2], "-f") == 0){
+            if(strcmp(argv[2], "-f") == 0){
                   interactive_mode(vmem, integers, d_rgn);
                   return 0;
             }
       }
+      mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, integers);
       interactive_mode(vmem, integers, d_rgn);
       return 0;
 }
