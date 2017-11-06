@@ -7,6 +7,10 @@
 
 #include "vmem_parser.h"
 
+#define STACK 0
+#define HEAP  1
+#define BOTH  2
+
 int read_int_from_pid_mem(int pid, void* vm){
       int buff_sz = 4; // sizeof int
       int buf[buff_sz];
@@ -70,34 +74,50 @@ bool write_str_to_pid_mem(pid_t pid, void* vm, std::string str){
       return written == str.size();
 }
 
-mem_map vars_in_mem(pid_t pid, bool stack=true, bool integers=true){
+mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool integers=true){
       mem_map ret;
       ret.pid = pid;
       mem_rgn rgn = get_vmem_locations(pid);
-      void* vm_l;
-      void* vm_l_end;
-      if(stack){
-            vm_l = rgn.stack_start_addr;
-            vm_l_end = rgn.stack_end_addr;
+      void* vm_l_stack; void* vm_l_end_stack; void* vm_l_heap; void* vm_l_end_heap;
+      if(d_rgn == STACK || d_rgn == BOTH){
+            vm_l_stack = rgn.stack_start_addr;
+            vm_l_end_stack = rgn.stack_end_addr;
       }
-      else{
-            vm_l = rgn.heap_start_addr;
-            vm_l_end = rgn.heap_end_addr;
+      if(d_rgn == HEAP || d_rgn == BOTH){
+            vm_l_heap = rgn.heap_start_addr;
+            vm_l_end_heap = rgn.heap_end_addr;
       }
       if(integers){
             int tmp;
-            //           casting to char* to increment, then back to void*
-            for(; vm_l != vm_l_end; vm_l = (void*)(((char*)vm_l)+1)){
-                  tmp = read_int_from_pid_mem(pid, vm_l);
-                  ret.mmap[vm_l] = tmp;
+            if(d_rgn == STACK || d_rgn == BOTH){
+                  //           casting to char* to increment, then back to void*
+                  for(; vm_l_stack != vm_l_end_stack; vm_l_stack = (void*)(((char*)vm_l_stack)+1)){
+                        tmp = read_int_from_pid_mem(pid, vm_l_stack);
+                        ret.mmap[vm_l_stack] = tmp;
+                  }
+            }
+            if(d_rgn == HEAP || d_rgn == BOTH){
+                  for(; vm_l_heap != vm_l_end_heap; vm_l_heap = (void*)(((char*)vm_l_heap)+1)){
+                        tmp = read_int_from_pid_mem(pid, vm_l_heap);
+                        ret.mmap[vm_l_stack] = tmp;
+                  }
             }
       }
       else{
             std::string tmp;
-            for(; vm_l != vm_l_end; vm_l = (void*)(((char*)vm_l)+1)){
-                  tmp = read_str_from_mem_block(pid, vm_l);
-                  ret.cp_mmap[vm_l] = tmp; // i can do this bc vm_l stores the first mem addr of the string
-                  vm_l = (void*)(((char*)vm_l)+tmp.size());
+            if(d_rgn == STACK || d_rgn == BOTH){
+                  for(; vm_l_stack != vm_l_end_stack; vm_l_stack = (void*)(((char*)vm_l_stack)+1)){
+                        tmp = read_str_from_mem_block(pid, vm_l_stack);
+                        ret.cp_mmap[vm_l_stack] = tmp; // i can do this bc vm_l stores the first mem addr of the string
+                        vm_l_stack = (void*)(((char*)vm_l_stack)+tmp.size());
+                  }
+            }
+            if(d_rgn == HEAP || d_rgn == BOTH){
+                  for(; vm_l_heap != vm_l_end_heap; vm_l_heap = (void*)(((char*)vm_l_heap)+1)){
+                        tmp = read_str_from_mem_block(pid, vm_l_heap);
+                        ret.cp_mmap[vm_l_heap] = tmp; // i can do this bc vm_l stores the first mem addr of the string
+                        vm_l_heap = (void*)(((char*)vm_l_heap)+tmp.size());
+                  }
             }
       }
       return ret;
@@ -175,7 +195,7 @@ void logic_swap(mem_map mem){
       }
 }
 
-void interactive_mode(mem_map &vmem, bool integers, bool stack){
+void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
       std::string tmp_str;
       int tmp_val;
       while(1){
@@ -236,7 +256,7 @@ void interactive_mode(mem_map &vmem, bool integers, bool stack){
             }
             if(vmem.mmap.empty() && vmem.cp_mmap.empty()){
                   std::cout << "nothing matches your search of: " << tmp_str << std::endl << "resetting mem map" << std::endl;
-                  vmem = vars_in_mem(vmem.pid, stack, integers);
+                  vmem = vars_in_mem(vmem.pid, d_rgn, integers);
             }
             else{
                   std::cout << "matches are now:" << std::endl;
@@ -247,21 +267,25 @@ void interactive_mode(mem_map &vmem, bool integers, bool stack){
 
 
 int main(int argc, char* argv[]){
-      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-i] [-w <virtual memory addres> <value>] [-f] [-H] [-c]}\n    -p : prints all integers in stack with virtual memory addresses. optional filter\n    -r : read single integer from virtual memory address\n    -i : inverts all 1s and 0s in stack\n    -w : writes value to virtual memory address\n    -f : interactively tracks down memory locations of variables\n    -H : use heap instead of stack\n    -c : use char/string mode\n";
+      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-i] [-w <virtual memory addres> <value>] [-f] [-H] [-B] [-c]}\n    -p : prints all integers in stack with virtual memory addresses. optional filter\n    -r : read single integer from virtual memory address\n    -i : inverts all 1s and 0s in stack\n    -w : writes value to virtual memory address\n    -f : interactively tracks down memory locations of variables\n    -H : use heap instead of stack\n    -B : use both heap and stack\n    -c : use char/string mode\n";
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             std::cout << help_str;
             return -1;
       }
-      bool integers = true, stack = true;
+      bool integers = true;
+      int d_rgn = STACK;
       for(int i = 0; i < argc; ++i){
             if(strcmp(argv[i], "-c") == 0){
                   integers = false;
             }
             if(strcmp(argv[i], "-H") == 0){
-                  stack = false;
+                  d_rgn = HEAP;
+            }
+            if(strcmp(argv[i], "-B") == 0){
+                  d_rgn = BOTH;
             }
       }
-      mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), stack, integers);
+      mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, integers);
       
       if(argc > 2){
             if(strcmp(argv[2], "-p") == 0){
@@ -304,10 +328,10 @@ int main(int argc, char* argv[]){
                   return 0;
             }
             else if(strcmp(argv[2], "-f") == 0){
-                  interactive_mode(vmem, integers, stack);
+                  interactive_mode(vmem, integers, d_rgn);
                   return 0;
             }
       }
-      interactive_mode(vmem, integers, stack);
+      interactive_mode(vmem, integers, d_rgn);
       return 0;
 }
