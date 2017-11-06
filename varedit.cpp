@@ -225,7 +225,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
                         // TODO: maybe allow multiple values separated by some delim like ','
                         if(integers)c = vmem.mmap.size()-1;
                         else c = vmem.cp_mmap.size()-1;
-                        if(integers)std::cout << "enter a number from [0-" << c << "] or a range with a '-', followed by value to write" << std::endl;
+                        std::cout << "enter a number from [0-" << c << "] or a range with a '-', followed by value to write" << std::endl;
                         std::cin >> v_loc_s >> to_w;
                         vl_c = 0;
                         tmp_num = "";
