@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <map>
+#include <string>
 
 struct mem_rgn{
       void* heap_start_addr;
