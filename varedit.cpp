@@ -60,8 +60,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
       int tmp_val;
       while(1){
             std::cout << "enter current variable value or 'w' to enter write mode" << std::endl;
-            //use getline instead to capture wihtespace to make it work with multi word strings
-            std::cin >> tmp_str;
+            std::getline(std::cin, tmp_str);
             if(tmp_str == "w"){
                   int c, vl_c;
                   std::string tmp_num, v_loc_s, to_w;
@@ -87,7 +86,9 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
                         if(integers)c = vmem.mmap.size()-1;
                         else c = vmem.cp_mmap.size()-1;
                         std::cout << "enter a number from [0-" << c << "] or a range with a '-', followed by value to write" << std::endl;
-                        std::cin >> v_loc_s >> to_w;
+                        std::cin >> v_loc_s;
+                        // std::ws to get rid of leading whitespace
+                        std::getline(std::cin >> std::ws, to_w);
                         vl_c = 0;
                         tmp_num = "";
                         for(unsigned int i = 0; i < v_loc_s.size(); ++i){
@@ -102,7 +103,13 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
                         v_loc[vl_c] = std::stoi(tmp_num);
                         for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){ // write all ints in range or between commas
                               if(integers)write_int_to_pid_mem(vmem.pid, n_vm_i[i].first, std::stoi(to_w));
-                              else write_str_to_pid_mem(vmem.pid, n_vm_s[i].first, to_w);
+                              else{
+                                    if(to_w.size() > n_vm_s[i].second.size()){
+                                          // not correcting string size for now
+                                          std::cout << "WARNING: writing a string that is larger than the original string in its memory location will cause undefined behavior" << std::endl; 
+                                    }
+                                    write_str_to_pid_mem(vmem.pid, n_vm_s[i].first, to_w);
+                              }
                         }
                         update_mem_map(vmem, integers); // to make sure accurate values are printed
                   }
