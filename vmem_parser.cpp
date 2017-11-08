@@ -1,5 +1,4 @@
 #include "vmem_parser.h"
-#include <iostream>
 #include <stdlib.h>
 #include <fstream>
 
@@ -11,6 +10,10 @@ mem_rgn get_vmem_locations(pid_t pid){
       bool found_desc;
       unsigned int i;
       mem_rgn vmem;
+      vmem.stack_start_addr = nullptr;
+      vmem.stack_end_addr = nullptr;
+      vmem.heap_start_addr = nullptr;
+      vmem.heap_end_addr = nullptr;
       while(std::getline(ifs, tmp)){
             start_add = "";
             end_add = "";
@@ -34,7 +37,7 @@ mem_rgn get_vmem_locations(pid_t pid){
                   found_desc = false;
                   break;
             }
-            while(tmp[i-1] != '/' && tmp[i-1] != '['){
+            while(tmp[i-1] != '/' && tmp[i-1] != '[' && i < tmp.size()){
                   if(i >= tmp.size()-1){
                         found_desc = false;
                   }

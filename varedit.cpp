@@ -9,39 +9,52 @@
 #define HEAP  1
 #define BOTH  2
 
-void print_mmap(mem_map mem, std::string contains="", bool integers=true){
+bool mem_rgn_warn(int d_rgn, mem_rgn mem){
+      if((d_rgn == STACK || d_rgn == BOTH) && (mem.stack_start_addr == nullptr || mem.stack_end_addr == nullptr)){
+            std::cout << "WARNING: no valid stack memory region was found" << std::endl;
+            if(d_rgn == STACK)return false;
+      }
+      if((d_rgn == HEAP || d_rgn == BOTH) && (mem.heap_start_addr == nullptr || mem.heap_end_addr == nullptr)){
+            std::cout << "WARNING: no valid heap memory region was found" << std::endl;
+            if(d_rgn == HEAP)return false;
+      }
+      return true;
+}
+
+void print_mmap(const mem_map &mem, std::string contains="", bool integers=true){
       if(integers){
             if(contains != ""){
-                  for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
+                  for(std::map<void*, int>::const_iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
                         if(std::to_string(it->second).find(contains) != std::string::npos){
                               std::cout << it->first << ": " << it->second << std::endl; 
                         }
                   }
             }
             else{
-                  for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
+                  for(std::map<void*, int>::const_iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
                         std::cout << it->first << ": " << it->second << std::endl; 
                   }
             }
       }
       else{
             if(contains != ""){
-                  for(std::map<void*, std::string>::iterator it = mem.cp_mmap.begin(); it != mem.cp_mmap.end(); ++it){
+                  for(std::map<void*, std::string>::const_iterator it = mem.cp_mmap.begin(); it != mem.cp_mmap.end(); ++it){
                         if(it->second.find(contains) != std::string::npos){
                               std::cout << it->first << ": " << it->second << std::endl;
                         }
                   }
             }
             else{
-                  for(std::map<void*, std::string>::iterator it = mem.cp_mmap.begin(); it != mem.cp_mmap.end(); ++it){
+                  for(std::map<void*, std::string>::const_iterator it = mem.cp_mmap.begin(); it != mem.cp_mmap.end(); ++it){
                         std::cout << it->first << ": " << it->second << std::endl;
                   }
             }
       }
 }
 
-void logic_swap(mem_map mem){
-      for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
+// param can be const ref because i'm just using the mem_map as a guide for which mem locations to invert
+void logic_swap(const mem_map &mem){
+      for(std::map<void*, int>::const_iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
             if(it->second == 0 || it->second == 1)
             write_int_to_pid_mem(mem.pid, it->first, (int)!it->second);
       }
@@ -52,7 +65,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
       if(d_rgn == STACK)std::cout << "stack - ";
       if(d_rgn == HEAP)std::cout << "heap - ";
       if(d_rgn == BOTH)std::cout << "both stack and heap - ";
-      std::cout << "using ";
+      std::cout << "looking for ";
       if(integers)std::cout << "integers" << std::endl;
       else std::cout << "strings" << std::endl;
       std::string tmp_str;
@@ -105,7 +118,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
                               else{
                                     if(to_w.size() > n_vm_s[i].second.size()){
                                           // not correcting string size for now
-                                          std::cout << "WARNING: writing a string that is larger than the original string in its memory location will cause undefined behavior" << std::endl; 
+                                          std::cout << "WARNING (" << vmem.pid << ":" << n_vm_s[i].first << "): writing a string that is larger than the original string in its memory location causes undefined behavior" << std::endl; 
                                     }
                                     write_str_to_pid_mem(vmem.pid, n_vm_s[i].first, to_w);
                               }
@@ -167,6 +180,7 @@ int main(int argc, char* argv[]){
             }
             // mem_map is needed for all other flags
             mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, integers);
+            if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn))return -1;
             if(strcmp(argv[2], "-p") == 0){
                   if(integers){
                         if(argc == 4){
@@ -195,6 +209,7 @@ int main(int argc, char* argv[]){
             }
       }
       mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, integers);
+      if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn))return -1;
       interactive_mode(vmem, integers, d_rgn);
       return 0;
 }

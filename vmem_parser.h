@@ -13,8 +13,8 @@ struct mem_rgn{
 // this struct is not a part of vmem_parser.cpp
 // but is used to keep track of pids with the mmaps
 struct mem_map{
+      mem_rgn mapped_rgn;
       std::map<void*, int> mmap;
-      //std::map<void*, const char*> cp_mmap;
       std::map<void*, std::string> cp_mmap;
       pid_t pid;
 };

@@ -65,21 +65,22 @@ bool write_str_to_pid_mem(pid_t pid, void* vm, std::string str){
       for(void* i = vm; i != (void*)(((char*)vm)+str.size()); i = (void*)((char*)i+1)){
             written += write_int_to_pid_mem(pid, i, str[s_c++]);
       }
+      //write_int_to_pid_mem(pid, (void*)(((char*)vm)+str.size()), '\0');
       return written == str.size();
 }
 
 mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool integers=true){
       mem_map ret;
       ret.pid = pid;
-      mem_rgn rgn = get_vmem_locations(pid);
+      ret.mapped_rgn = get_vmem_locations(pid);
       void* vm_l_stack; void* vm_l_end_stack; void* vm_l_heap; void* vm_l_end_heap;
       if(d_rgn == STACK || d_rgn == BOTH){
-            vm_l_stack = rgn.stack_start_addr;
-            vm_l_end_stack = rgn.stack_end_addr;
+            vm_l_stack = ret.mapped_rgn.stack_start_addr;
+            vm_l_end_stack = ret.mapped_rgn.stack_end_addr;
       }
       if(d_rgn == HEAP || d_rgn == BOTH){
-            vm_l_heap = rgn.heap_start_addr;
-            vm_l_end_heap = rgn.heap_end_addr;
+            vm_l_heap = ret.mapped_rgn.heap_start_addr;
+            vm_l_end_heap = ret.mapped_rgn.heap_end_addr;
       }
       if(integers){
             int tmp;
