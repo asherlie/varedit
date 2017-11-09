@@ -180,17 +180,12 @@ int main(int argc, char* argv[]){
             }
             // mem_map is needed for all other flags
             mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, integers);
+            // stop here if none of our required data regions are available
             if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn))return -1;
             if(strcmp(argv[2], "-p") == 0){
-                  if(integers){
-                        if(argc == 4){
-                              print_mmap(vmem, argv[3], integers);
-                              return 0;
-                        }
-                  }
-                  if(argc == 5){
-                       print_mmap(vmem, argv[3], integers);
-                       return 0;
+                  if(argc > 3 && argv[3][0] != '-'){
+                        print_mmap(vmem, argv[3], integers);
+                        return 0;
                   }
                   print_mmap(vmem, "", integers);
                   return 0;
@@ -209,6 +204,7 @@ int main(int argc, char* argv[]){
             }
       }
       mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, integers);
+      // stop here if none of our required data regions are available
       if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn))return -1;
       interactive_mode(vmem, integers, d_rgn);
       return 0;
