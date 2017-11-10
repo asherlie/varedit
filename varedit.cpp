@@ -71,6 +71,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
       std::string tmp_str;
       int tmp_val;
       while(1){
+            Find:
             std::cout << "enter current variable value or 'w' to enter write mode" << std::endl;
             std::getline(std::cin, tmp_str);
             if(tmp_str == "w"){
@@ -97,8 +98,14 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
                         // TODO: maybe allow multiple values separated by some delim like ','
                         if(integers)c = vmem.mmap.size()-1;
                         else c = vmem.cp_mmap.size()-1;
-                        std::cout << "enter a number from [0-" << c << "] or a range with a '-', followed by value to write" << std::endl;
+                        std::cout << "enter a number from [0-" << c << "] or a range with a '-', followed by value to write OR 's' to continue searching" << std::endl;
                         std::cin >> v_loc_s;
+                        if(v_loc_s == "s"){
+                              std::cin.clear();
+                              std::cin.ignore(1000, '\n');
+                              print_mmap(vmem, "", integers);
+                              goto Find;
+                        }
                         // std::ws to get rid of leading whitespace
                         std::getline(std::cin >> std::ws, to_w);
                         vl_c = 0;
