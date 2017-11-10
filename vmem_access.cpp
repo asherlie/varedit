@@ -1,5 +1,7 @@
 #include "vmem_access.h"
+#include <math.h>
 #include <sys/uio.h>
+#include <iostream>
 
 #define STACK 0
 #define HEAP 1
@@ -68,8 +70,7 @@ bool write_str_to_pid_mem(pid_t pid, void* vm, std::string str){
       //write_int_to_pid_mem(pid, (void*)(((char*)vm)+str.size()), '\0');
       return written == str.size();
 }
-
-mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool integers=true){
+mem_map vars_in_mem(pid_t pid, int d_rgn, bool integers, bool verbose){
       mem_map ret;
       ret.pid = pid;
       ret.mapped_rgn = get_vmem_locations(pid);
@@ -85,16 +86,27 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool integers=true){
       if(integers){
             int tmp;
             if(d_rgn == STACK || d_rgn == BOTH){
+                  float s_dlen = (char*)vm_l_end_stack-(char*)vm_l_stack;
+                  float c=0;
                   //           casting to char* to increment, then back to void*
                   for(; vm_l_stack != vm_l_end_stack; vm_l_stack = (void*)(((char*)vm_l_stack)+1)){
                         tmp = read_int_from_pid_mem(pid, vm_l_stack);
                         ret.mmap[vm_l_stack] = tmp;
+                        if(verbose){
+                              std::cout << std::round((++c/s_dlen)*100) << "\% of stack scanned\r";
+                        }
                   }
             }
+            std::cout << "                       \r";
             if(d_rgn == HEAP || d_rgn == BOTH){
+                  float s_dlen = (char*)vm_l_end_heap-(char*)vm_l_heap;
+                  float c=0;
                   for(; vm_l_heap != vm_l_end_heap; vm_l_heap = (void*)(((char*)vm_l_heap)+1)){
                         tmp = read_int_from_pid_mem(pid, vm_l_heap);
                         ret.mmap[vm_l_stack] = tmp;
+                        if(verbose){
+                              std::cout << std::round((++c/s_dlen)*100) << "\% of heap scanned\r";
+                        }
                   }
             }
       }

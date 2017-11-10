@@ -22,16 +22,19 @@ bool mem_rgn_warn(int d_rgn, mem_rgn mem){
 }
 
 void print_mmap(const mem_map &mem, std::string contains="", bool integers=true){
+      int c = 0;
       if(integers){
             if(contains != ""){
                   for(std::map<void*, int>::const_iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
                         if(std::to_string(it->second).find(contains) != std::string::npos){
+                              ++c;
                               std::cout << it->first << ": " << it->second << std::endl; 
                         }
                   }
             }
             else{
                   for(std::map<void*, int>::const_iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
+                        ++c;
                         std::cout << it->first << ": " << it->second << std::endl; 
                   }
             }
@@ -40,16 +43,19 @@ void print_mmap(const mem_map &mem, std::string contains="", bool integers=true)
             if(contains != ""){
                   for(std::map<void*, std::string>::const_iterator it = mem.cp_mmap.begin(); it != mem.cp_mmap.end(); ++it){
                         if(it->second.find(contains) != std::string::npos){
+                              ++c;
                               std::cout << it->first << ": " << it->second << std::endl;
                         }
                   }
             }
             else{
                   for(std::map<void*, std::string>::const_iterator it = mem.cp_mmap.begin(); it != mem.cp_mmap.end(); ++it){
+                        ++c;
                         std::cout << it->first << ": " << it->second << std::endl;
                   }
             }
       }
+      std::cout << c << " items found" << std::endl;
 }
 
 // param can be const ref because i'm just using the mem_map as a guide for which mem locations to invert
@@ -60,7 +66,7 @@ void logic_swap(const mem_map &mem){
       }
 }
 
-void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
+void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, bool verbose=false){
       std::cout << "in interactive mode on ";
       if(d_rgn == STACK)std::cout << "stack - ";
       if(d_rgn == HEAP)std::cout << "heap - ";
@@ -137,11 +143,12 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
             }
             if(vmem.mmap.empty() && vmem.cp_mmap.empty()){
                   std::cout << "nothing matches your search of: " << tmp_str << std::endl << "resetting mem map" << std::endl;
-                  vmem = vars_in_mem(vmem.pid, d_rgn, integers);
+                  vmem = vars_in_mem(vmem.pid, d_rgn, integers, verbose);
             }
             else{
                   std::cout << "matches are now:" << std::endl;
                   print_mmap(vmem, "", integers);
+                  //std::cout << "found " << vmem.c
             }
       }
 }
@@ -153,9 +160,12 @@ int main(int argc, char* argv[]){
             std::cout << help_str;
             return -1;
       }
-      bool integers = true;
+      bool integers = true, verbose = false;
       int d_rgn = STACK;
       for(int i = 0; i < argc; ++i){
+            if(strcmp(argv[i], "-v") == 0){
+                  verbose = true;
+            }
             if(strcmp(argv[i], "-c") == 0){
                   integers = false;
             }
@@ -179,7 +189,7 @@ int main(int argc, char* argv[]){
                   return 0;
             }
             // mem_map is needed for all other flags
-            mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, integers);
+            mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, integers, verbose);
             // stop here if none of our required data regions are available
             if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn))return -1;
             if(strcmp(argv[2], "-p") == 0){
@@ -199,13 +209,15 @@ int main(int argc, char* argv[]){
                   return 0;
             }
             if(strcmp(argv[2], "-f") == 0){
-                  interactive_mode(vmem, integers, d_rgn);
+                  interactive_mode(vmem, integers, d_rgn, verbose);
                   return 0;
             }
+            interactive_mode(vmem, integers, d_rgn, verbose);
+            return 0;
       }
-      mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, integers);
+      mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, integers, verbose);
       // stop here if none of our required data regions are available
       if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn))return -1;
-      interactive_mode(vmem, integers, d_rgn);
+      interactive_mode(vmem, integers, d_rgn, verbose);
       return 0;
 }
