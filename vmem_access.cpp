@@ -73,7 +73,7 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool integers=true){
       mem_map ret;
       ret.pid = pid;
       ret.mapped_rgn = get_vmem_locations(pid);
-      long m_size;
+      long m_size = 0;
       void* vm_l_stack; void* vm_l_end_stack; void* vm_l_heap; void* vm_l_end_heap;
       if(d_rgn == STACK || d_rgn == BOTH){
             vm_l_stack = ret.mapped_rgn.stack_start_addr;
