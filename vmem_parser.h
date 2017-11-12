@@ -14,9 +14,10 @@ struct mem_rgn{
 // but is used to keep track of pids with the mmaps
 struct mem_map{
       mem_rgn mapped_rgn;
-      std::map<void*, int> mmap;
-      std::map<void*, std::string> cp_mmap;
+      std::pair<void*, int>* mmap;
+      std::pair<void*, std::string>* cp_mmap;
       pid_t pid;
+      long size;
 };
 
 mem_rgn get_vmem_locations(pid_t pid);

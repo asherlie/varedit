@@ -24,29 +24,30 @@ bool mem_rgn_warn(int d_rgn, mem_rgn mem){
 void print_mmap(const mem_map &mem, std::string contains="", bool integers=true){
       if(integers){
             if(contains != ""){
-                  for(std::map<void*, int>::const_iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
-                        if(std::to_string(it->second).find(contains) != std::string::npos){
-                              std::cout << it->first << ": " << it->second << std::endl; 
+                  for(int i = 0; i < mem.size; ++i){
+                        if(std::to_string(mem.mmap[i].second).find(contains) != std::string::npos){
+                              std::cout << mem.mmap[i].first << ": " << mem.mmap[i].second << std::endl;
                         }
                   }
             }
             else{
-                  for(std::map<void*, int>::const_iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
-                        std::cout << it->first << ": " << it->second << std::endl; 
+                  for(int i = 0; i < mem.size; ++i){
+                        std::cout << mem.mmap[i].first << ": " << mem.mmap[i].second << std::endl;
                   }
             }
       }
       else{
             if(contains != ""){
-                  for(std::map<void*, std::string>::const_iterator it = mem.cp_mmap.begin(); it != mem.cp_mmap.end(); ++it){
-                        if(it->second.find(contains) != std::string::npos){
-                              std::cout << it->first << ": " << it->second << std::endl;
+                  // TODO: waiiiit, see if .find("") always returns foudn. if so don't need to handle both cases
+                  for(int i = 0; i < mem.size; ++i){
+                        if(mem.cp_mmap[i].second.find(contains) != std::string::npos){
+                              std::cout << mem.cp_mmap[i].first << ": " << mem.cp_mmap[i].second << std::endl;
                         }
                   }
             }
             else{
-                  for(std::map<void*, std::string>::const_iterator it = mem.cp_mmap.begin(); it != mem.cp_mmap.end(); ++it){
-                        std::cout << it->first << ": " << it->second << std::endl;
+                  for(int i = 0; i < mem.size; ++i){
+                        std::cout << mem.cp_mmap[i].first << ": " << mem.cp_mmap[i].second << std::endl;
                   }
             }
       }
@@ -54,9 +55,9 @@ void print_mmap(const mem_map &mem, std::string contains="", bool integers=true)
 
 // param can be const ref because i'm just using the mem_map as a guide for which mem locations to invert
 void logic_swap(const mem_map &mem){
-      for(std::map<void*, int>::const_iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
-            if(it->second == 0 || it->second == 1)
-            write_int_to_pid_mem(mem.pid, it->first, (int)!it->second);
+      for(int i = 0; i < mem.size; ++i){
+            if(mem.mmap[i].second == 0 || mem.mmap[i].second == 1)
+            write_int_to_pid_mem(mem.pid, mem.mmap[i].first, (int)!mem.mmap[i].second);
       }
 }
 
@@ -75,30 +76,23 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
             std::cout << "enter current variable value or 'w' to enter write mode" << std::endl;
             std::getline(std::cin, tmp_str);
             if(tmp_str == "w"){
-                  int c, vl_c;
+                  int vl_c;
                   std::string tmp_num, v_loc_s, to_w;
                   int v_loc[2]; // right now v_loc is meant to store start and end of a range
                   while(1){
-                        c = 0;
-                        // renamed and moved initialization here so n_vm's are in scope when needed TODO: fix this later
-                        std::pair<void*, int> n_vm_i[vmem.mmap.size()];
-                        std::pair<void*, std::string> n_vm_s[vmem.cp_mmap.size()];
+                        std::cout << "vmem size: " << vmem.size << std::endl;
                         if(integers){
-                              for(std::map<void*, int>::iterator it = vmem.mmap.begin(); it != vmem.mmap.end(); ++it){
-                                    n_vm_i[c] = *it;
-                                    std::cout << c++ << ": (" << it->first << ": " << it->second << ")" << std::endl; 
+                              for(int i = 0; i < vmem.size; ++i){
+                                    std::cout << i << ": (" << vmem.mmap[i].first << ": " << vmem.mmap[i].second << ")" << std::endl;
                               }
                         }
                         else{
-                              for(std::map<void*, std::string>::iterator it = vmem.cp_mmap.begin(); it != vmem.cp_mmap.end(); ++it){
-                                    n_vm_s[c] = *it;
-                                    std::cout << c++ << ": (" << it->first << ": \"" << it->second << "\")" << std::endl; 
+                              for(int i = 0; i < vmem.size; ++i){
+                                    std::cout << i << ": (" << vmem.cp_mmap[i].first << ": \"" << vmem.cp_mmap[i].second << "\")" << std::endl;
                               }
                         }
                         // TODO: maybe allow multiple values separated by some delim like ','
-                        if(integers)c = vmem.mmap.size()-1;
-                        else c = vmem.cp_mmap.size()-1;
-                        std::cout << "enter a number from [0-" << c << "] or a range with a '-', followed by value to write OR 's' to continue searching" << std::endl;
+                        std::cout << "enter a number from [0-" << vmem.size-1 << "] or a range with a '-', followed by value to write OR 's' to continue searching" << std::endl;
                         std::cin >> v_loc_s;
                         if(v_loc_s == "s"){
                               std::cin.clear();
@@ -121,13 +115,13 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
                         }
                         v_loc[vl_c] = std::stoi(tmp_num);
                         for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){ // write all ints in range or between commas
-                              if(integers)write_int_to_pid_mem(vmem.pid, n_vm_i[i].first, std::stoi(to_w));
+                              if(integers)write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, std::stoi(to_w));
                               else{
-                                    if(to_w.size() > n_vm_s[i].second.size()){
+                                    if(to_w.size() > vmem.cp_mmap[i].second.size()){
                                           // not correcting string size for now
-                                          std::cout << "WARNING (" << vmem.pid << ":" << n_vm_s[i].first << "): writing a string that is larger than the original string in its memory location causes undefined behavior" << std::endl; 
+                                          std::cout << "WARNING (" << vmem.pid << ":" << vmem.cp_mmap[i].first << "): writing a string that is larger than the original string in its memory location causes undefined behavior" << std::endl; 
                                     }
-                                    write_str_to_pid_mem(vmem.pid, n_vm_s[i].first, to_w);
+                                    write_str_to_pid_mem(vmem.pid, vmem.cp_mmap[i].first, to_w);
                               }
                         }
                         update_mem_map(vmem, integers); // to make sure accurate values are printed
@@ -142,7 +136,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
             else{
                   narrow_mem_map_str(vmem, tmp_str, false);
             }
-            if(vmem.mmap.empty() && vmem.cp_mmap.empty()){
+            if(vmem.size == 0){
                   std::cout << "nothing matches your search of: " << tmp_str << std::endl << "resetting mem map" << std::endl;
                   vmem = vars_in_mem(vmem.pid, d_rgn, integers);
             }
@@ -192,21 +186,24 @@ int main(int argc, char* argv[]){
             if(strcmp(argv[2], "-p") == 0){
                   if(argc > 3 && argv[3][0] != '-'){
                         print_mmap(vmem, argv[3], integers);
-                        return 0;
                   }
-                  print_mmap(vmem, "", integers);
+                  else print_mmap(vmem, "", integers);
+                  delete[] &vmem;
                   return 0;
             }
             if(strcmp(argv[2], "-i") == 0){
                   if(!integers){
                         std::cout << "cannot invert string/char*" << std::endl;
+                        delete[] &vmem;
                         return -1;
                   }
                   logic_swap(vmem);
+                  delete[] &vmem;
                   return 0;
             }
             if(strcmp(argv[2], "-f") == 0){
                   interactive_mode(vmem, integers, d_rgn);
+                  delete[] &vmem;
                   return 0;
             }
       }
@@ -214,5 +211,6 @@ int main(int argc, char* argv[]){
       // stop here if none of our required data regions are available
       if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn))return -1;
       interactive_mode(vmem, integers, d_rgn);
+      delete[] &vmem;
       return 0;
 }

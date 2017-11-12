@@ -73,45 +73,60 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool integers=true){
       mem_map ret;
       ret.pid = pid;
       ret.mapped_rgn = get_vmem_locations(pid);
+      long m_size;
       void* vm_l_stack; void* vm_l_end_stack; void* vm_l_heap; void* vm_l_end_heap;
       if(d_rgn == STACK || d_rgn == BOTH){
             vm_l_stack = ret.mapped_rgn.stack_start_addr;
             vm_l_end_stack = ret.mapped_rgn.stack_end_addr;
+            m_size = (char*)vm_l_end_stack-(char*)vm_l_stack;
       }
       if(d_rgn == HEAP || d_rgn == BOTH){
             vm_l_heap = ret.mapped_rgn.heap_start_addr;
             vm_l_end_heap = ret.mapped_rgn.heap_end_addr;
+            m_size += ((char*)vm_l_end_heap-(char*)vm_l_heap);
       }
+      ret.size = 0;
+      ret.mmap = new std::pair<void*, int>[m_size];
+      ret.cp_mmap = new std::pair<void*, std::string>[m_size];
+      long c = 0;
       if(integers){
+            ret.size = m_size;
             int tmp;
             if(d_rgn == STACK || d_rgn == BOTH){
                   //           casting to char* to increment, then back to void*
                   for(; vm_l_stack != vm_l_end_stack; vm_l_stack = (void*)(((char*)vm_l_stack)+1)){
                         tmp = read_int_from_pid_mem(pid, vm_l_stack);
-                        ret.mmap[vm_l_stack] = tmp;
+                        std::pair<void*, int> tmp_pair(vm_l_stack, tmp);
+                        ret.mmap[c++] = tmp_pair;
                   }
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
                   for(; vm_l_heap != vm_l_end_heap; vm_l_heap = (void*)(((char*)vm_l_heap)+1)){
                         tmp = read_int_from_pid_mem(pid, vm_l_heap);
-                        ret.mmap[vm_l_stack] = tmp;
+                        std::pair<void*, int> tmp_pair(vm_l_heap, tmp);
+                        ret.mmap[c++] = tmp_pair;
                   }
             }
       }
       else{
+            // when searching for end of string, all permutations of string show up
             std::string tmp;
             if(d_rgn == STACK || d_rgn == BOTH){
                   for(; vm_l_stack != vm_l_end_stack; vm_l_stack = (void*)(((char*)vm_l_stack)+1)){
                         tmp = read_str_from_mem_block(pid, vm_l_stack);
-                        ret.cp_mmap[vm_l_stack] = tmp; // i can do this bc vm_l stores the first mem addr of the string
+                        std::pair<void*, std::string> tmp_pair(vm_l_stack, tmp);
+                        ret.cp_mmap[c++] = tmp_pair;
                         vm_l_stack = (void*)(((char*)vm_l_stack)+tmp.size());
+                        ++ret.size;
                   }
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
                   for(; vm_l_heap != vm_l_end_heap; vm_l_heap = (void*)(((char*)vm_l_heap)+1)){
                         tmp = read_str_from_mem_block(pid, vm_l_heap);
-                        ret.cp_mmap[vm_l_heap] = tmp; // i can do this bc vm_l stores the first mem addr of the string
+                        std::pair<void*, std::string> tmp_pair(vm_l_heap, tmp);
+                        ret.cp_mmap[c++] = tmp_pair;
                         vm_l_heap = (void*)(((char*)vm_l_heap)+tmp.size());
+                        ++ret.size;
                   }
             }
       }
@@ -120,34 +135,44 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool integers=true){
 
 void update_mem_map(mem_map &mem, bool integers=true){
       if(integers){
-            for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
-                  it->second = read_int_from_pid_mem(mem.pid, it->first);
+            for(int i = 0; i < mem.size; ++i){
+                  mem.mmap[i].second = read_int_from_pid_mem(mem.pid, mem.mmap[i].first);
             }
       }
       else{
-            for(std::map<void*, std::string>::iterator it = mem.cp_mmap.begin(); it != mem.cp_mmap.end(); ++it){
-                  it->second = read_str_from_mem_block(mem.pid, it->first);
+            for(int i = 0; i < mem.size; ++i){
+                  mem.cp_mmap[i].second = read_str_from_mem_block(mem.pid, mem.cp_mmap[i].first);
             }
       }
 }
 
 void narrow_mem_map_int(mem_map &mem, int match){
       std::string match_str = std::to_string(match);
-      for(std::map<void*, int>::iterator it = mem.mmap.begin(); it != mem.mmap.end(); ++it){
-            //if(std::to_string(it->second).find(match_str) == std::string::npos){ // contains
-            if(std::to_string(it->second) != match_str){ // exact
-                  mem.mmap.erase(it);
+      for(int i = 0; i < mem.size; ++i){
+            if(std::to_string(mem.mmap[i].second) != match_str){ // exact
+                  --mem.size;
+                  mem.mmap[i] = mem.mmap[mem.size-1];
+                  --i;
             }
       }
 }
 
 void narrow_mem_map_str(mem_map &mem, std::string match, bool exact=true){
-      for(std::map<void*, std::string>::iterator it = mem.cp_mmap.begin(); it != mem.cp_mmap.end(); ++it){
+      for(int i = 0; i < mem.size; ++i){
             if(exact){
-                  if(it->second != match)mem.cp_mmap.erase(it);
+                  if(mem.cp_mmap[i].second != match){
+                        --mem.size;
+                        mem.cp_mmap[i] = mem.cp_mmap[mem.size-1];
+                        --i;
+                  }
             }
             else{
-                  if(it->second.find(match) == std::string::npos)mem.cp_mmap.erase(it);
+                  if(mem.cp_mmap[i].second.find(match) == std::string::npos){
+                        --mem.size;
+                        if(mem.size == 0)break;
+                        mem.cp_mmap[i] = mem.cp_mmap[mem.size-1];
+                        --i;
+                  }
             }
       }
 }
