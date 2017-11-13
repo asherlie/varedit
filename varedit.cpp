@@ -149,7 +149,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
 
 
 int main(int argc, char* argv[]){
-      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-i] [-w <virtual memory addres> <value>] [-f] [-H] [-B] [-c]}\n    -p : prints all integers in stack with virtual memory addresses. optional filter\n    -r : read single integer from virtual memory address\n    -i : inverts all 1s and 0s in stack\n    -w : writes value to virtual memory address\n    -f : interactively tracks down memory locations of variables\n    -H : use heap instead of stack\n    -B : use both heap and stack\n    -c : use char/string mode\n";
+      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-i] [-w <virtual memory addres> <value>] [-f] [-H] [-B] [-C]}\n    -p : prints all variables in specified memory region with corresopnding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -w : writes value to virtual memory address\n    -f : interactive mode (default)\n    -H : use heap only\n    -B : use both heap and stack\n    -C : use char/string mode\n";
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             std::cout << help_str;
             return -1;
@@ -157,7 +157,7 @@ int main(int argc, char* argv[]){
       bool integers = true;
       int d_rgn = STACK;
       for(int i = 0; i < argc; ++i){
-            if(strcmp(argv[i], "-c") == 0){
+            if(strcmp(argv[i], "-C") == 0){
                   integers = false;
             }
             if(strcmp(argv[i], "-H") == 0){

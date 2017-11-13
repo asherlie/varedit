@@ -150,9 +150,14 @@ void narrow_mem_map_int(mem_map &mem, int match){
       std::string match_str = std::to_string(match);
       for(int i = 0; i < mem.size; ++i){
             if(std::to_string(mem.mmap[i].second) != match_str){ // exact
-                  --mem.size;
-                  mem.mmap[i] = mem.mmap[mem.size-1];
-                  --i;
+                  mem.mmap[i--] = mem.mmap[--mem.size];
+                  /*
+                   *  // essentially, 
+                   *  mmap[i] = mmap[mem.size-1];
+                   *  --mem.size;
+                   *  --i;
+                   *
+                   */
             }
       }
 }
@@ -161,17 +166,14 @@ void narrow_mem_map_str(mem_map &mem, std::string match, bool exact=true){
       for(int i = 0; i < mem.size; ++i){
             if(exact){
                   if(mem.cp_mmap[i].second != match){
-                        --mem.size;
-                        mem.cp_mmap[i] = mem.cp_mmap[mem.size-1];
-                        --i;
+                        mem.cp_mmap[i--] = mem.cp_mmap[--mem.size];
                   }
             }
             else{
                   if(mem.cp_mmap[i].second.find(match) == std::string::npos){
                         --mem.size;
                         if(mem.size == 0)break;
-                        mem.cp_mmap[i] = mem.cp_mmap[mem.size-1];
-                        --i;
+                        mem.cp_mmap[i--] = mem.cp_mmap[mem.size];
                   }
             }
       }
