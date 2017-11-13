@@ -80,7 +80,6 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
                   std::string tmp_num, v_loc_s, to_w;
                   int v_loc[2]; // right now v_loc is meant to store start and end of a range
                   while(1){
-                        std::cout << "vmem size: " << vmem.size << std::endl;
                         if(integers){
                               for(int i = 0; i < vmem.size; ++i){
                                     std::cout << i << ": (" << vmem.mmap[i].first << ": " << vmem.mmap[i].second << ")" << std::endl;
@@ -188,22 +187,26 @@ int main(int argc, char* argv[]){
                         print_mmap(vmem, argv[3], integers);
                   }
                   else print_mmap(vmem, "", integers);
-                  delete[] &vmem;
+                  delete[] vmem.mmap;
+                  delete[] vmem.cp_mmap;
                   return 0;
             }
             if(strcmp(argv[2], "-i") == 0){
                   if(!integers){
                         std::cout << "cannot invert string/char*" << std::endl;
-                        delete[] &vmem;
+                        delete[] vmem.mmap;
+                        delete[] vmem.cp_mmap;
                         return -1;
                   }
                   logic_swap(vmem);
-                  delete[] &vmem;
+                  delete[] vmem.mmap;
+                  delete[] vmem.cp_mmap;
                   return 0;
             }
             if(strcmp(argv[2], "-f") == 0){
                   interactive_mode(vmem, integers, d_rgn);
-                  delete[] &vmem;
+                  delete[] vmem.mmap;
+                  delete[] vmem.cp_mmap;
                   return 0;
             }
       }
@@ -211,6 +214,7 @@ int main(int argc, char* argv[]){
       // stop here if none of our required data regions are available
       if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn))return -1;
       interactive_mode(vmem, integers, d_rgn);
-      delete[] &vmem;
+      delete[] vmem.mmap;
+      delete[] vmem.cp_mmap;
       return 0;
 }
