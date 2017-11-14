@@ -1,3 +1,4 @@
+#include <list>
 #include <unistd.h>
 #include <map>
 #include <string>
@@ -14,8 +15,8 @@ struct mem_rgn{
 // but is used to keep track of pids with the mmaps
 struct mem_map{
       mem_rgn mapped_rgn;
-      std::pair<void*, int>* mmap;
-      std::pair<void*, std::string>* cp_mmap;
+      std::list<std::pair<void*, int> > mmap;
+      std::list<std::pair<void*, std::string> > cp_mmap;
       pid_t pid;
       long size;
 };
