@@ -1,5 +1,4 @@
 #include <unistd.h>
-#include <map>
 #include <string>
 
 struct mem_rgn{
@@ -8,6 +7,9 @@ struct mem_rgn{
 
       void* stack_start_addr;
       void* stack_end_addr;
+
+      int n_remaining;
+      std::pair<void*, void*>* remaining_addr;
 };
 
 // this struct is not a part of vmem_parser.cpp

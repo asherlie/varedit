@@ -2,6 +2,16 @@
 #include <stdlib.h>
 #include <fstream>
 
+std::string get_proc_name(pid_t pid){
+      std::string pname;
+      std::string path = "/proc/" + std::to_string(pid) + "/cmdline";
+      std::ifstream ifs(path);
+      // /proc/pid/cmdline is delimeted by a NUL character
+      std::getline(ifs, pname, '\0');
+      ifs.close();
+      return pname;
+}
+
 mem_rgn get_vmem_locations(pid_t pid){
       std::string tmp;
       std::string map_path = "/proc/" + std::to_string(pid) + "/maps";
@@ -14,6 +24,10 @@ mem_rgn get_vmem_locations(pid_t pid){
       vmem.stack_end_addr = nullptr;
       vmem.heap_start_addr = nullptr;
       vmem.heap_end_addr = nullptr;
+      // should be enough
+      vmem.remaining_addr = new std::pair<void*, void*>[100];
+      int rem_alloc_sz = 100;
+      vmem.n_remaining = 0;
       while(std::getline(ifs, tmp)){
             start_add = "";
             end_add = "";
@@ -39,9 +53,21 @@ mem_rgn get_vmem_locations(pid_t pid){
             }
             while(tmp[i-1] != '/' && tmp[i-1] != '[' && i < tmp.size()){
                   if(i >= tmp.size()-1){
+                        // if end of the line
                         found_desc = false;
                   }
                   if(tmp[i] == '/'){
+                        if(tmp.find(get_proc_name(pid)) != std::string::npos){
+                              std::pair<void*, void*> tmp_pair((void*)l_start_add, (void*)l_end_add);
+                              //                 n_additional space-1
+                              if(vmem.n_remaining == rem_alloc_sz-1){
+                                    ++rem_alloc_sz;
+                                    std::pair<void*, void*>* tmp_realloc = new std::pair<void*, void*>[rem_alloc_sz];
+                                    std::copy(vmem.remaining_addr, vmem.remaining_addr+vmem.n_remaining-1, tmp_realloc);
+                                    vmem.remaining_addr = tmp_realloc;
+                              }
+                              vmem.remaining_addr[vmem.n_remaining++] = tmp_pair;
+                        }
                         found_desc = false;
                   }
                   ++i;

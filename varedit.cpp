@@ -8,15 +8,17 @@
 #define STACK 0
 #define HEAP  1
 #define BOTH  2
+#define NONE  3
 
-bool mem_rgn_warn(int d_rgn, mem_rgn mem){
+bool mem_rgn_warn(int d_rgn, mem_rgn mem, bool additional){
       if((d_rgn == STACK || d_rgn == BOTH) && (mem.stack_start_addr == nullptr || mem.stack_end_addr == nullptr)){
             std::cout << "WARNING: no valid stack memory region was found" << std::endl;
-            if(d_rgn == STACK)return false;
+            // even if stack unavailable, can still use remaining rgns if enabled
+            if(d_rgn == STACK && (mem.n_remaining == 0 || !additional))return false;
       }
       if((d_rgn == HEAP || d_rgn == BOTH) && (mem.heap_start_addr == nullptr || mem.heap_end_addr == nullptr)){
             std::cout << "WARNING: no valid heap memory region was found" << std::endl;
-            if(d_rgn == HEAP)return false;
+            if(d_rgn == HEAP && (mem.n_remaining == 0 || !additional))return false;
       }
       return true;
 }
@@ -38,7 +40,7 @@ void print_mmap(const mem_map &mem, std::string contains="", bool integers=true)
       }
       else{
             if(contains != ""){
-                  // TODO: waiiiit, see if .find("") always returns foudn. if so don't need to handle both cases
+                  // TODO: waiiiit, see if .find("") always returns found. if so don't need to handle both cases
                   for(int i = 0; i < mem.size; ++i){
                         if(mem.cp_mmap[i].second.find(contains) != std::string::npos){
                               std::cout << mem.cp_mmap[i].first << ": " << mem.cp_mmap[i].second << std::endl;
@@ -61,12 +63,13 @@ void logic_swap(const mem_map &mem){
       }
 }
 
-void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
+void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additional=true){
       std::cout << "in interactive mode on ";
-      if(d_rgn == STACK)std::cout << "stack - ";
-      if(d_rgn == HEAP)std::cout << "heap - ";
-      if(d_rgn == BOTH)std::cout << "both stack and heap - ";
-      std::cout << "looking for ";
+      if(d_rgn == STACK)std::cout << "stack";
+      if(d_rgn == HEAP)std::cout << "heap";
+      if(d_rgn == BOTH)std::cout << "both stack and heap";
+      if(additional && vmem.mapped_rgn.n_remaining != 0)std::cout << " as well as " << vmem.mapped_rgn.n_remaining << " additional memory regions";
+      std::cout << " - looking for ";
       if(integers)std::cout << "integers" << std::endl;
       else std::cout << "strings" << std::endl;
       std::string tmp_str;
@@ -137,7 +140,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
             }
             if(vmem.size == 0){
                   std::cout << "nothing matches your search of: " << tmp_str << std::endl << "resetting mem map" << std::endl;
-                  vmem = vars_in_mem(vmem.pid, d_rgn, integers);
+                  vmem = vars_in_mem(vmem.pid, d_rgn, additional, integers);
             }
             else{
                   std::cout << "matches are now:" << std::endl;
@@ -148,22 +151,33 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK){
 
 
 int main(int argc, char* argv[]){
-      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-i] [-w <virtual memory addres> <value>] [-f] [-H] [-B] [-C]}\n    -p : prints all variables in specified memory region with corresopnding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -w : writes value to virtual memory address\n    -f : interactive mode (default)\n    -H : use heap only\n    -B : use both heap and stack\n    -C : use char/string mode\n";
+      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-i] [-w <virtual memory addres> <value>] [-f] [-S] [-H] [-B] [-A] [-E] [-C]}\n    -p : prints all variables in specified memory region with corresopnding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -w : writes value to virtual memory address\n    -f : interactive mode (default)\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n";
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             std::cout << help_str;
             return -1;
       }
-      bool integers = true;
+      bool integers = true, additional=false;
+      // TODO: initialize d_rgn to NONE and handle that case
       int d_rgn = STACK;
       for(int i = 0; i < argc; ++i){
-            if(strcmp(argv[i], "-C") == 0){
-                  integers = false;
+            if(strcmp(argv[i], "-S") == 0){
+                  d_rgn = STACK;
             }
             if(strcmp(argv[i], "-H") == 0){
                   d_rgn = HEAP;
             }
             if(strcmp(argv[i], "-B") == 0){
                   d_rgn = BOTH;
+            }
+            if(strcmp(argv[i], "-A") == 0){
+                  additional = true;
+            }
+            if(strcmp(argv[i], "-E") == 0){
+                  additional = true;
+                  d_rgn = BOTH;
+            }
+            if(strcmp(argv[i], "-C") == 0){
+                  integers = false;
             }
       }
       if(argc > 2){
@@ -179,42 +193,47 @@ int main(int argc, char* argv[]){
                   return 0;
             }
             // mem_map is needed for all other flags
-            mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, integers);
+            mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, additional, integers);
             // stop here if none of our required data regions are available
-            if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn))return -1;
+            if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
             if(strcmp(argv[2], "-p") == 0){
                   if(argc > 3 && argv[3][0] != '-'){
                         print_mmap(vmem, argv[3], integers);
                   }
                   else print_mmap(vmem, "", integers);
-                  delete[] vmem.mmap;
-                  delete[] vmem.cp_mmap;
+                  if(integers)delete[] vmem.mmap;
+                  else delete[] vmem.cp_mmap;
+                  delete[] vmem.mapped_rgn.remaining_addr;
                   return 0;
             }
             if(strcmp(argv[2], "-i") == 0){
                   if(!integers){
                         std::cout << "cannot invert string/char*" << std::endl;
-                        delete[] vmem.mmap;
-                        delete[] vmem.cp_mmap;
+                        if(integers)delete[] vmem.mmap;
+                        else delete[] vmem.cp_mmap;
+                        delete[] vmem.mapped_rgn.remaining_addr;
                         return -1;
                   }
                   logic_swap(vmem);
-                  delete[] vmem.mmap;
-                  delete[] vmem.cp_mmap;
+                  if(integers)delete[] vmem.mmap;
+                  else delete[] vmem.cp_mmap;
+                  delete[] vmem.mapped_rgn.remaining_addr;
                   return 0;
             }
             if(strcmp(argv[2], "-f") == 0){
-                  interactive_mode(vmem, integers, d_rgn);
-                  delete[] vmem.mmap;
-                  delete[] vmem.cp_mmap;
+                  interactive_mode(vmem, integers, d_rgn, additional);
+                  if(integers)delete[] vmem.mmap;
+                  else delete[] vmem.cp_mmap;
+                  delete[] vmem.mapped_rgn.remaining_addr;
                   return 0;
             }
       }
-      mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, integers);
+      mem_map vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, additional, integers);
       // stop here if none of our required data regions are available
-      if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn))return -1;
-      interactive_mode(vmem, integers, d_rgn);
-      delete[] vmem.mmap;
-      delete[] vmem.cp_mmap;
+      if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
+      interactive_mode(vmem, integers, d_rgn, additional);
+      if(integers)delete[] vmem.mmap;
+      else delete[] vmem.cp_mmap;
+      delete[] vmem.mapped_rgn.remaining_addr;
       return 0;
 }

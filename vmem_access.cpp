@@ -69,7 +69,7 @@ bool write_str_to_pid_mem(pid_t pid, void* vm, std::string str){
       return written == str.size();
 }
 
-mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool integers=true){
+mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, bool integers=true){
       mem_map ret;
       ret.pid = pid;
       ret.mapped_rgn = get_vmem_locations(pid);
@@ -85,9 +85,15 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool integers=true){
             vm_l_end_heap = ret.mapped_rgn.heap_end_addr;
             m_size += ((char*)vm_l_end_heap-(char*)vm_l_heap);
       }
+      if(use_additional_rgns){
+            for(int i = 0; i < ret.mapped_rgn.n_remaining; ++i){
+                  m_size += (char*)ret.mapped_rgn.remaining_addr[i].second-(char*)ret.mapped_rgn.remaining_addr[i].first;
+            }
+      }
       ret.size = 0;
-      ret.mmap = new std::pair<void*, int>[m_size];
-      ret.cp_mmap = new std::pair<void*, std::string>[m_size];
+      if(integers)ret.mmap = new std::pair<void*, int>[m_size];
+      else ret.cp_mmap = new std::pair<void*, std::string>[m_size];
+      //TODO: find smarter way to allocate string mmap memory, this assumes that each memory location stores an individual string
       long c = 0;
       if(integers){
             ret.size = m_size;
@@ -105,6 +111,17 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool integers=true){
                         tmp = read_int_from_pid_mem(pid, vm_l_heap);
                         std::pair<void*, int> tmp_pair(vm_l_heap, tmp);
                         ret.mmap[c++] = tmp_pair;
+                  }
+            }
+            if(use_additional_rgns){
+                  for(int i = 0; i < ret.mapped_rgn.n_remaining; ++i){
+                        for(void* vm_l = ret.mapped_rgn.remaining_addr[i].first;
+                                  vm_l != ret.mapped_rgn.remaining_addr[i].second;
+                                  vm_l = (void*)(((char*)vm_l)+1)){
+                              tmp = read_int_from_pid_mem(pid, vm_l);
+                              std::pair<void*, int> tmp_pair(vm_l, tmp);
+                              ret.mmap[c++] = tmp_pair;
+                        }
                   }
             }
       }
@@ -127,6 +144,19 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool integers=true){
                         ret.cp_mmap[c++] = tmp_pair;
                         vm_l_heap = (void*)(((char*)vm_l_heap)+tmp.size());
                         ++ret.size;
+                  }
+            }
+            if(use_additional_rgns){
+                  for(int i = 0; i < ret.mapped_rgn.n_remaining; ++i){
+                        for(void* vm_l = ret.mapped_rgn.remaining_addr[i].first;
+                                  vm_l != ret.mapped_rgn.remaining_addr[i].second;
+                                  vm_l = (void*)(((char*)vm_l)+1)){
+                              tmp = read_str_from_mem_block(pid, vm_l);
+                              std::pair<void*, std::string> tmp_pair(vm_l, tmp);
+                              ret.cp_mmap[c++] = tmp_pair;
+                              vm_l = (void*)(((char*)vm_l)+tmp.size());
+                              ++ret.size;
+                        }
                   }
             }
       }
