@@ -1,5 +1,6 @@
 #include "vmem_parser.h"
 
+int* read_ints_from_pid_mem(pid_t pid, void* vm_s, void* vm_e);
 int read_int_from_pid_mem(pid_t pid, void* vm);
 char read_char_from_pid_mem(pid_t pid, void* vm);
 std::string read_str_from_mem_block(pid_t pid, void* mb_start, void* mb_end);

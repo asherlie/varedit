@@ -5,6 +5,23 @@
 #define HEAP 1
 #define BOTH 2
 
+int* read_ints_from_pid_mem(pid_t pid, void* vm_s, void* vm_e){
+      int sz_rgn = (char*)vm_e-(char*)vm_s;
+      struct iovec* local = new struct iovec[sz_rgn];
+      struct iovec remote[1];
+      int* buf = new int[sz_rgn];
+      for(int i = 0; i < sz_rgn; ++i){
+            // treating diff regions of one array as separate arrays
+            local[i].iov_base = &(buf[i]);
+            local[i].iov_len = 4; // int
+      }
+      remote[0].iov_base = vm_s;
+      remote[0].iov_len = sz_rgn;
+      process_vm_readv((pid_t)pid, local, 1, remote, 1, 0);
+      delete[] local;
+      return buf;
+}
+
 int read_int_from_pid_mem(pid_t pid, void* vm){
       int buff_sz = 4; // sizeof int
       int buf[buff_sz];
@@ -97,31 +114,36 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
       long c = 0;
       if(integers){
             ret.size = m_size;
-            int tmp;
+            //int tmp;
             if(d_rgn == STACK || d_rgn == BOTH){
-                  //           casting to char* to increment, then back to void*
-                  for(; vm_l_stack != vm_l_end_stack; vm_l_stack = (void*)(((char*)vm_l_stack)+1)){
-                        tmp = read_int_from_pid_mem(pid, vm_l_stack);
-                        std::pair<void*, int> tmp_pair(vm_l_stack, tmp);
+                  int* ints_in_stack = read_ints_from_pid_mem(pid, vm_l_stack, vm_l_end_stack);
+                  for(int d = 0; vm_l_stack != vm_l_end_stack; vm_l_stack = (void*)(((char*)vm_l_stack)+1)){
+                        std::pair<void*, int> tmp_pair(vm_l_stack, ints_in_stack[d]);
                         ret.mmap[c++] = tmp_pair;
                   }
+                  delete[] ints_in_stack;
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
-                  for(; vm_l_heap != vm_l_end_heap; vm_l_heap = (void*)(((char*)vm_l_heap)+1)){
-                        tmp = read_int_from_pid_mem(pid, vm_l_heap);
-                        std::pair<void*, int> tmp_pair(vm_l_heap, tmp);
+                  int* ints_in_heap = read_ints_from_pid_mem(pid, vm_l_heap, vm_l_end_heap);
+                  for(int d = 0; vm_l_heap != vm_l_end_heap; vm_l_heap = (void*)(((char*)vm_l_heap)+1)){
+                        std::pair<void*, int> tmp_pair(vm_l_heap, ints_in_heap[d]);
                         ret.mmap[c++] = tmp_pair;
                   }
+                  delete[] ints_in_heap;
+
             }
             if(use_additional_rgns){
                   for(int i = 0; i < ret.mapped_rgn.n_remaining; ++i){
+                        int* ints_in_adtnl = read_ints_from_pid_mem(pid, ret.mapped_rgn.remaining_addr[i].first, 
+                                                                         ret.mapped_rgn.remaining_addr[i].second);
+                        int d = 0;
                         for(void* vm_l = ret.mapped_rgn.remaining_addr[i].first;
                                   vm_l != ret.mapped_rgn.remaining_addr[i].second;
                                   vm_l = (void*)(((char*)vm_l)+1)){
-                              tmp = read_int_from_pid_mem(pid, vm_l);
-                              std::pair<void*, int> tmp_pair(vm_l, tmp);
+                              std::pair<void*, int> tmp_pair(vm_l, ints_in_adtnl[d++]);
                               ret.mmap[c++] = tmp_pair;
                         }
+                        delete[] ints_in_adtnl;
                   }
             }
       }
