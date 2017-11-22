@@ -74,6 +74,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
       else std::cout << "strings" << std::endl;
       std::string tmp_str;
       int tmp_val;
+      bool first = true;
       while(1){
             Find:
             std::cout << "enter current variable value or 'w' to enter write mode" << std::endl;
@@ -130,7 +131,10 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   }
             }
             // tmp_str != "w"
-            update_mem_map(vmem, integers);
+            if(!first){
+                  first = false;
+                  update_mem_map(vmem, integers);
+            }
             if(integers){
                   tmp_val = std::stoi(tmp_str);
                   narrow_mem_map_int(vmem, tmp_val);
@@ -183,8 +187,8 @@ int main(int argc, char* argv[]){
       if(argc > 2){
             // -r and -w can be done without slowly loading a complete mem_map
             if(strcmp(argv[2], "-r") == 0){
-                  if(integers)std::cout << read_int_from_pid_mem((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16)) << std::endl;
-                  else std::cout << read_str_from_mem_block((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16), nullptr) << std::endl;
+                  if(integers)std::cout << read_single_int_from_pid_mem((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16)) << std::endl;
+                  else std::cout << read_str_from_mem_block_slow((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16), nullptr) << std::endl;
                   return 0;
             }
             if(strcmp(argv[2], "-w") == 0){

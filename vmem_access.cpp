@@ -1,28 +1,38 @@
 #include "vmem_access.h"
 #include <sys/uio.h>
+#include <limits.h> // for IOV_MAX
 
 #define STACK 0
 #define HEAP 1
 #define BOTH 2
 
-int* read_ints_from_pid_mem(pid_t pid, void* vm_s, void* vm_e){
-      int sz_rgn = (char*)vm_e-(char*)vm_s;
-      struct iovec* local = new struct iovec[sz_rgn];
+int* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e){
+      int sz_rgn;
+      if(vm_e == nullptr)sz_rgn = bytes;
+      else sz_rgn = (char*)vm_e-(char*)vm_s;
+      int n_items = sz_rgn/bytes;
+      struct iovec* local = new struct iovec[n_items];
       struct iovec remote[1];
-      int* buf = new int[sz_rgn];
-      for(int i = 0; i < sz_rgn; ++i){
-            // treating diff regions of one array as separate arrays
+      int* buf = new int[n_items];
+      int byte_c = 0;
+      for(int i = 0; i < n_items; ++i){
             local[i].iov_base = &(buf[i]);
-            local[i].iov_len = 4; // int
+            local[i].iov_len = bytes;
+            byte_c+=bytes;
       }
       remote[0].iov_base = vm_s;
       remote[0].iov_len = sz_rgn;
-      process_vm_readv((pid_t)pid, local, 1, remote, 1, 0);
+      int c = 0;
+      for(int i = 0; i < n_items/IOV_MAX; ++i){
+            process_vm_readv(pid, local+c, IOV_MAX, remote, 1, 0);
+            remote[0].iov_base = (void*)(((char*)remote[0].iov_base)+IOV_MAX*bytes);
+            c+=IOV_MAX;
+      }
       delete[] local;
       return buf;
 }
 
-int read_int_from_pid_mem(pid_t pid, void* vm){
+int read_single_int_from_pid_mem(pid_t pid, void* vm){
       int buff_sz = 4; // sizeof int
       int buf[buff_sz];
       struct iovec local[1];
@@ -35,26 +45,18 @@ int read_int_from_pid_mem(pid_t pid, void* vm){
       return *buf;
 }
 
-char read_char_from_pid_mem(pid_t pid, void* vm){
-      int buff_sz = 1;
-      char buf[buff_sz];
-      struct iovec local[1];
-      struct iovec remote[1];
-      local[0].iov_base = buf;
-      local[0].iov_len = buff_sz;
-      remote[0].iov_len = buff_sz;
-      remote[0].iov_base = vm;
-      process_vm_readv((pid_t)pid, local, 1, remote, 1, 0);      
-      return *buf;
-}
-
-std::string read_str_from_mem_block(pid_t pid, void* mb_start, void* mb_end=nullptr){
+std::string read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end=nullptr){
+      int* tmp_arr;
       char tmp;
       std::string ret = "";
       for(void* i = mb_start; i != mb_end; i = (void*)(((char*)i)+1)){
-            tmp = read_char_from_pid_mem(pid, mb_start);
+            tmp_arr = read_bytes_from_pid_mem(pid, 1, mb_start, (void*)(((char*)mb_start)+1));
+            tmp = tmp_arr[0];
+            delete[] tmp_arr;
             while(tmp > 0 && tmp < 127){
-                  tmp = read_char_from_pid_mem(pid, i);
+                  tmp_arr = read_bytes_from_pid_mem(pid, 1, i, (void*)(((char*)i)+1));
+                  tmp = tmp_arr[0];
+                  delete[] tmp_arr;
                   ret += tmp;
                   i = (void*)(((char*)i)+1);
             }
@@ -114,9 +116,8 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
       long c = 0;
       if(integers){
             ret.size = m_size;
-            //int tmp;
             if(d_rgn == STACK || d_rgn == BOTH){
-                  int* ints_in_stack = read_ints_from_pid_mem(pid, vm_l_stack, vm_l_end_stack);
+                  int* ints_in_stack = read_bytes_from_pid_mem(pid, 4, vm_l_stack, vm_l_end_stack);
                   for(int d = 0; vm_l_stack != vm_l_end_stack; vm_l_stack = (void*)(((char*)vm_l_stack)+1)){
                         std::pair<void*, int> tmp_pair(vm_l_stack, ints_in_stack[d]);
                         ret.mmap[c++] = tmp_pair;
@@ -124,7 +125,7 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
                   delete[] ints_in_stack;
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
-                  int* ints_in_heap = read_ints_from_pid_mem(pid, vm_l_heap, vm_l_end_heap);
+                  int* ints_in_heap = read_bytes_from_pid_mem(pid, 4, vm_l_heap, vm_l_end_heap);
                   for(int d = 0; vm_l_heap != vm_l_end_heap; vm_l_heap = (void*)(((char*)vm_l_heap)+1)){
                         std::pair<void*, int> tmp_pair(vm_l_heap, ints_in_heap[d]);
                         ret.mmap[c++] = tmp_pair;
@@ -134,8 +135,8 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
             }
             if(use_additional_rgns){
                   for(int i = 0; i < ret.mapped_rgn.n_remaining; ++i){
-                        int* ints_in_adtnl = read_ints_from_pid_mem(pid, ret.mapped_rgn.remaining_addr[i].first, 
-                                                                         ret.mapped_rgn.remaining_addr[i].second);
+                        int* ints_in_adtnl = read_bytes_from_pid_mem(pid, 4, ret.mapped_rgn.remaining_addr[i].first, 
+                                                                             ret.mapped_rgn.remaining_addr[i].second);
                         int d = 0;
                         for(void* vm_l = ret.mapped_rgn.remaining_addr[i].first;
                                   vm_l != ret.mapped_rgn.remaining_addr[i].second;
@@ -150,35 +151,70 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
       else{
             // when searching for end of string, all permutations of string show up
             std::string tmp;
+            bool in_str = false;
             if(d_rgn == STACK || d_rgn == BOTH){
-                  for(; vm_l_stack != vm_l_end_stack; vm_l_stack = (void*)(((char*)vm_l_stack)+1)){
-                        tmp = read_str_from_mem_block(pid, vm_l_stack);
-                        std::pair<void*, std::string> tmp_pair(vm_l_stack, tmp);
-                        ret.cp_mmap[c++] = tmp_pair;
-                        vm_l_stack = (void*)(((char*)vm_l_stack)+tmp.size());
-                        ++ret.size;
+                  tmp = "";
+                  int* chars_in_stack = read_bytes_from_pid_mem(pid, 1, vm_l_stack, vm_l_end_stack);
+                  void* current_addr = vm_l_stack;
+                  for(int i = 0; i < (char*)vm_l_end_stack-(char*)vm_l_stack; ++i){
+                        if(chars_in_stack[i] > 0 && chars_in_stack[i] < 127){
+                              in_str = true;
+                              tmp += (char)chars_in_stack[i];
+                        }
+                        else if(in_str){
+                              in_str = false;
+                              std::pair<void*, std::string> tmp_pair(current_addr, tmp);
+                              ret.cp_mmap[c++] = tmp_pair;
+                              ++ret.size;
+                              tmp = "";
+                        }
+                        current_addr = (void*)(((char*)current_addr)+1);
                   }
+                  delete[] chars_in_stack;
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
-                  for(; vm_l_heap != vm_l_end_heap; vm_l_heap = (void*)(((char*)vm_l_heap)+1)){
-                        tmp = read_str_from_mem_block(pid, vm_l_heap);
-                        std::pair<void*, std::string> tmp_pair(vm_l_heap, tmp);
-                        ret.cp_mmap[c++] = tmp_pair;
-                        vm_l_heap = (void*)(((char*)vm_l_heap)+tmp.size());
-                        ++ret.size;
+                  in_str = false;
+                  tmp = "";
+                  int* chars_in_heap = read_bytes_from_pid_mem(pid, 1, vm_l_heap, vm_l_end_heap);
+                  void* current_addr = vm_l_heap;
+                  for(int i = 0; i < (char*)vm_l_end_heap-(char*)vm_l_heap; ++i){
+                        if(chars_in_heap[i] > 0 && chars_in_heap[i] < 127){
+                              in_str = true;
+                              tmp += (char)chars_in_heap[i];
+                        }
+                        else if(in_str){
+                              in_str = false;
+                              std::pair<void*, std::string> tmp_pair(current_addr, tmp);
+                              ret.cp_mmap[c++] = tmp_pair;
+                              ++ret.size;
+                              tmp = "";
+                        }
+                        current_addr = (void*)(((char*)current_addr)+1);
                   }
+                  delete[] chars_in_heap;
             }
             if(use_additional_rgns){
+                  in_str = false;
+                  tmp = "";
+                  int* chars_in_addtnl;
+                  void* current_addr;
                   for(int i = 0; i < ret.mapped_rgn.n_remaining; ++i){
-                        for(void* vm_l = ret.mapped_rgn.remaining_addr[i].first;
-                                  vm_l != ret.mapped_rgn.remaining_addr[i].second;
-                                  vm_l = (void*)(((char*)vm_l)+1)){
-                              tmp = read_str_from_mem_block(pid, vm_l);
-                              std::pair<void*, std::string> tmp_pair(vm_l, tmp);
-                              ret.cp_mmap[c++] = tmp_pair;
-                              vm_l = (void*)(((char*)vm_l)+tmp.size());
-                              ++ret.size;
+                        chars_in_addtnl = read_bytes_from_pid_mem(pid, 1, ret.mapped_rgn.remaining_addr[i].first, ret.mapped_rgn.remaining_addr[i].second);
+                        current_addr = ret.mapped_rgn.remaining_addr[i].first;
+                        for(int j = 0; j < (char*)ret.mapped_rgn.remaining_addr[i].second-(char*)ret.mapped_rgn.remaining_addr[i].first; ++j){
+                              if(chars_in_addtnl[j] > 0 && chars_in_addtnl[j] < 127){
+                                    in_str = true;
+                                    tmp += (char)chars_in_addtnl[j];
+                              }
+                              else if(in_str){
+                                    in_str = false;
+                                    std::pair<void*, std::string> tmp_pair(current_addr, tmp);
+                                    ret.cp_mmap[c++] = tmp_pair;
+                                    ++ret.size;
+                                    tmp = "";
+                              }
                         }
+                        delete[] chars_in_addtnl;
                   }
             }
       }
@@ -186,14 +222,15 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
 }
 
 void update_mem_map(mem_map &mem, bool integers=true){
+      // TODO: check for consecutive mem rgns, to leverage the faster read_bytes_from_pid_mem
       if(integers){
             for(int i = 0; i < mem.size; ++i){
-                  mem.mmap[i].second = read_int_from_pid_mem(mem.pid, mem.mmap[i].first);
+                  mem.mmap[i].second = read_single_int_from_pid_mem(mem.pid, mem.mmap[i].first);
             }
       }
       else{
             for(int i = 0; i < mem.size; ++i){
-                  mem.cp_mmap[i].second = read_str_from_mem_block(mem.pid, mem.cp_mmap[i].first);
+                  mem.cp_mmap[i].second = read_str_from_mem_block_slow(mem.pid, mem.cp_mmap[i].first);
             }
       }
 }
