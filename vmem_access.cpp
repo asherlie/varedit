@@ -241,7 +241,6 @@ void update_mem_map(mem_map &mem, bool integers=true){
       else{
             for(int i = 0; i < mem.size; ++i){
                   mem.cp_mmap[i].second = read_str_from_mem_block_slow(mem.pid, mem.cp_mmap[i].first);
-                  // this is fucking up bc it's reading from the last mem addr of str
             }
       }
 }

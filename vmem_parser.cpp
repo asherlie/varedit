@@ -20,6 +20,7 @@ mem_rgn get_vmem_locations(pid_t pid){
       bool found_desc;
       unsigned int i;
       mem_rgn vmem;
+      vmem.p_name = get_proc_name(pid);
       vmem.stack_start_addr = nullptr;
       vmem.stack_end_addr = nullptr;
       vmem.heap_start_addr = nullptr;
@@ -57,7 +58,7 @@ mem_rgn get_vmem_locations(pid_t pid){
                         found_desc = false;
                   }
                   if(tmp[i] == '/'){
-                        if(tmp.find(get_proc_name(pid)) != std::string::npos){
+                        if(tmp.find(vmem.p_name) != std::string::npos){
                               std::pair<void*, void*> tmp_pair((void*)l_start_add, (void*)l_end_add);
                               //                 n_additional space-1
                               if(vmem.n_remaining == rem_alloc_sz-1){

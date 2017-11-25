@@ -2,6 +2,8 @@
 #include <string>
 
 struct mem_rgn{
+      std::string p_name;
+
       void* heap_start_addr;
       void* heap_end_addr;
 

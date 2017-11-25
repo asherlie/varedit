@@ -64,7 +64,7 @@ void logic_swap(const mem_map &mem){
 }
 
 void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additional=true){
-      std::cout << "in interactive mode on ";
+      std::cout << "in interactive mode on process " << vmem.pid << " (" << vmem.mapped_rgn.p_name << ")\nusing ";
       if(d_rgn == STACK)std::cout << "stack";
       if(d_rgn == HEAP)std::cout << "heap";
       if(d_rgn == BOTH)std::cout << "both stack and heap";
