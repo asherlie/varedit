@@ -116,7 +116,7 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
             }
       }
       ret.size = 0;
-      if(integers)ret.mmap = new std::pair<void*, int>[m_size];
+      if(integers)ret.mmap = new std::pair<void*, int>[m_size]; //TODO: try using [m_size/4]
       else ret.cp_mmap = new std::pair<void*, std::string>[m_size];
       //TODO: find smarter way to allocate string mmap memory, this assumes that each memory location stores an individual string
       long c = 0;
@@ -125,16 +125,14 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
             if(d_rgn == STACK || d_rgn == BOTH){
                   int* ints_in_stack = read_bytes_from_pid_mem(pid, 4, vm_l_stack, vm_l_end_stack);
                   for(int d = 0; vm_l_stack != vm_l_end_stack; vm_l_stack = (void*)(((char*)vm_l_stack)+4)){ // +4 for ints
-                        std::pair<void*, int> tmp_pair(vm_l_stack, ints_in_stack[d++]);
-                        ret.mmap[c++] = tmp_pair;
+                        ret.mmap[c++] = std::make_pair(vm_l_stack, ints_in_stack[d++]);
                   }
                   delete[] ints_in_stack;
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
                   int* ints_in_heap = read_bytes_from_pid_mem(pid, 4, vm_l_heap, vm_l_end_heap);
                   for(int d = 0; vm_l_heap != vm_l_end_heap; vm_l_heap = (void*)(((char*)vm_l_heap)+4)){
-                        std::pair<void*, int> tmp_pair(vm_l_heap, ints_in_heap[d++]);
-                        ret.mmap[c++] = tmp_pair;
+                        ret.mmap[c++] = std::make_pair(vm_l_heap, ints_in_heap[d++]);
                   }
                   delete[] ints_in_heap;
 
@@ -147,8 +145,7 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
                         for(void* vm_l = ret.mapped_rgn.remaining_addr[i].first;
                                   vm_l != ret.mapped_rgn.remaining_addr[i].second;
                                   vm_l = (void*)(((char*)vm_l)+4)){
-                              std::pair<void*, int> tmp_pair(vm_l, ints_in_adtnl[d++]);
-                              ret.mmap[c++] = tmp_pair;
+                              ret.mmap[c++] = std::make_pair(vm_l, ints_in_adtnl[d++]);
                         }
                         delete[] ints_in_adtnl;
                   }
@@ -170,9 +167,7 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
                         }
                         else if(in_str){
                               in_str = false;
-                              //std::pair<void*, std::string> tmp_pair(current_addr, tmp);
-                              std::pair<void*, std::string> tmp_pair(str_st_addr, tmp);
-                              ret.cp_mmap[c++] = tmp_pair;
+                              ret.cp_mmap[c++] = std::make_pair(str_st_addr, tmp);
                               ++ret.size;
                               tmp = "";
                         }
@@ -193,8 +188,7 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
                         }
                         else if(in_str){
                               in_str = false;
-                              std::pair<void*, std::string> tmp_pair(str_st_addr, tmp);
-                              ret.cp_mmap[c++] = tmp_pair;
+                              ret.cp_mmap[c++] = std::make_pair(str_st_addr, tmp);
                               ++ret.size;
                               tmp = "";
                         }
@@ -218,8 +212,7 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
                               }
                               else if(in_str){
                                     in_str = false;
-                                    std::pair<void*, std::string> tmp_pair(str_st_addr, tmp);
-                                    ret.cp_mmap[c++] = tmp_pair;
+                                    ret.cp_mmap[c++] = std::make_pair(str_st_addr, tmp);
                                     ++ret.size;
                                     tmp = "";
                               }
@@ -248,7 +241,8 @@ void update_mem_map(mem_map &mem, bool integers=true){
 void narrow_mem_map_int(mem_map &mem, int match){
       std::string match_str = std::to_string(match);
       for(int i = 0; i < mem.size; ++i){
-            if(std::to_string(mem.mmap[i].second) != match_str){ // exact
+            // std::pair<void*, int> is initialized to <0, 0> - erase these pairs TODO: maybe move this to update_mem_map
+            if(mem.mmap[i].first == 0 || std::to_string(mem.mmap[i].second) != match_str){ // exact
                   mem.mmap[i--] = mem.mmap[--mem.size];
                   /*
                    *  // essentially, 
@@ -264,12 +258,12 @@ void narrow_mem_map_int(mem_map &mem, int match){
 void narrow_mem_map_str(mem_map &mem, std::string match, bool exact=true){
       for(int i = 0; i < mem.size; ++i){
             if(exact){
-                  if(mem.cp_mmap[i].second != match){
+                  if(mem.cp_mmap[i].first == 0 || mem.cp_mmap[i].second != match){
                         mem.cp_mmap[i--] = mem.cp_mmap[--mem.size];
                   }
             }
             else{
-                  if(mem.cp_mmap[i].second.find(match) == std::string::npos){
+                  if(mem.cp_mmap[i].first == 0 || mem.cp_mmap[i].second.find(match) == std::string::npos){
                         --mem.size;
                         if(mem.size == 0)break;
                         mem.cp_mmap[i--] = mem.cp_mmap[mem.size];
