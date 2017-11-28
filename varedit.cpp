@@ -132,7 +132,6 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
             }
             // tmp_str != "w"
             if(!first){
-                  first = false;
                   update_mem_map(vmem, integers);
             }
             if(integers){
@@ -150,6 +149,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   std::cout << "matches are now:" << std::endl;
                   print_mmap(vmem, "", integers);
             }
+            first = false;
       }
 }
 
