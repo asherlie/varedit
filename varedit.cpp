@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include<unistd.h> // fork
 
 #include "vmem_access.h"
 
@@ -78,6 +79,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
       std::string tmp_str;
       int tmp_val;
       bool first = true;
+      bool lock_mode;
       while(1){
             Find:
             std::cout << "enter current variable value or 'w' to enter write mode" << std::endl;
@@ -106,6 +108,11 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                               print_mmap(vmem, "", integers);
                               goto Find;
                         }
+                        lock_mode = false;
+                        if(v_loc_s == "l"){
+                              lock_mode = true;
+                              std::cin >> v_loc_s;
+                        }
                         // std::ws to get rid of leading whitespace
                         std::getline(std::cin >> std::ws, to_w);
                         vl_c = 0;
@@ -120,6 +127,21 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                               }
                         }
                         v_loc[vl_c] = std::stoi(tmp_num);
+                        if(lock_mode){
+                              if(fork() == 0){ // TODO: kill this if overwriting the same mem location
+                                    while(1){ // child process will forever repeat this
+                                          for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
+                                                if(integers)write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, std::stoi(to_w));
+                                                else write_str_to_pid_mem(vmem.pid, vmem.cp_mmap[i].first, to_w);
+                                          }
+                                    }
+                              }
+                              std::cout << "variable(s) locked" << std::endl;
+                              update_mem_map(vmem, integers);
+                              // TODO: decide what behavior should be after vars have been locked
+                              //goto Find;
+                              continue;
+                        }
                         for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){ // write all ints in range or between commas
                               if(integers)write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, std::stoi(to_w));
                               else{
