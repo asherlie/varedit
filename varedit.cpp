@@ -12,15 +12,16 @@
 
 bool mem_rgn_warn(int d_rgn, mem_rgn mem, bool additional){
       bool no_ad = (mem.n_remaining == 0 && additional);
+      bool stack = true;
       if(no_ad)std::cout << "WARNING: no valid unmarked memory regions were found" << std::endl;
       if((d_rgn == STACK || d_rgn == BOTH) && (mem.stack_start_addr == nullptr || mem.stack_end_addr == nullptr)){
             std::cout << "WARNING: no valid stack memory region was found" << std::endl;
-            // even if stack unavailable, can still use remaining rgns if enabled
             if(d_rgn == STACK && (no_ad || !additional))return false;
+            stack = false;
       }
       if((d_rgn == HEAP || d_rgn == BOTH) && (mem.heap_start_addr == nullptr || mem.heap_end_addr == nullptr)){
             std::cout << "WARNING: no valid heap memory region was found" << std::endl;
-            if(d_rgn == HEAP && (no_ad || !additional))return false;
+            if((d_rgn == HEAP || (d_rgn == BOTH && !stack)) && (no_ad || !additional))return false;
       }
       return true;
 }
@@ -237,9 +238,11 @@ int main(int argc, char* argv[]){
             }
       }
       //argc <= 2
-      else vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, additional, integers);
+      else{
+            vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, additional, integers);
+            if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
+      }
       // stop here if none of our required data regions are available
-      if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
       interactive_mode(vmem, integers, d_rgn, additional);
       if(integers)delete[] vmem.mmap;
       else delete[] vmem.cp_mmap;
