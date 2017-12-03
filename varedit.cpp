@@ -2,7 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include<unistd.h> // fork
+#include <unistd.h> // fork
+#include <fstream> // -sb/-wb
 
 #include "vmem_access.h"
 
@@ -25,6 +26,33 @@ bool mem_rgn_warn(int d_rgn, mem_rgn mem, bool additional){
             if((d_rgn == HEAP || (d_rgn == BOTH && !stack)) && (no_ad || !additional))return false;
       }
       return true;
+}
+
+void save_pid_mem_state(const mem_map &vmem, std::string outf){
+      std::ofstream ofs(outf);
+      ofs << vmem.size << "\n";
+      for(int i = 0; i < vmem.size; ++i)ofs << vmem.mmap[i].first << " " << vmem.mmap[i].second << "\n";
+      ofs.close();
+}
+
+void restore_pid_mem_state(pid_t pid, std::string inf, bool verbose){
+      std::ifstream ifs(inf);
+      std::string tmp_addr;
+      int n_ints, tmp_i;
+      ifs >> n_ints;
+      for(int i = 0; i < n_ints; ++i){
+            ifs >> tmp_addr >> tmp_i;
+            if(tmp_addr != "0"){
+            //if(tmp_addr != "0" && tmp_i != 0 && tmp_i != 1){ // TODO: should i write 1's and 0's?
+                  if(verbose){
+                        if(tmp_i != read_single_int_from_pid_mem(pid, (void*)strtoul(tmp_addr.c_str(), 0, 16))){
+                              std::cout << tmp_addr << ": " << read_single_int_from_pid_mem(pid, (void*)strtoul(tmp_addr.c_str(), 0, 16)) << " -> " << tmp_i << std::endl;
+                        }
+                  }
+                  write_int_to_pid_mem(pid, (void*)strtoul(tmp_addr.c_str(), 0, 16), tmp_i);
+            }
+      }
+      ifs.close();
 }
 
 void print_mmap(const mem_map &mem, std::string contains="", bool integers=true){
@@ -83,6 +111,9 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
       while(1){
             Find:
             std::cout << "enter current variable value or 'w' to enter write mode" << std::endl;
+            // TODO:
+            // maybe enter u to update current values without searching. add both here and in write mode
+            //also, enable escaping u/w with \u and \w for searching for the letters u and w
             std::getline(std::cin, tmp_str);
             if(tmp_str == "w"){
                   int vl_c;
@@ -129,9 +160,10 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                         v_loc[vl_c] = std::stoi(tmp_num);
                         if(lock_mode){
                               if(fork() == 0){ // TODO: kill this if overwriting the same mem location
+                                    int to_w_i = std::stoi(to_w);
                                     while(1){ // child process will forever repeat this
                                           for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
-                                                if(integers)write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, std::stoi(to_w));
+                                                if(integers)write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, to_w_i);
                                                 else write_str_to_pid_mem(vmem.pid, vmem.cp_mmap[i].first, to_w);
                                           }
                                     }
@@ -180,12 +212,12 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
 
 
 int main(int argc, char* argv[]){
-      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-i] [-w <virtual memory addres> <value>] [-f] [-S] [-H] [-B] [-A] [-E] [-C]}\n    -p : prints all variables in specified memory region with corresopnding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -w : writes value to virtual memory address\n    -f : interactive mode (default)\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n";
+      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-i] [-w <virtual memory addres> <value>] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-v]}\n    -p : prints all variables in specified memory region with corresopnding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -w : writes value to virtual memory address\n    -f : interactive mode (default)\n    -sb : save backup of process memory to file\n    -wb : restore process memory to backup\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n";
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             std::cout << help_str;
             return -1;
       }
-      bool integers = true, additional=false;
+      bool integers = true, additional=false, verbose=false;
       // TODO: initialize d_rgn to NONE and handle that case
       int d_rgn = STACK;
       for(int i = 0; i < argc; ++i){
@@ -208,6 +240,9 @@ int main(int argc, char* argv[]){
             if(strcmp(argv[i], "-C") == 0){
                   integers = false;
             }
+            if(strcmp(argv[i], "-v") == 0){
+                  verbose = true;
+            }
       }
       // initializing here extends scope to default behavior to avoid rescanning memory
       mem_map vmem;
@@ -221,6 +256,16 @@ int main(int argc, char* argv[]){
             if(strcmp(argv[2], "-w") == 0){
                   if(integers)write_int_to_pid_mem((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16), std::stoi(argv[4]));
                   else write_str_to_pid_mem((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16), argv[4]);
+                  return 0;
+            }
+            if(strcmp(argv[2], "-sb") == 0){
+                  mem_map vm = vars_in_mem((pid_t)std::stoi(argv[1]), 2, true, true);
+                  save_pid_mem_state(vm, argv[3]);
+                  delete[] vm.mmap;
+                  return 0;
+            }
+            if(strcmp(argv[2], "-wb") == 0){
+                  restore_pid_mem_state((pid_t)std::stoi(argv[1]), argv[3], verbose);
                   return 0;
             }
             // mem_map is needed for all other flags
