@@ -57,31 +57,14 @@ void restore_pid_mem_state(pid_t pid, std::string inf, bool verbose){
 }
 
 void print_mmap(const mem_map &mem, std::string contains="", bool integers=true){
-      if(integers){
-            if(contains != ""){
-                  for(int i = 0; i < mem.size; ++i){
-                        if(std::to_string(mem.mmap[i].second).find(contains) != std::string::npos){
-                              std::cout << mem.mmap[i].first << ": " << mem.mmap[i].second << std::endl;
-                        }
-                  }
-            }
-            else{
-                  for(int i = 0; i < mem.size; ++i){
+      for(int i = 0; i < mem.size; ++i){
+            if(integers){
+                  if(std::to_string(mem.mmap[i].second).find(contains) != std::string::npos){
                         std::cout << mem.mmap[i].first << ": " << mem.mmap[i].second << std::endl;
                   }
             }
-      }
-      else{
-            if(contains != ""){
-                  // TODO: waiiiit, see if .find("") always returns found. if so don't need to handle both cases
-                  for(int i = 0; i < mem.size; ++i){
-                        if(mem.cp_mmap[i].second.find(contains) != std::string::npos){
-                              std::cout << mem.cp_mmap[i].first << ": " << mem.cp_mmap[i].second << std::endl;
-                        }
-                  }
-            }
             else{
-                  for(int i = 0; i < mem.size; ++i){
+                  if(mem.cp_mmap[i].second.find(contains) != std::string::npos){
                         std::cout << mem.cp_mmap[i].first << ": " << mem.cp_mmap[i].second << std::endl;
                   }
             }
@@ -259,12 +242,6 @@ int main(int argc, char* argv[]){
                   else write_str_to_pid_mem((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16), argv[4]);
                   return 0;
             }
-            if(strcmp(argv[2], "-sb") == 0){
-                  mem_map vm = vars_in_mem((pid_t)std::stoi(argv[1]), 2, true, true);
-                  save_pid_mem_state(vm, argv[3]);
-                  delete[] vm.mmap;
-                  return 0;
-            }
             if(strcmp(argv[2], "-wb") == 0){
                   restore_pid_mem_state((pid_t)std::stoi(argv[1]), argv[3], verbose);
                   return 0;
@@ -272,6 +249,11 @@ int main(int argc, char* argv[]){
             // mem_map is needed for all other flags
             vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, additional, integers);
             // stop here if none of our required data regions are available
+            if(strcmp(argv[2], "-sb") == 0){
+                  save_pid_mem_state(vmem, argv[3]);
+                  delete[] vmem.mmap;
+                  return 0;
+            }
             if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
             if(strcmp(argv[2], "-p") == 0){
                   if(argc > 3 && argv[3][0] != '-'){
