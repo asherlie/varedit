@@ -30,18 +30,19 @@ bool mem_rgn_warn(int d_rgn, mem_rgn mem, bool additional){
 
 void save_pid_mem_state(const mem_map &vmem, std::string outf){
       std::ofstream ofs(outf);
-      ofs << vmem.size << "\n";
-      for(int i = 0; i < vmem.size; ++i)ofs << vmem.mmap[i].first << " " << vmem.mmap[i].second << "\n";
+      for(int i = 0; i < vmem.size; ++i){
+            if(vmem.mmap[i].first == 0)break; // TODO: make sure the <0, 0> pairs are always at the end of the mem rgn.
+            // if(vmem.mmap[i].first != 0){   //       if not, use this. would be a bit slower
+            ofs << vmem.mmap[i].first << " " << vmem.mmap[i].second << "\n";
+      }
       ofs.close();
 }
 
 void restore_pid_mem_state(pid_t pid, std::string inf, bool verbose){
       std::ifstream ifs(inf);
       std::string tmp_addr;
-      int n_ints, tmp_i;
-      ifs >> n_ints;
-      for(int i = 0; i < n_ints; ++i){
-            ifs >> tmp_addr >> tmp_i;
+      int tmp_i;
+      while(ifs >> tmp_addr >> tmp_i){
             if(tmp_addr != "0"){
             //if(tmp_addr != "0" && tmp_i != 0 && tmp_i != 1){ // TODO: should i write 1's and 0's?
                   if(verbose){
