@@ -163,12 +163,12 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                                     while(1){ // child process will forever repeat this
                                           for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
                                                 if(integers){
-                                                      if(same)write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, vmem.mmap[i].second);
-                                                      else write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, to_w_i);
+                                                      if(same)to_w_i = vmem.mmap[i].second;
+                                                      write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, to_w_i);
                                                 }
                                                 else{
-                                                      if(same)write_str_to_pid_mem(vmem.pid, vmem.cp_mmap[i].first, vmem.cp_mmap[i].second);
-                                                      else write_str_to_pid_mem(vmem.pid, vmem.cp_mmap[i].first, to_w);
+                                                      if(same)to_w = vmem.cp_mmap[i].second;
+                                                      write_str_to_pid_mem(vmem.pid, vmem.cp_mmap[i].first, to_w);
                                                 }
                                           }
                                     }
@@ -282,7 +282,10 @@ int main(int argc, char* argv[]){
                   if(argc > 3 && argv[3][0] != '-'){
                         print_mmap(vmem, argv[3], integers);
                   }
-                  else print_mmap(vmem, "", integers);
+                  else{
+                        if(integers)narrow_mem_map_int(vmem, 0, false); // get rid of empty pairs
+                        print_mmap(vmem, "", integers);
+                  }
                   if(integers)delete[] vmem.mmap;
                   else delete[] vmem.cp_mmap;
                   delete[] vmem.mapped_rgn.remaining_addr;
