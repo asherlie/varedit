@@ -238,11 +238,11 @@ void update_mem_map(mem_map &mem, bool integers=true){
       }
 }
 
-void narrow_mem_map_int(mem_map &mem, int match){
+void narrow_mem_map_int(mem_map &mem, int match, bool use_match){ // if !use_match this can be used to delete empty pairs
       std::string match_str = std::to_string(match);
       for(int i = 0; i < mem.size; ++i){
             // std::pair<void*, int> is initialized to <0, 0> - erase these pairs TODO: maybe move this to update_mem_map
-            if(mem.mmap[i].first == 0 || std::to_string(mem.mmap[i].second) != match_str){ // exact
+            if(mem.mmap[i].first == 0 || (use_match && std::to_string(mem.mmap[i].second) != match_str)){ // exact
                   mem.mmap[i--] = mem.mmap[--mem.size];
                   /*
                    *  // essentially, 

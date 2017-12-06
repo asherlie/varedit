@@ -88,6 +88,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
       std::cout << " - looking for ";
       if(integers)std::cout << "integers" << std::endl;
       else std::cout << "strings" << std::endl;
+      std::cout << "enter 'u' at any time to update visible values" << std::endl;
       std::string tmp_str;
       int tmp_val;
       bool first = true;
@@ -95,15 +96,20 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
       while(1){
             Find:
             std::cout << "enter current variable value or 'w' to enter write mode" << std::endl;
-            // TODO:
-            // maybe enter u to update current values without searching. add both here and in write mode
-            //also, enable escaping u/w with \u and \w for searching for the letters u and w
             std::getline(std::cin, tmp_str);
+            if(tmp_str == "u"){
+                  update_mem_map(vmem, integers);
+                  std::cin.clear();
+                  print_mmap(vmem, "", integers);
+                  goto Find;
+            }
             if(tmp_str == "w"){
+                  if(integers && first)narrow_mem_map_int(vmem, 0, false); // to get rid of empty pairs
                   int vl_c;
                   std::string tmp_num, v_loc_s, to_w;
                   int v_loc[2]; // right now v_loc is meant to store start and end of a range
                   while(1){
+                        Write:
                         if(integers){
                               for(int i = 0; i < vmem.size; ++i){
                                     std::cout << i << ": (" << vmem.mmap[i].first << ": " << vmem.mmap[i].second << ")" << std::endl;
@@ -114,7 +120,6 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                                     std::cout << i << ": (" << vmem.cp_mmap[i].first << ": \"" << vmem.cp_mmap[i].second << "\")" << std::endl;
                               }
                         }
-                        // TODO: maybe allow multiple values separated by some delim like ','
                         std::cout << "enter a number from [0-" << vmem.size-1 << "] or a range with a '-', followed by value to write OR 's' to continue searching" << std::endl;
                         std::cin >> v_loc_s;
                         if(v_loc_s == "s"){
@@ -122,6 +127,12 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                               std::cin.ignore(1000, '\n');
                               print_mmap(vmem, "", integers);
                               goto Find;
+                        }
+                        if(v_loc_s == "u"){
+                              update_mem_map(vmem, integers);
+                              std::cin.clear();
+                              std::cin.ignore(1000, '\n');
+                              goto Write;
                         }
                         lock_mode = false;
                         if(v_loc_s == "l"){
@@ -143,12 +154,22 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                         }
                         v_loc[vl_c] = std::stoi(tmp_num);
                         if(lock_mode){
+                              // TODO: document lock mode
                               if(fork() == 0){ // TODO: kill this if overwriting the same mem location
-                                    int to_w_i = std::stoi(to_w);
+                                    bool same = false;
+                                    int to_w_i;
+                                    if(to_w == "_")same = true;
+                                    else to_w_i = std::stoi(to_w);
                                     while(1){ // child process will forever repeat this
                                           for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
-                                                if(integers)write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, to_w_i);
-                                                else write_str_to_pid_mem(vmem.pid, vmem.cp_mmap[i].first, to_w);
+                                                if(integers){
+                                                      if(same)write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, vmem.mmap[i].second);
+                                                      else write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, to_w_i);
+                                                }
+                                                else{
+                                                      if(same)write_str_to_pid_mem(vmem.pid, vmem.cp_mmap[i].first, vmem.cp_mmap[i].second);
+                                                      else write_str_to_pid_mem(vmem.pid, vmem.cp_mmap[i].first, to_w);
+                                                }
                                           }
                                     }
                               }
@@ -162,7 +183,6 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                               if(integers)write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, std::stoi(to_w));
                               else{
                                     if(to_w.size() > vmem.cp_mmap[i].second.size()){
-                                          // not correcting string size for now
                                           std::cout << "WARNING (" << vmem.pid << ":" << vmem.cp_mmap[i].first << "): writing a string that is larger than the original string in its memory location causes undefined behavior" << std::endl; 
                                     }
                                     write_str_to_pid_mem(vmem.pid, vmem.cp_mmap[i].first, to_w);
@@ -172,12 +192,13 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   }
             }
             // tmp_str != "w"
+            if(tmp_str == "\\w" || tmp_str == "\\u")tmp_str = tmp_str[1]; // allow searching for 'w' or 'u' with \w or \u
             if(!first){
                   update_mem_map(vmem, integers);
             }
             if(integers){
                   tmp_val = std::stoi(tmp_str);
-                  narrow_mem_map_int(vmem, tmp_val);
+                  narrow_mem_map_int(vmem, tmp_val, true);
             }
             else{
                   narrow_mem_map_str(vmem, tmp_str, false);
@@ -196,7 +217,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
 
 
 int main(int argc, char* argv[]){
-      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-i] [-w <virtual memory addres> <value>] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-v]}\n    -p : prints all variables in specified memory region with corresopnding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -w : writes value to virtual memory address\n    -f : interactive mode (default)\n    -sb : save backup of process memory to file\n    -wb : restore process memory to backup\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n";
+      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory addres> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-v]}\n    -p : prints all variables in specified memory region with corresopnding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -w : write single value to virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -f : interactive mode (default)\n    -sb : save backup of process memory to file\n    -wb : restore process memory to backup\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n    -v : verbose mode (only affects restore backup)\n";
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             std::cout << help_str;
             return -1;
