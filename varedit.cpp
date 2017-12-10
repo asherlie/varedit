@@ -32,7 +32,7 @@ void save_pid_mem_state(const mem_map &vmem, std::string outf){
       std::ofstream ofs(outf);
       for(int i = 0; i < vmem.size; ++i){
             if(vmem.mmap[i].first == 0)break; // TODO: make sure the <0, 0> pairs are always at the end of the mem rgn.
-            // if(vmem.mmap[i].first != 0){   //       if not, use this. would be a bit slower
+            //if(vmem.mmap[i].first != 0)     //       if not, use this. would be a bit slower
             ofs << vmem.mmap[i].first << " " << vmem.mmap[i].second << "\n";
       }
       ofs.close();
@@ -217,7 +217,8 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
 
 
 int main(int argc, char* argv[]){
-      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory addres> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-v]}\n    -p : prints all variables in specified memory region with corresopnding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -w : write single value to virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -f : interactive mode (default)\n    -sb : save backup of process memory to file\n    -wb : restore process memory to backup\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n    -v : verbose mode (only affects restore backup)\n";
+      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory addres> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-v]}\n    -p : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -w : write single value to virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -f : interactive mode (default)\n    -sb : save backup of process memory to file\n    -wb : restore process memory to backup\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n    -v : verbose mode (only affects restore backup)\n";
+
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             std::cout << help_str;
             return -1;
@@ -279,13 +280,11 @@ int main(int argc, char* argv[]){
             // stop here if none of our required data regions are available
             if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
             if(strcmp(argv[2], "-p") == 0){
+                  if(integers)narrow_mem_map_int(vmem, 0, false); // get rid of empty pairs
                   if(argc > 3 && argv[3][0] != '-'){
                         print_mmap(vmem, argv[3], integers);
                   }
-                  else{
-                        if(integers)narrow_mem_map_int(vmem, 0, false); // get rid of empty pairs
-                        print_mmap(vmem, "", integers);
-                  }
+                  else print_mmap(vmem, "", integers);
                   if(integers)delete[] vmem.mmap;
                   else delete[] vmem.cp_mmap;
                   delete[] vmem.mapped_rgn.remaining_addr;
