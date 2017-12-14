@@ -192,6 +192,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   }
             }
             // tmp_str != "w"
+            if(first)populate_mem_map(vmem, vmem.pid, d_rgn, additional, integers);
             if(tmp_str == "\\w" || tmp_str == "\\u")tmp_str = tmp_str[1]; // allow searching for 'w' or 'u' with \w or \u
             if(!first){
                   update_mem_map(vmem, integers);
@@ -205,7 +206,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
             }
             if(vmem.size == 0){
                   std::cout << "nothing matches your search of: " << tmp_str << std::endl << "resetting mem map" << std::endl;
-                  vmem = vars_in_mem(vmem.pid, d_rgn, additional, integers);
+                  populate_mem_map(vmem, vmem.pid, d_rgn, additional, integers);
             }
             else{
                   std::cout << "matches are now:" << std::endl;
@@ -250,33 +251,46 @@ int main(int argc, char* argv[]){
                   verbose = true;
             }
       }
+      pid_t pid = (pid_t)std::stoi(argv[1]);
       // initializing here extends scope to default behavior to avoid rescanning memory
       mem_map vmem;
+      vmem.mapped_rgn = get_vmem_locations(pid);
       if(argc > 2){
             // -r and -w can be done without slowly loading a complete mem_map
             if(strcmp(argv[2], "-r") == 0){
-                  if(integers)std::cout << read_single_int_from_pid_mem((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16)) << std::endl;
-                  else std::cout << read_str_from_mem_block_slow((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16), nullptr) << std::endl;
+                  if(integers)std::cout << read_single_int_from_pid_mem(pid, (void*)strtoul(argv[3], 0, 16)) << std::endl;
+                  else std::cout << read_str_from_mem_block_slow(pid, (void*)strtoul(argv[3], 0, 16), nullptr) << std::endl;
                   return 0;
             }
             if(strcmp(argv[2], "-w") == 0){
-                  if(integers)write_int_to_pid_mem((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16), std::stoi(argv[4]));
-                  else write_str_to_pid_mem((pid_t)std::stoi(argv[1]), (void*)strtoul(argv[3], 0, 16), argv[4]);
+                  if(integers)write_int_to_pid_mem(pid, (void*)strtoul(argv[3], 0, 16), std::stoi(argv[4]));
+                  else write_str_to_pid_mem(pid, (void*)strtoul(argv[3], 0, 16), argv[4]);
                   return 0;
             }
             if(strcmp(argv[2], "-sb") == 0){
-                  vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, additional, true);
                   if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
+                  populate_mem_map(vmem, pid, d_rgn, additional, true);
                   save_pid_mem_state(vmem, argv[3]);
                   delete[] vmem.mmap;
                   return 0;
             }
             if(strcmp(argv[2], "-wb") == 0){
-                  restore_pid_mem_state((pid_t)std::stoi(argv[1]), argv[3], verbose);
+                  restore_pid_mem_state(pid, argv[3], verbose);
+                  return 0;
+            }
+            if(strcmp(argv[2], "-f") == 0){
+                  if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
+                  SAFE_INTER: // label is after memory region check to avoid printing warnings twice
+                  vmem.pid = pid;
+                  interactive_mode(vmem, integers, d_rgn, additional);
+                  if(integers)delete[] vmem.mmap;
+                  else delete[] vmem.cp_mmap;
+                  delete[] vmem.mapped_rgn.remaining_addr;
                   return 0;
             }
             // mem_map is needed for all other flags
-            vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, additional, integers);
+            //vmem = populate_mem_map(pid, d_rgn, additional, integers);
+            populate_mem_map(vmem, pid, d_rgn, additional, integers);
             // stop here if none of our required data regions are available
             if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
             if(strcmp(argv[2], "-p") == 0){
@@ -304,23 +318,8 @@ int main(int argc, char* argv[]){
                   delete[] vmem.mapped_rgn.remaining_addr;
                   return 0;
             }
-            if(strcmp(argv[2], "-f") == 0){
-                  interactive_mode(vmem, integers, d_rgn, additional);
-                  if(integers)delete[] vmem.mmap;
-                  else delete[] vmem.cp_mmap;
-                  delete[] vmem.mapped_rgn.remaining_addr;
-                  return 0;
-            }
       }
-      //argc <= 2
-      else{
-            vmem = vars_in_mem((pid_t)std::stoi(argv[1]), d_rgn, additional, integers);
-            if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
-      }
-      // stop here if none of our required data regions are available
-      interactive_mode(vmem, integers, d_rgn, additional);
-      if(integers)delete[] vmem.mmap;
-      else delete[] vmem.cp_mmap;
-      delete[] vmem.mapped_rgn.remaining_addr;
-      return 0;
+      // argc <= 2
+      // default to interactive mode
+      goto SAFE_INTER;
 }

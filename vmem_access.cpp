@@ -94,58 +94,55 @@ bool write_str_to_pid_mem(pid_t pid, void* vm, std::string str){
       return written == str.size();
 }
 
-mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, bool integers=true){
-      mem_map ret;
-      ret.pid = pid;
-      ret.mapped_rgn = get_vmem_locations(pid);
+void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, bool integers=true){
       long m_size = 0;
       void* vm_l_stack; void* vm_l_end_stack; void* vm_l_heap; void* vm_l_end_heap;
       if(d_rgn == STACK || d_rgn == BOTH){
-            vm_l_stack = ret.mapped_rgn.stack_start_addr;
-            vm_l_end_stack = ret.mapped_rgn.stack_end_addr;
+            vm_l_stack = mmap.mapped_rgn.stack_start_addr;
+            vm_l_end_stack = mmap.mapped_rgn.stack_end_addr;
             m_size = (char*)vm_l_end_stack-(char*)vm_l_stack;
       }
       if(d_rgn == HEAP || d_rgn == BOTH){
-            vm_l_heap = ret.mapped_rgn.heap_start_addr;
-            vm_l_end_heap = ret.mapped_rgn.heap_end_addr;
+            vm_l_heap = mmap.mapped_rgn.heap_start_addr;
+            vm_l_end_heap = mmap.mapped_rgn.heap_end_addr;
             m_size += ((char*)vm_l_end_heap-(char*)vm_l_heap);
       }
       if(use_additional_rgns){
-            for(int i = 0; i < ret.mapped_rgn.n_remaining; ++i){
-                  m_size += (char*)ret.mapped_rgn.remaining_addr[i].second-(char*)ret.mapped_rgn.remaining_addr[i].first;
+            for(int i = 0; i < mmap.mapped_rgn.n_remaining; ++i){
+                  m_size += (char*)mmap.mapped_rgn.remaining_addr[i].second-(char*)mmap.mapped_rgn.remaining_addr[i].first;
             }
       }
-      ret.size = 0;
-      if(integers)ret.mmap = new std::pair<void*, int>[m_size]; //TODO: try using [m_size/4]
-      else ret.cp_mmap = new std::pair<void*, std::string>[m_size];
+      mmap.size = 0;
+      if(integers)mmap.mmap = new std::pair<void*, int>[m_size]; //TODO: try using [m_size/4]
+      else mmap.cp_mmap = new std::pair<void*, std::string>[m_size];
       //TODO: find smarter way to allocate string mmap memory, this assumes that each memory location stores an individual string
       long c = 0;
       if(integers){
-            ret.size = m_size;
+            mmap.size = m_size;
             if(d_rgn == STACK || d_rgn == BOTH){
                   int* ints_in_stack = read_bytes_from_pid_mem(pid, 4, vm_l_stack, vm_l_end_stack);
                   for(int d = 0; vm_l_stack != vm_l_end_stack; vm_l_stack = (void*)(((char*)vm_l_stack)+4)){ // +4 for ints
-                        ret.mmap[c++] = std::make_pair(vm_l_stack, ints_in_stack[d++]);
+                        mmap.mmap[c++] = std::make_pair(vm_l_stack, ints_in_stack[d++]);
                   }
                   delete[] ints_in_stack;
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
                   int* ints_in_heap = read_bytes_from_pid_mem(pid, 4, vm_l_heap, vm_l_end_heap);
                   for(int d = 0; vm_l_heap != vm_l_end_heap; vm_l_heap = (void*)(((char*)vm_l_heap)+4)){
-                        ret.mmap[c++] = std::make_pair(vm_l_heap, ints_in_heap[d++]);
+                        mmap.mmap[c++] = std::make_pair(vm_l_heap, ints_in_heap[d++]);
                   }
                   delete[] ints_in_heap;
 
             }
             if(use_additional_rgns){
-                  for(int i = 0; i < ret.mapped_rgn.n_remaining; ++i){
-                        int* ints_in_adtnl = read_bytes_from_pid_mem(pid, 4, ret.mapped_rgn.remaining_addr[i].first, 
-                                                                             ret.mapped_rgn.remaining_addr[i].second);
+                  for(int i = 0; i < mmap.mapped_rgn.n_remaining; ++i){
+                        int* ints_in_adtnl = read_bytes_from_pid_mem(pid, 4, mmap.mapped_rgn.remaining_addr[i].first, 
+                                                                             mmap.mapped_rgn.remaining_addr[i].second);
                         int d = 0;
-                        for(void* vm_l = ret.mapped_rgn.remaining_addr[i].first;
-                                  vm_l != ret.mapped_rgn.remaining_addr[i].second;
+                        for(void* vm_l = mmap.mapped_rgn.remaining_addr[i].first;
+                                  vm_l != mmap.mapped_rgn.remaining_addr[i].second;
                                   vm_l = (void*)(((char*)vm_l)+4)){
-                              ret.mmap[c++] = std::make_pair(vm_l, ints_in_adtnl[d++]);
+                              mmap.mmap[c++] = std::make_pair(vm_l, ints_in_adtnl[d++]);
                         }
                         delete[] ints_in_adtnl;
                   }
@@ -167,8 +164,8 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
                         }
                         else if(in_str){
                               in_str = false;
-                              ret.cp_mmap[c++] = std::make_pair(str_st_addr, tmp);
-                              ++ret.size;
+                              mmap.cp_mmap[c++] = std::make_pair(str_st_addr, tmp);
+                              ++mmap.size;
                               tmp = "";
                         }
                         current_addr = (void*)(((char*)current_addr)+1);
@@ -188,8 +185,8 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
                         }
                         else if(in_str){
                               in_str = false;
-                              ret.cp_mmap[c++] = std::make_pair(str_st_addr, tmp);
-                              ++ret.size;
+                              mmap.cp_mmap[c++] = std::make_pair(str_st_addr, tmp);
+                              ++mmap.size;
                               tmp = "";
                         }
                         current_addr = (void*)(((char*)current_addr)+1);
@@ -201,10 +198,10 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
                   tmp = "";
                   int* chars_in_addtnl;
                   void* current_addr; void* str_st_addr;
-                  for(int i = 0; i < ret.mapped_rgn.n_remaining; ++i){
-                        chars_in_addtnl = read_bytes_from_pid_mem(pid, 1, ret.mapped_rgn.remaining_addr[i].first, ret.mapped_rgn.remaining_addr[i].second);
-                        current_addr = ret.mapped_rgn.remaining_addr[i].first;
-                        for(int j = 0; j < (char*)ret.mapped_rgn.remaining_addr[i].second-(char*)ret.mapped_rgn.remaining_addr[i].first; ++j){
+                  for(int i = 0; i < mmap.mapped_rgn.n_remaining; ++i){
+                        chars_in_addtnl = read_bytes_from_pid_mem(pid, 1, mmap.mapped_rgn.remaining_addr[i].first, mmap.mapped_rgn.remaining_addr[i].second);
+                        current_addr = mmap.mapped_rgn.remaining_addr[i].first;
+                        for(int j = 0; j < (char*)mmap.mapped_rgn.remaining_addr[i].second-(char*)mmap.mapped_rgn.remaining_addr[i].first; ++j){
                               if(chars_in_addtnl[j] > 0 && chars_in_addtnl[j] < 127){
                                     if(!in_str)str_st_addr = current_addr;
                                     in_str = true;
@@ -212,8 +209,8 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
                               }
                               else if(in_str){
                                     in_str = false;
-                                    ret.cp_mmap[c++] = std::make_pair(str_st_addr, tmp);
-                                    ++ret.size;
+                                    mmap.cp_mmap[c++] = std::make_pair(str_st_addr, tmp);
+                                    ++mmap.size;
                                     tmp = "";
                               }
                         }
@@ -221,7 +218,6 @@ mem_map vars_in_mem(pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, b
                   }
             }
       }
-      return ret;
 }
 
 void update_mem_map(mem_map &mem, bool integers=true){
