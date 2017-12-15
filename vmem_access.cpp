@@ -249,6 +249,10 @@ void narrow_mem_map_int(mem_map &mem, int match, bool use_match){ // if !use_mat
                    */
             }
       }
+      std::pair<void*, int>* tmp_mmap = new std::pair<void*, int>[mem.size];
+      std::copy(mem.mmap, mem.mmap+mem.size, tmp_mmap);
+      delete[] mem.mmap;
+      mem.mmap = tmp_mmap;
 }
 
 void narrow_mem_map_str(mem_map &mem, std::string match, bool exact=true){
@@ -266,4 +270,8 @@ void narrow_mem_map_str(mem_map &mem, std::string match, bool exact=true){
                   }
             }
       }
+      std::pair<void*, std::string>* tmp_cp_mmap = new std::pair<void*, std::string>[mem.size];
+      std::copy(mem.cp_mmap, mem.cp_mmap+mem.size, tmp_cp_mmap);
+      delete[] mem.cp_mmap;
+      mem.cp_mmap = tmp_cp_mmap;
 }
