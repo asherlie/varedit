@@ -206,6 +206,8 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
             }
             if(vmem.size == 0){
                   std::cout << "nothing matches your search of: " << tmp_str << std::endl << "resetting mem map" << std::endl;
+                  if(integers)delete[] vmem.mmap;
+                  else delete[] vmem.cp_mmap;
                   populate_mem_map(vmem, vmem.pid, d_rgn, additional, integers);
             }
             else{
@@ -267,20 +269,20 @@ int main(int argc, char* argv[]){
                   else write_str_to_pid_mem(pid, (void*)strtoul(argv[3], 0, 16), argv[4]);
                   return 0;
             }
+            if(strcmp(argv[2], "-wb") == 0){
+                  restore_pid_mem_state(pid, argv[3], verbose);
+                  return 0;
+            }
+            if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
+            // stop here if none of our required data regions are available
             if(strcmp(argv[2], "-sb") == 0){
-                  if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
                   populate_mem_map(vmem, pid, d_rgn, additional, true);
                   save_pid_mem_state(vmem, argv[3]);
                   delete[] vmem.mmap;
                   return 0;
             }
-            if(strcmp(argv[2], "-wb") == 0){
-                  restore_pid_mem_state(pid, argv[3], verbose);
-                  return 0;
-            }
             if(strcmp(argv[2], "-f") == 0){
-                  if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
-                  SAFE_INTER: // label is after memory region check to avoid printing warnings twice
+                  SAFE_INTER:
                   vmem.pid = pid;
                   interactive_mode(vmem, integers, d_rgn, additional);
                   if(integers)delete[] vmem.mmap;
@@ -288,12 +290,8 @@ int main(int argc, char* argv[]){
                   delete[] vmem.mapped_rgn.remaining_addr;
                   return 0;
             }
-            // mem_map is needed for all other flags
-            //vmem = populate_mem_map(pid, d_rgn, additional, integers);
-            populate_mem_map(vmem, pid, d_rgn, additional, integers);
-            // stop here if none of our required data regions are available
-            if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
             if(strcmp(argv[2], "-p") == 0){
+                  populate_mem_map(vmem, pid, d_rgn, additional, integers);
                   if(integers)narrow_mem_map_int(vmem, 0, false); // get rid of empty pairs
                   if(argc > 3 && argv[3][0] != '-'){
                         print_mmap(vmem, argv[3], integers);
@@ -305,6 +303,7 @@ int main(int argc, char* argv[]){
                   return 0;
             }
             if(strcmp(argv[2], "-i") == 0){
+                  populate_mem_map(vmem, pid, d_rgn, additional, integers);
                   if(!integers){
                         std::cout << "cannot invert string/char*" << std::endl;
                         if(integers)delete[] vmem.mmap;
@@ -318,8 +317,10 @@ int main(int argc, char* argv[]){
                   delete[] vmem.mapped_rgn.remaining_addr;
                   return 0;
             }
+            goto SAFE_INTER; // go back to interactive mode before mem_rgn_warn is called again
       }
       // argc <= 2
+      if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
       // default to interactive mode
       goto SAFE_INTER;
 }
