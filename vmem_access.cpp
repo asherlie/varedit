@@ -235,6 +235,7 @@ void update_mem_map(mem_map &mem, bool integers=true){
 }
 
 void narrow_mem_map_int(mem_map &mem, int match, bool use_match){ // if !use_match this can be used to delete empty pairs
+      int initial = mem.size;
       std::string match_str = std::to_string(match);
       for(int i = 0; i < mem.size; ++i){
             // std::pair<void*, int> is initialized to <0, 0> - erase these pairs
@@ -249,13 +250,16 @@ void narrow_mem_map_int(mem_map &mem, int match, bool use_match){ // if !use_mat
                    */
             }
       }
-      std::pair<void*, int>* tmp_mmap = new std::pair<void*, int>[mem.size];
-      std::copy(mem.mmap, mem.mmap+mem.size, tmp_mmap);
-      delete[] mem.mmap;
-      mem.mmap = tmp_mmap;
+      if(mem.size < initial){
+            std::pair<void*, int>* tmp_mmap = new std::pair<void*, int>[mem.size];
+            std::copy(mem.mmap, mem.mmap+mem.size, tmp_mmap);
+            delete[] mem.mmap;
+            mem.mmap = tmp_mmap;
+      }
 }
 
 void narrow_mem_map_str(mem_map &mem, std::string match, bool exact=true){
+      int initial = mem.size;
       for(int i = 0; i < mem.size; ++i){
             if(exact){
                   if(mem.cp_mmap[i].first == 0 || mem.cp_mmap[i].second != match){
@@ -270,8 +274,10 @@ void narrow_mem_map_str(mem_map &mem, std::string match, bool exact=true){
                   }
             }
       }
-      std::pair<void*, std::string>* tmp_cp_mmap = new std::pair<void*, std::string>[mem.size];
-      std::copy(mem.cp_mmap, mem.cp_mmap+mem.size, tmp_cp_mmap);
-      delete[] mem.cp_mmap;
-      mem.cp_mmap = tmp_cp_mmap;
+      if(mem.size < initial){
+            std::pair<void*, std::string>* tmp_cp_mmap = new std::pair<void*, std::string>[mem.size];
+            std::copy(mem.cp_mmap, mem.cp_mmap+mem.size, tmp_cp_mmap);
+            delete[] mem.cp_mmap;
+            mem.cp_mmap = tmp_cp_mmap;
+      }
 }
