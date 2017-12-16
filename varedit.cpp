@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h> // fork
-#include <fstream> // -sb/-wb
+#include <fstream>  // -sb/-wb
 
 #include "vmem_access.h"
 
@@ -79,7 +79,7 @@ void logic_swap(const mem_map &mem){
       }
 }
 
-void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additional=true){
+bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additional=true){
       std::cout << "in interactive mode on process " << vmem.pid << " (" << vmem.mapped_rgn.p_name << ")\nusing ";
       if(d_rgn == STACK)std::cout << "stack";
       if(d_rgn == HEAP)std::cout << "heap";
@@ -88,7 +88,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
       std::cout << " - looking for ";
       if(integers)std::cout << "integers" << std::endl;
       else std::cout << "strings" << std::endl;
-      std::cout << "enter 'u' at any time to update visible values" << std::endl;
+      std::cout << "enter 'u' at any time to update visible values or 'q' to exit" << std::endl;
       std::string tmp_str;
       int tmp_val;
       bool first = true;
@@ -97,6 +97,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
             Find:
             std::cout << "enter current variable value or 'w' to enter write mode" << std::endl;
             std::getline(std::cin, tmp_str);
+            if(tmp_str == "q")return !first;
             if(tmp_str == "u"){
                   update_mem_map(vmem, integers);
                   std::cin.clear();
@@ -128,6 +129,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                               print_mmap(vmem, "", integers);
                               goto Find;
                         }
+                        if(v_loc_s == "q")return !first;
                         if(v_loc_s == "u"){
                               update_mem_map(vmem, integers);
                               std::cin.clear();
@@ -193,7 +195,7 @@ void interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
             }
             // tmp_str != "w"
             if(first)populate_mem_map(vmem, vmem.pid, d_rgn, additional, integers);
-            if(tmp_str == "\\w" || tmp_str == "\\u")tmp_str = tmp_str[1]; // allow searching for 'w' or 'u' with \w or \u
+            if(tmp_str == "\\w" || tmp_str == "\\u" || tmp_str == "\\q")tmp_str = tmp_str[1]; // allow searching for 'w' or 'u' with \w or \u
             if(!first){
                   update_mem_map(vmem, integers);
             }
@@ -284,10 +286,12 @@ int main(int argc, char* argv[]){
             if(strcmp(argv[2], "-f") == 0){
                   SAFE_INTER:
                   vmem.pid = pid;
-                  interactive_mode(vmem, integers, d_rgn, additional);
-                  if(integers)delete[] vmem.mmap;
-                  else delete[] vmem.cp_mmap;
-                  delete[] vmem.mapped_rgn.remaining_addr;
+                  bool populated = interactive_mode(vmem, integers, d_rgn, additional);
+                  if(populated){
+                        if(integers)delete[] vmem.mmap;
+                        else delete[] vmem.cp_mmap;
+                        delete[] vmem.mapped_rgn.remaining_addr;
+                  }
                   return 0;
             }
             if(strcmp(argv[2], "-p") == 0){
