@@ -96,16 +96,14 @@ bool write_str_to_pid_mem(pid_t pid, void* vm, std::string str){
 
 void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, bool integers=true){
       long m_size = 0;
-      void* vm_l_stack; void* vm_l_end_stack; void* vm_l_heap; void* vm_l_end_heap;
+      void* vm_l_stack; void* vm_l_heap;
       if(d_rgn == STACK || d_rgn == BOTH){
             vm_l_stack = mmap.mapped_rgn.stack_start_addr;
-            vm_l_end_stack = mmap.mapped_rgn.stack_end_addr;
-            m_size = (char*)vm_l_end_stack-(char*)vm_l_stack;
+            m_size = (char*)mmap.mapped_rgn.stack_end_addr-(char*)vm_l_stack;
       }
       if(d_rgn == HEAP || d_rgn == BOTH){
             vm_l_heap = mmap.mapped_rgn.heap_start_addr;
-            vm_l_end_heap = mmap.mapped_rgn.heap_end_addr;
-            m_size += ((char*)vm_l_end_heap-(char*)vm_l_heap);
+            m_size += ((char*)mmap.mapped_rgn.heap_end_addr-(char*)vm_l_heap);
       }
       if(use_additional_rgns){
             for(int i = 0; i < mmap.mapped_rgn.n_remaining; ++i){
@@ -120,15 +118,15 @@ void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn=STACK, bool use_additi
       if(integers){
             mmap.size = m_size;
             if(d_rgn == STACK || d_rgn == BOTH){
-                  int* ints_in_stack = read_bytes_from_pid_mem(pid, 4, vm_l_stack, vm_l_end_stack);
-                  for(int d = 0; vm_l_stack != vm_l_end_stack; vm_l_stack = (void*)(((char*)vm_l_stack)+4)){ // +4 for ints
+                  int* ints_in_stack = read_bytes_from_pid_mem(pid, 4, vm_l_stack, mmap.mapped_rgn.stack_end_addr);
+                  for(int d = 0; vm_l_stack != mmap.mapped_rgn.stack_end_addr; vm_l_stack = (void*)(((char*)vm_l_stack)+4)){ // +4 for ints
                         mmap.mmap[c++] = std::make_pair(vm_l_stack, ints_in_stack[d++]);
                   }
                   delete[] ints_in_stack;
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
-                  int* ints_in_heap = read_bytes_from_pid_mem(pid, 4, vm_l_heap, vm_l_end_heap);
-                  for(int d = 0; vm_l_heap != vm_l_end_heap; vm_l_heap = (void*)(((char*)vm_l_heap)+4)){
+                  int* ints_in_heap = read_bytes_from_pid_mem(pid, 4, vm_l_heap, mmap.mapped_rgn.heap_end_addr);
+                  for(int d = 0; vm_l_heap != mmap.mapped_rgn.heap_end_addr; vm_l_heap = (void*)(((char*)vm_l_heap)+4)){
                         mmap.mmap[c++] = std::make_pair(vm_l_heap, ints_in_heap[d++]);
                   }
                   delete[] ints_in_heap;
@@ -154,9 +152,9 @@ void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn=STACK, bool use_additi
             bool in_str = false;
             if(d_rgn == STACK || d_rgn == BOTH){
                   tmp = "";
-                  int* chars_in_stack = read_bytes_from_pid_mem(pid, 1, vm_l_stack, vm_l_end_stack);
+                  int* chars_in_stack = read_bytes_from_pid_mem(pid, 1, vm_l_stack, mmap.mapped_rgn.stack_end_addr);
                   void* current_addr = vm_l_stack; void* str_st_addr;
-                  for(int i = 0; i < (char*)vm_l_end_stack-(char*)vm_l_stack; ++i){
+                  for(int i = 0; i < (char*)mmap.mapped_rgn.stack_end_addr-(char*)vm_l_stack; ++i){
                         if(chars_in_stack[i] > 0 && chars_in_stack[i] < 127){
                               if(!in_str)str_st_addr = current_addr; // first char of a string
                               in_str = true;
@@ -175,9 +173,9 @@ void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn=STACK, bool use_additi
             if(d_rgn == HEAP || d_rgn == BOTH){
                   in_str = false;
                   tmp = "";
-                  int* chars_in_heap = read_bytes_from_pid_mem(pid, 1, vm_l_heap, vm_l_end_heap);
+                  int* chars_in_heap = read_bytes_from_pid_mem(pid, 1, vm_l_heap, mmap.mapped_rgn.heap_end_addr);
                   void* current_addr = vm_l_heap; void* str_st_addr;
-                  for(int i = 0; i < (char*)vm_l_end_heap-(char*)vm_l_heap; ++i){
+                  for(int i = 0; i < (char*)mmap.mapped_rgn.heap_end_addr-(char*)vm_l_heap; ++i){
                         if(chars_in_heap[i] > 0 && chars_in_heap[i] < 127){
                               if(!in_str)str_st_addr = current_addr;
                               in_str = true;

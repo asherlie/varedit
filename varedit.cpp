@@ -175,7 +175,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                                     bool same = false;
                                     int to_w_i;
                                     if(to_w == "_")same = true;
-                                    else to_w_i = std::stoi(to_w);
+                                    else if(integers)to_w_i = std::stoi(to_w);
                                     while(1){ // child process will forever repeat this
                                           for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
                                                 if(integers){
