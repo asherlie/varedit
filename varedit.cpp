@@ -5,6 +5,9 @@
 #include <unistd.h> // fork
 #include <fstream>  // -sb/-wb
 
+#include <signal.h> // kil()
+#include <sys/wait.h> // wait()
+
 #include "vmem_access.h"
 
 #define STACK 0
@@ -106,7 +109,10 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
       int tmp_val;
       bool first = true;
       bool lock_mode;
-      int result_print_limit = 1000;
+      int result_print_limit = 1000; 
+      pid_t child_pid[100]; // 100 should be big enough
+      pid_t temp_pid;
+      int num_locks = 0;
       while(1){
             Find:
             std::cout << "enter current variable value or 'w' to enter write mode" << std::endl;
@@ -116,6 +122,17 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   update_mem_map(vmem, integers);
                   std::cin.clear();
                   print_mmap(vmem, "", integers);
+                  goto Find;
+            }
+            // TODO: decide if i want to allow removal of locks in search mode
+            if(tmp_str == "rl"){
+                  if(num_locks == 0)std::cout << "no more locks to remove" << std::endl;
+                  else {
+                        kill(child_pid[--num_locks], SIGKILL);
+                        wait(NULL);
+                        std::cout << "lock removed" << std::endl;
+                  }
+                  std::cin.clear();
                   goto Find;
             }
             if(tmp_str == "w"){
@@ -150,6 +167,19 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                               std::cin.ignore(1000, '\n');
                               goto Write;
                         }
+                        if(v_loc_s == "rl"){
+                              // TODO: add interactive way to disable locks with indices
+                              // TODO: change child_pid to std::pair<void*, int/string>[]
+                              if(num_locks == 0)std::cout << "no more locks to remove" << std::endl;
+                              else {
+                                    kill(child_pid[--num_locks], SIGKILL);
+                                    wait(NULL);
+                                    std::cout << "lock removed" << std::endl;
+                              }
+                              std::cin.clear();
+                              std::cin.ignore(1000, '\n');
+                              goto Write;
+                        }
                         lock_mode = false;
                         if(v_loc_s == "l"){
                               lock_mode = true;
@@ -171,9 +201,11 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                         v_loc[vl_c] = std::stoi(tmp_num);
                         if(lock_mode){
                               // TODO: document lock mode
-                              if(fork() == 0){ // TODO: kill this if overwriting the same mem location
+                              temp_pid = fork();
+                              if(temp_pid == 0){ // TODO: kill this if overwriting the same mem location
                                     bool same = false;
                                     int to_w_i;
+                                    //int to_w_i = 0; // to silence -Wmaybe-uninitialized
                                     if(to_w == "_")same = true;
                                     else if(integers)to_w_i = std::stoi(to_w);
                                     while(1){ // child process will forever repeat this
@@ -189,6 +221,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                                           }
                                     }
                               }
+                              child_pid[num_locks++] = temp_pid;
                               std::cout << "variable(s) locked" << std::endl;
                               update_mem_map(vmem, integers);
                               //goto Find; // TODO: decide what behavior should be after vars have been locked
@@ -215,7 +248,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
             }
             if(first)populate_mem_map(vmem, vmem.pid, d_rgn, additional, integers);
             if(tmp_str == "\\w" || tmp_str == "\\u" || tmp_str == "\\q")tmp_str = tmp_str[1]; // allow searching for 'w' or 'u' with \w or \u
-            if(tmp_str == "\\rv")tmp_str = "rv";
+            if(tmp_str == "\\rv" || tmp_str == "\\rl")tmp_str = tmp_str[1] + tmp_str[2];
             if(!first){
                   update_mem_map(vmem, integers);
             }
