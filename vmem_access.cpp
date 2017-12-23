@@ -111,7 +111,10 @@ void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn=STACK, bool use_additi
             }
       }
       mmap.size = 0;
-      if(integers)mmap.mmap = new std::pair<void*, int>[m_size]; //TODO: try using [m_size/4]
+      if(integers){
+            m_size /= 4;
+            mmap.mmap = new std::pair<void*, int>[m_size];
+      }
       else mmap.cp_mmap = new std::pair<void*, std::string>[m_size];
       //TODO: find smarter way to allocate string mmap memory, this assumes that each memory location stores an individual string
       long c = 0;
@@ -232,12 +235,12 @@ void update_mem_map(mem_map &mem, bool integers=true){
       }
 }
 
-void narrow_mem_map_int(mem_map &mem, int match, bool use_match){ // if !use_match this can be used to delete empty pairs
+void narrow_mem_map_int(mem_map &mem, int match){ // if !use_match this can be used to delete empty pairs
       int initial = mem.size;
       std::string match_str = std::to_string(match);
       for(int i = 0; i < mem.size; ++i){
             // std::pair<void*, int> is initialized to <0, 0> - erase these pairs
-            if(mem.mmap[i].first == 0 || (use_match && std::to_string(mem.mmap[i].second) != match_str)){ // exact
+            if(std::to_string(mem.mmap[i].second) != match_str){ // exact
                   mem.mmap[i--] = mem.mmap[--mem.size];
                   /*
                    *  // essentially, 

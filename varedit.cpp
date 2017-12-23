@@ -5,7 +5,7 @@
 #include <unistd.h> // fork
 #include <fstream>  // -sb/-wb
 
-#include <signal.h> // kil()
+#include <signal.h> // kill()
 #include <sys/wait.h> // wait()
 
 #include "vmem_access.h"
@@ -34,8 +34,6 @@ bool mem_rgn_warn(int d_rgn, mem_rgn mem, bool additional){
 void save_pid_mem_state(const mem_map &vmem, std::string outf){
       std::ofstream ofs(outf);
       for(int i = 0; i < vmem.size; ++i){
-            if(vmem.mmap[i].first == 0)break; // TODO: make sure the <0, 0> pairs are always at the end of the mem rgn.
-            //if(vmem.mmap[i].first != 0)     //       if not, use this. would be a bit slower
             ofs << vmem.mmap[i].first << " " << vmem.mmap[i].second << "\n";
       }
       ofs.close();
@@ -110,7 +108,10 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
       bool first = true;
       bool lock_mode;
       int result_print_limit = 1000; 
-      pid_t child_pid[100]; // 100 should be big enough
+      // the three variables below are used to keep track of var locks
+      // TODO: decide if i want to keep this ridiculous child_pid storage system or just switch to an array of pid_t's and not print info at removal
+      // or switch to this std::pair<pid_t, std::pair<void*, std::string> >[30] child_pid; //and just cast as mentioned below
+      std::pair<std::pair<pid_t, std::pair<void*, int> >[30], std::pair<pid_t, std::pair<void*, std::string> >[30]> child_pid;
       pid_t temp_pid;
       int num_locks = 0;
       while(1){
@@ -126,17 +127,22 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
             }
             // TODO: decide if i want to allow removal of locks in search mode
             if(tmp_str == "rl"){
-                  if(num_locks == 0)std::cout << "no more locks to remove" << std::endl;
+                  if(num_locks == 0)std::cout << "no locks are currently in place" << std::endl;
                   else {
-                        kill(child_pid[--num_locks], SIGKILL);
+                        if(integers){
+                              kill(child_pid.first[--num_locks].first, SIGKILL);
+                              std::cout << "lock with value " << child_pid.first[num_locks].second.second << " removed (" << child_pid.first[num_locks].second.first << ")" << std::endl;
+                        }
+                        else{
+                              kill(child_pid.second[--num_locks].first, SIGKILL);
+                              std::cout << "lock with value " << child_pid.second[num_locks].second.second << " removed (" << child_pid.second[num_locks].second.first << ")" << std::endl;
+                        }
                         wait(NULL);
-                        std::cout << "lock removed" << std::endl;
                   }
                   std::cin.clear();
                   goto Find;
             }
             if(tmp_str == "w"){
-                  if(integers && first)narrow_mem_map_int(vmem, 0, false); // to get rid of empty pairs
                   int vl_c;
                   std::string tmp_num, v_loc_s, to_w;
                   int v_loc[2]; // v_loc stores start and end of a range
@@ -167,14 +173,19 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                               std::cin.ignore(1000, '\n');
                               goto Write;
                         }
+                        // TODO: add interactive way to remove locks when there are multiple in place
                         if(v_loc_s == "rl"){
-                              // TODO: add interactive way to disable locks with indices
-                              // TODO: change child_pid to std::pair<void*, int/string>[]
-                              if(num_locks == 0)std::cout << "no more locks to remove" << std::endl;
+                              if(num_locks == 0)std::cout << "no locks are currently in place" << std::endl;
                               else {
-                                    kill(child_pid[--num_locks], SIGKILL);
+                                    if(integers){
+                                          kill(child_pid.first[--num_locks].first, SIGKILL);
+                                          std::cout << "lock with value " << child_pid.first[num_locks].second.second << " removed (" << child_pid.first[num_locks].second.first << ")" << std::endl;
+                                    }
+                                    else{
+                                          kill(child_pid.second[--num_locks].first, SIGKILL);
+                                          std::cout << "lock with value " << child_pid.second[num_locks].second.second << " removed (" << child_pid.second[num_locks].second.first << ")" << std::endl;
+                                    }
                                     wait(NULL);
-                                    std::cout << "lock removed" << std::endl;
                               }
                               std::cin.clear();
                               std::cin.ignore(1000, '\n');
@@ -208,26 +219,40 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                                     //int to_w_i = 0; // to silence -Wmaybe-uninitialized
                                     if(to_w == "_")same = true;
                                     else if(integers)to_w_i = std::stoi(to_w);
+                                    // creating pair arrays to store relevant addressses and values so i can free up memory
+                                    std::pair<void*, int> vmem_int_subset[v_loc[vl_c]-v_loc[0]+1];
+                                    std::pair<void*, std::string> vmem_str_subset[v_loc[vl_c]-v_loc[0]+1];
+                                    int c = 0;
+                                    for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
+                                          if(integers)vmem_int_subset[c++] = vmem.mmap[i];
+                                          else vmem_str_subset[c++] = vmem.cp_mmap[i];
+                                    }
+                                    // this will run for a long time so we might as well free up whatever memory we can
+                                    if(integers)delete[] vmem.mmap;
+                                    else delete[] vmem.cp_mmap;
                                     while(1){ // child process will forever repeat this
-                                          for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
+                                          for(int i = 0; i <= v_loc[vl_c]-v_loc[0]; ++i){
                                                 if(integers){
-                                                      if(same)to_w_i = vmem.mmap[i].second;
-                                                      write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, to_w_i);
+                                                      if(same)to_w_i = vmem_int_subset[i].second;
+                                                      write_int_to_pid_mem(vmem.pid, vmem_int_subset[i].first, to_w_i);
                                                 }
                                                 else{
-                                                      if(same)to_w = vmem.cp_mmap[i].second;
-                                                      write_str_to_pid_mem(vmem.pid, vmem.cp_mmap[i].first, to_w);
+                                                      if(same)to_w = vmem_str_subset[i].second;
+                                                      write_str_to_pid_mem(vmem.pid, vmem_str_subset[i].first, to_w);
                                                 }
                                           }
                                     }
                               }
-                              child_pid[num_locks++] = temp_pid;
+                              // TODO: maybe rep both of these with just one <pid_t, <void*, std::string> > and just std::to_string all the ints. this is a little ridiculous
+                              //                                                                     because using v_loc[0], it will only show first addr of range
+                              if(integers)child_pid.first[num_locks++] = std::make_pair(temp_pid, std::make_pair(vmem.mmap[v_loc[0]].first, std::stoi(to_w)));
+                              else child_pid.second[num_locks++] = std::make_pair(temp_pid, std::make_pair(vmem.cp_mmap[v_loc[0]].first, to_w));
                               std::cout << "variable(s) locked" << std::endl;
                               update_mem_map(vmem, integers);
                               //goto Find; // TODO: decide what behavior should be after vars have been locked
                               continue;
                         }
-                        for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){ // write all ints in range or between commas
+                        for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
                               if(integers)write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, std::stoi(to_w));
                               else{
                                     if(to_w.size() > vmem.cp_mmap[i].second.size()){
@@ -254,7 +279,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
             }
             if(integers){
                   tmp_val = std::stoi(tmp_str);
-                  narrow_mem_map_int(vmem, tmp_val, true);
+                  narrow_mem_map_int(vmem, tmp_val);
             }
             else narrow_mem_map_str(vmem, tmp_str, false);
             if(vmem.size == 0){
@@ -352,7 +377,6 @@ int main(int argc, char* argv[]){
             }
             if(strcmp(argv[2], "-p") == 0){
                   populate_mem_map(vmem, pid, d_rgn, additional, integers);
-                  if(integers)narrow_mem_map_int(vmem, 0, false); // get rid of empty pairs
                   if(argc > 3 && argv[3][0] != '-'){
                         print_mmap(vmem, argv[3], integers);
                   }
