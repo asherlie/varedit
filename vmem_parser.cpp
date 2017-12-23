@@ -12,7 +12,7 @@ std::string get_proc_name(pid_t pid){
       return pname;
 }
 
-mem_rgn get_vmem_locations(pid_t pid){
+mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
       std::string tmp;
       std::string map_path = "/proc/" + std::to_string(pid) + "/maps";
       std::ifstream ifs(map_path);
@@ -25,10 +25,10 @@ mem_rgn get_vmem_locations(pid_t pid){
       vmem.stack_end_addr = nullptr;
       vmem.heap_start_addr = nullptr;
       vmem.heap_end_addr = nullptr;
-      // should be enough
-      vmem.remaining_addr = new std::pair<void*, void*>[100];
+      vmem.remaining_addr = new std::pair<void*, void*>[100];// should be enough
       int rem_alloc_sz = 100;
       vmem.n_remaining = 0;
+      void* p_end = nullptr;
       while(std::getline(ifs, tmp)){
             start_add = "";
             end_add = "";
@@ -53,12 +53,8 @@ mem_rgn get_vmem_locations(pid_t pid){
                   break;
             }
             while(tmp[i-1] != '/' && tmp[i-1] != '[' && i < tmp.size()){
-                  if(i >= tmp.size()-1){
-                        // if end of the line
-                        found_desc = false;
-                  }
-                  if(tmp[i] == '/'){
-                        if(tmp.find(vmem.p_name) != std::string::npos){
+                  if(tmp[i] == '/' || i >= tmp.size()-1){
+                        if(tmp.find(vmem.p_name) != std::string::npos || (unmarked_additional && p_end != l_start_add && i >= tmp.size()-1)){
                               std::pair<void*, void*> tmp_pair((void*)l_start_add, (void*)l_end_add);
                               //                 n_additional space-1
                               if(vmem.n_remaining == rem_alloc_sz-1){
@@ -73,6 +69,7 @@ mem_rgn get_vmem_locations(pid_t pid){
                   }
                   ++i;
             }
+            p_end = l_end_add;
             --i;
             if(found_desc){
                   while(tmp[i-1] != ']'){

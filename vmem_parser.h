@@ -24,4 +24,4 @@ struct mem_map{
       long size;
 };
 
-mem_rgn get_vmem_locations(pid_t pid);
+mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional);

@@ -235,7 +235,7 @@ void update_mem_map(mem_map &mem, bool integers=true){
       }
 }
 
-void narrow_mem_map_int(mem_map &mem, int match){ // if !use_match this can be used to delete empty pairs
+void narrow_mem_map_int(mem_map &mem, int match){
       int initial = mem.size;
       std::string match_str = std::to_string(match);
       for(int i = 0; i < mem.size; ++i){

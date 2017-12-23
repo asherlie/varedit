@@ -135,7 +135,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                         }
                         else{
                               kill(child_pid.second[--num_locks].first, SIGKILL);
-                              std::cout << "lock with value " << child_pid.second[num_locks].second.second << " removed (" << child_pid.second[num_locks].second.first << ")" << std::endl;
+                              std::cout << "lock with value \"" << child_pid.second[num_locks].second.second << "\" removed (" << child_pid.second[num_locks].second.first << ")" << std::endl;
                         }
                         wait(NULL);
                   }
@@ -222,10 +222,12 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                                     // creating pair arrays to store relevant addressses and values so i can free up memory
                                     std::pair<void*, int> vmem_int_subset[v_loc[vl_c]-v_loc[0]+1];
                                     std::pair<void*, std::string> vmem_str_subset[v_loc[vl_c]-v_loc[0]+1];
-                                    int c = 0;
-                                    for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
-                                          if(integers)vmem_int_subset[c++] = vmem.mmap[i];
-                                          else vmem_str_subset[c++] = vmem.cp_mmap[i];
+                                    { // creating a scope to limit c's lifetime
+                                          int c = 0;
+                                          for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
+                                                if(integers)vmem_int_subset[c++] = vmem.mmap[i];
+                                                else vmem_str_subset[c++] = vmem.cp_mmap[i];
+                                          }
                                     }
                                     // this will run for a long time so we might as well free up whatever memory we can
                                     if(integers)delete[] vmem.mmap;
@@ -340,7 +342,7 @@ int main(int argc, char* argv[]){
       pid_t pid = (pid_t)std::stoi(argv[1]);
       // initializing here extends scope to default behavior to avoid rescanning memory
       mem_map vmem;
-      vmem.mapped_rgn = get_vmem_locations(pid);
+      vmem.mapped_rgn = get_vmem_locations(pid, true);
       if(argc > 2){
             // -r and -w can be done without slowly loading a complete mem_map
             if(strcmp(argv[2], "-r") == 0){
