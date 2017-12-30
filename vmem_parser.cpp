@@ -52,6 +52,7 @@ mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
                   found_desc = false;
                   break;
             }
+            // TODO: fix criteria for unmarked additional mem rgns
             while(tmp[i-1] != '/' && tmp[i-1] != '[' && i < tmp.size()){
                   if(tmp[i] == '/' || i >= tmp.size()-1){
                         if(tmp.find(vmem.p_name) != std::string::npos || (unmarked_additional && p_end != l_start_add && i >= tmp.size()-1)){

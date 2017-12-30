@@ -95,7 +95,7 @@ void logic_swap(const mem_map &mem){
 
 bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additional=true, bool verbose=false){
       std::string search_mode_help = "search mode options:\n    ";
-      if(integers)search_mode_help += "<integer> : enter an integer to narrow results\n    ";
+      if(integers)search_mode_help += "<integer> : enter an integer to narrow results\n    \"rv\" : remove volatile variables\n    ";
       else search_mode_help += "<string> : enter a string to narrow results - use delimeter '\\' to search for '?', 'q', 'u', \"rl\", 'w'\n    ";
       search_mode_help += "'u' : update visible values\n    \"rl\" : remove most recently applied lock\n    '?' : show this";
       std::string write_mode_help = "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)\n    '?' : show this";
@@ -272,6 +272,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                                     if(to_w.size() > vmem.cp_mmap[i].second.size()){
                                           std::cout << "WARNING (" << vmem.pid << ":" << vmem.cp_mmap[i].first << "): writing a string that is larger than the original string in its memory location causes undefined behavior" << std::endl; 
                                     }
+                                    // TODO: add option to fill up destination string with NUL \0 if to_w.size() < vmem.cp_mmap[i].second.size()
                                     write_str_to_pid_mem(vmem.pid, vmem.cp_mmap[i].first, to_w);
                               }
                         }
@@ -354,7 +355,9 @@ int main(int argc, char* argv[]){
       pid_t pid = (pid_t)std::stoi(argv[1]);
       // initializing here extends scope to default behavior to avoid rescanning memory
       mem_map vmem;
-      vmem.mapped_rgn = get_vmem_locations(pid, true);
+      // vmem.mapped_rgn = get_vmem_locations(pid, true);
+      // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.cpp
+      vmem.mapped_rgn = get_vmem_locations(pid, false); // disabling unmarked additional rgns until criteria for unmarked additional mem rgns are fixed
       if(argc > 2){
             // -r and -w can be done without slowly loading a complete mem_map
             if(strcmp(argv[2], "-r") == 0){
