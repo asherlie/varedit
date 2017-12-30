@@ -94,8 +94,11 @@ void logic_swap(const mem_map &mem){
 }
 
 bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additional=true, bool verbose=false){
-      std::string search_mode_help = "search mode options:\n    <string> : enter a string to narrow results - use delimeter '\\' to search for '?', 'q', 'u', \"rl\", 'w'\n    'u' : update visible values\n    \"rl\" : remove most recently applied lock\n    '?' : show this";
-      std::string write_mode_help = "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)";
+      std::string search_mode_help = "search mode options:\n    ";
+      if(integers)search_mode_help += "<integer> : enter an integer to narrow results\n    ";
+      else search_mode_help += "<string> : enter a string to narrow results - use delimeter '\\' to search for '?', 'q', 'u', \"rl\", 'w'\n    ";
+      search_mode_help += "'u' : update visible values\n    \"rl\" : remove most recently applied lock\n    '?' : show this";
+      std::string write_mode_help = "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)\n    '?' : show this";
       std::cout << "in interactive mode on process " << vmem.pid << " (" << vmem.mapped_rgn.p_name << ")\nusing ";
       if(d_rgn == STACK)std::cout << "stack";
       if(d_rgn == HEAP)std::cout << "heap";
