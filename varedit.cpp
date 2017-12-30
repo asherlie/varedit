@@ -94,6 +94,8 @@ void logic_swap(const mem_map &mem){
 }
 
 bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additional=true, bool verbose=false){
+      std::string search_mode_help = "search mode options:\n    <string> : enter a string to narrow results - use delimeter '\\' to search for '?', 'q', 'u', \"rl\", 'w'\n    'u' : update visible values\n    \"rl\" : remove most recently applied lock\n    '?' : show this";
+      std::string write_mode_help = "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)";
       std::cout << "in interactive mode on process " << vmem.pid << " (" << vmem.mapped_rgn.p_name << ")\nusing ";
       if(d_rgn == STACK)std::cout << "stack";
       if(d_rgn == HEAP)std::cout << "heap";
@@ -102,7 +104,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
       std::cout << " - looking for ";
       if(integers)std::cout << "integers" << std::endl;
       else std::cout << "strings" << std::endl;
-      std::cout << "enter 'u' at any time to update visible values or 'q' to exit" << std::endl;
+      std::cout << "enter 'u' at any time to update visible values, 'q' to exit or '?' for help" << std::endl;
       std::string tmp_str;
       int tmp_val;
       bool first = true;
@@ -119,6 +121,10 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
             std::cout << "enter current variable value or 'w' to enter write mode" << std::endl;
             std::getline(std::cin, tmp_str);
             if(tmp_str == "q")return !first;
+            if(tmp_str == "?"){
+                  std::cout << search_mode_help << std::endl;
+                  goto Find;
+            }
             if(tmp_str == "u"){
                   update_mem_map(vmem, integers);
                   std::cin.clear();
@@ -167,10 +173,14 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                               goto Find;
                         }
                         if(v_loc_s == "q")return !first;
+                        if(v_loc_s == "?"){
+                              std::cout << write_mode_help << std::endl;
+                              std::cin.clear();
+                              goto Write;
+                        }
                         if(v_loc_s == "u"){
                               update_mem_map(vmem, integers);
                               std::cin.clear();
-                              std::cin.ignore(1000, '\n');
                               goto Write;
                         }
                         // TODO: add interactive way to remove locks when there are multiple in place
@@ -188,7 +198,6 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                                     wait(NULL);
                               }
                               std::cin.clear();
-                              std::cin.ignore(1000, '\n');
                               goto Write;
                         }
                         lock_mode = false;
@@ -274,7 +283,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   }
             }
             if(first)populate_mem_map(vmem, vmem.pid, d_rgn, additional, integers);
-            if(tmp_str == "\\w" || tmp_str == "\\u" || tmp_str == "\\q")tmp_str = tmp_str[1]; // allow searching for 'w' or 'u' with \w or \u
+            if(tmp_str == "\\w" || tmp_str == "\\u" || tmp_str == "\\q" || tmp_str == "\\?")tmp_str = tmp_str[1]; // allow searching for 'w' or 'u' with \w or \u
             if(tmp_str == "\\rv" || tmp_str == "\\rl")tmp_str = tmp_str[1] + tmp_str[2];
             if(!first){
                   update_mem_map(vmem, integers);
