@@ -47,8 +47,8 @@ void restore_pid_mem_state(pid_t pid, std::string inf, bool verbose){
             if(tmp_addr != "0"){
             //if(tmp_addr != "0" && tmp_i != 0 && tmp_i != 1){ // TODO: should i write 1's and 0's?
                   if(verbose){
-                        if(tmp_i != read_single_int_from_pid_mem(pid, (void*)strtoul(tmp_addr.c_str(), 0, 16))){
-                              std::cout << tmp_addr << ": " << read_single_int_from_pid_mem(pid, (void*)strtoul(tmp_addr.c_str(), 0, 16)) << " -> " << tmp_i << std::endl;
+                        if(tmp_i != read_single_val_from_pid_mem(pid, 4, (void*)strtoul(tmp_addr.c_str(), 0, 16))){
+                              std::cout << tmp_addr << ": " << read_single_val_from_pid_mem(pid, 4, (void*)strtoul(tmp_addr.c_str(), 0, 16)) << " -> " << tmp_i << std::endl;
                         }
                   }
                   write_int_to_pid_mem(pid, (void*)strtoul(tmp_addr.c_str(), 0, 16), tmp_i);
@@ -61,7 +61,7 @@ int remove_volatile_values(mem_map &vmem){
       int n = 0;
       for(int i = 0; i < vmem.size; ++i){
             for(int in = 0; in < 10; ++in){
-                  if(vmem.mmap[i].second != read_single_int_from_pid_mem(vmem.pid, vmem.mmap[i].first)){
+                  if(vmem.mmap[i].second != read_single_val_from_pid_mem(vmem.pid, 4, vmem.mmap[i].first)){
                         vmem.mmap[i--] = vmem.mmap[--vmem.size];
                         ++n;
                   }
@@ -361,7 +361,7 @@ int main(int argc, char* argv[]){
       if(argc > 2){
             // -r and -w can be done without slowly loading a complete mem_map
             if(strcmp(argv[2], "-r") == 0){
-                  if(integers)std::cout << read_single_int_from_pid_mem(pid, (void*)strtoul(argv[3], 0, 16)) << std::endl;
+                  if(integers)std::cout << read_single_val_from_pid_mem(pid, 4, (void*)strtoul(argv[3], 0, 16)) << std::endl;
                   else std::cout << read_str_from_mem_block_slow(pid, (void*)strtoul(argv[3], 0, 16), nullptr) << std::endl;
                   return 0;
             }

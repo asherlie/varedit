@@ -32,28 +32,16 @@ int* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e){
       return buf;
 }
 
-int read_single_int_from_pid_mem(pid_t pid, void* vm){
-      int buf;
+int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm){
+      int ret;
       struct iovec local[1];
       struct iovec remote[1];
-      local[0].iov_base = &buf;
-      local[0].iov_len = 4;
-      remote[0].iov_len = 4;
-      remote[0].iov_base = vm;
+      local->iov_base = &ret;
+      local->iov_len = bytes;
+      remote->iov_base = vm;
+      remote->iov_len = bytes;
       process_vm_readv(pid, local, 1, remote, 1, 0);
-      return buf;
-}
-
-char read_single_char_from_pid_mem(pid_t pid, void* vm){
-      char buf;
-      struct iovec local[1];
-      struct iovec remote[1];
-      local[0].iov_base = &buf;
-      local[0].iov_len = 1;
-      remote[0].iov_base = vm;
-      remote[0].iov_len = 1;
-      process_vm_readv(pid, local, 1, remote, 1, 0);
-      return buf;
+      return ret;
 }
 
 std::string read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end=nullptr){
@@ -62,7 +50,7 @@ std::string read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end
       char tmp;
       std::string ret = "";
       for(void* i = mb_start; i != mb_end; i = (void*)(((char*)i)+1)){
-            tmp = read_single_char_from_pid_mem(pid, i);
+            tmp = (char)read_single_val_from_pid_mem(pid, 1, i);
             if(!(tmp > 0 && tmp < 127)){
                   return ret;
             }
@@ -225,7 +213,7 @@ void update_mem_map(mem_map &mem, bool integers=true){
       // TODO: check for consecutive mem rgns, to leverage the faster read_bytes_from_pid_mem
       if(integers){
             for(int i = 0; i < mem.size; ++i){
-                  mem.mmap[i].second = read_single_int_from_pid_mem(mem.pid, mem.mmap[i].first);
+                  mem.mmap[i].second = read_single_val_from_pid_mem(mem.pid, 4, mem.mmap[i].first);
             }
       }
       else{
