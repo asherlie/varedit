@@ -301,7 +301,12 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   std::cout << "nothing matches your search of: " << tmp_str << std::endl << "resetting mem map" << std::endl;
                   if(integers)delete[] vmem.mmap;
                   else delete[] vmem.cp_mmap;
-                  populate_mem_map(vmem, vmem.pid, d_rgn, additional, integers);
+                  // setting first to true to imitate behavior of first search and load
+                  // reducing space complexity by waiting to repopulate mem_map
+                  // TODO: decide whether or not to repopulate immediately - don't think i should so results are accurate to time of search
+                  // populate_mem_map(vmem, vmem.pid, d_rgn, additional, integers);
+                  first = true;
+                  goto Find;
             }
             else{
                   if(!verbose && vmem.size >= result_print_limit){
