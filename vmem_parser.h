@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <string>
 
+// keeps track of virtual memory address ranges for heap, stack and remaining memory
 struct mem_rgn{
       std::string p_name;
 
@@ -12,16 +13,6 @@ struct mem_rgn{
 
       int n_remaining;
       std::pair<void*, void*>* remaining_addr;
-};
-
-// this struct is not a part of vmem_parser.cpp
-// but is used to keep track of pids with the mmaps
-struct mem_map{
-      mem_rgn mapped_rgn;
-      std::pair<void*, int>* mmap;
-      std::pair<void*, std::string>* cp_mmap;
-      pid_t pid;
-      long size;
 };
 
 mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional);

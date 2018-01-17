@@ -305,6 +305,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   // reducing space complexity by waiting to repopulate mem_map
                   // TODO: decide whether or not to repopulate immediately - don't think i should so results are accurate to time of search
                   // populate_mem_map(vmem, vmem.pid, d_rgn, additional, integers);
+                  // this might introduce an issue where memory isn't fully freed when no results are found
                   first = true;
                   goto Find;
             }

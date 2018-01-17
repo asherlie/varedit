@@ -1,5 +1,15 @@
 #include "vmem_parser.h"
 
+struct mem_map{
+      mem_rgn mapped_rgn;
+      std::pair<void*, int>* mmap;
+      std::pair<void*, std::string>* cp_mmap;
+      // only one std::pair will be initialized at any given moment
+      // both are included in this struct to simplify code
+      pid_t pid;
+      long size;
+};
+
 int* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e);
 int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm);
 std::string read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end);
