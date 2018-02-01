@@ -94,7 +94,7 @@ void logic_swap(const mem_map &mem){
 }
 
 bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additional=true, bool verbose=false){
-      std::string search_mode_help = "search mode options:\n    ";
+      std::string search_mode_help = "search mode options:\n    \"wa\" : write single value to all current results\n    ";
       if(integers)search_mode_help += "<integer> : enter an integer to narrow results\n    \"rv\" : remove volatile variables\n    ";
       else search_mode_help += "<string> : enter a string to narrow results - use delimeter '\\' to search for '?', 'q', 'u', \"rl\", 'w'\n    ";
       search_mode_help += "'u' : update visible values\n    \"rl\" : remove most recently applied lock\n    '?' : show this";
@@ -149,6 +149,17 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                         wait(NULL);
                   }
                   std::cin.clear();
+                  goto Find;
+            }
+            if(tmp_str == "wa"){
+                  std::cout << "enter value to write to all results" << std::endl;
+                  std::cin >> tmp_str;
+                  if(integers)tmp_val = std::stoi(tmp_str);
+                  for(int i = 0; i < vmem.size; ++i){
+                        if(integers)write_int_to_pid_mem(vmem.pid, vmem.mmap[i].first, tmp_val);
+                        else write_str_to_pid_mem(vmem.pid, vmem.cp_mmap[i].first, tmp_str);
+                  }
+                  std::cin.ignore(1000, '\n');
                   goto Find;
             }
             if(tmp_str == "w"){
