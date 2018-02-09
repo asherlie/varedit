@@ -234,7 +234,6 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                         }
                         v_loc[vl_c] = std::stoi(tmp_num);
                         if(lock_mode){
-                              // TODO: document lock mode
                               temp_pid = fork();
                               if(temp_pid == 0){ // TODO: kill this if overwriting the same mem location
                                     bool same = false;

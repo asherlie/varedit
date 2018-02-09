@@ -210,7 +210,6 @@ void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn=STACK, bool use_additi
 }
 
 void update_mem_map(mem_map &mem, bool integers=true){
-      // TODO: check for consecutive mem rgns, to leverage the faster read_bytes_from_pid_mem
       if(integers){
             for(int i = 0; i < mem.size; ++i){
                   mem.mmap[i].second = read_single_val_from_pid_mem(mem.pid, 4, mem.mmap[i].first);
