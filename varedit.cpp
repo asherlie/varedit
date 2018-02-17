@@ -134,6 +134,17 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   print_mmap(vmem, "", integers);
                   goto Find;
             }
+            if(tmp_str == "r"){
+                  if(vmem.size != 0){
+                        if(integers)delete[] vmem.mmap;
+                        else delete[] vmem.cp_mmap;
+                        vmem.size = 0;
+                        first = true;
+                  }
+                  std::cout << "mem map has been reset" << std::endl;
+                  std::cin.clear();
+                  goto Find;
+            }
             // TODO: decide if i want to allow removal of locks in search mode
             if(tmp_str == "rl"){
                   if(num_locks == 0)std::cout << "no locks are currently in place" << std::endl;
@@ -297,7 +308,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   }
             }
             if(first)populate_mem_map(vmem, vmem.pid, d_rgn, additional, integers);
-            if(tmp_str == "\\w" || tmp_str == "\\u" || tmp_str == "\\q" || tmp_str == "\\?")tmp_str = tmp_str[1]; // allow searching for 'w' or 'u' with \w or \u
+            if(tmp_str == "\\w" || tmp_str == "\\u" || tmp_str == "\\q" || tmp_str == "\\r" || tmp_str == "\\?")tmp_str = tmp_str[1]; // allow searching for 'w' or 'u' with \w or \u
             if(tmp_str == "\\rv" || tmp_str == "\\rl")tmp_str = tmp_str[1] + tmp_str[2];
             if(!first){
                   update_mem_map(vmem, integers);
