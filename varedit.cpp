@@ -15,6 +15,12 @@
 #define BOTH  2
 #define NONE  3
 
+bool valid_int(std::string str){
+      char* res;
+      strtol(str.c_str(), &res, 10);
+      return *res == 0;
+}
+
 bool mem_rgn_warn(int d_rgn, mem_rgn mem, bool additional){
       bool no_ad = (mem.n_remaining == 0 && additional);
       bool stack = true;
@@ -314,6 +320,10 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   update_mem_map(vmem, integers);
             }
             if(integers){
+                  if(!valid_int(tmp_str)){
+                        std::cout << "enter a valid integer" << std::endl;
+                        goto Find;
+                  }
                   tmp_val = std::stoi(tmp_str);
                   narrow_mem_map_int(vmem, tmp_val);
             }
