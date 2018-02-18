@@ -238,16 +238,30 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                         }
                         // std::ws to get rid of leading whitespace
                         std::getline(std::cin >> std::ws, to_w);
+                        if(integers && !valid_int(to_w)){
+                              std::cout << "enter a valid integer to write" << std::endl;
+                              goto Write;
+                        }
                         vl_c = 0;
                         tmp_num = "";
                         for(unsigned int i = 0; i < v_loc_s.size(); ++i){
                               if(v_loc_s[i] == '-'){
+                                    // checking first int of range
+                                    if(!valid_int(tmp_num)){
+                                          std::cout << "enter a valid integer or range of integers" << std::endl;
+                                          goto Write;
+                                    }
                                     v_loc[vl_c++] = std::stoi(tmp_num);
                                     tmp_num = "";
                               }
                               else{
                                     tmp_num += v_loc_s[i];
                               }
+                        }
+                        // checking second int of range
+                        if(!valid_int(tmp_num)){
+                              std::cout << "enter a valid integer or range of integers" << std::endl;
+                              goto Write;
                         }
                         v_loc[vl_c] = std::stoi(tmp_num);
                         if(lock_mode){
@@ -258,7 +272,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                                     //int to_w_i = 0; // to silence -Wmaybe-uninitialized
                                     if(to_w == "_")same = true;
                                     else if(integers)to_w_i = std::stoi(to_w);
-                                    // creating pair arrays to store relevant addressses and values so i can free up memory
+                                    // creating pair arrays to store relevant addresses and values so i can free up memory
                                     std::pair<void*, int> vmem_int_subset[v_loc[vl_c]-v_loc[0]+1];
                                     std::pair<void*, std::string> vmem_str_subset[v_loc[vl_c]-v_loc[0]+1];
                                     { // creating a scope to limit c's lifetime
@@ -321,7 +335,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
             }
             if(integers){
                   if(!valid_int(tmp_str)){
-                        std::cout << "enter a valid integer" << std::endl;
+                        std::cout << "enter a valid integer to search" << std::endl;
                         goto Find;
                   }
                   tmp_val = std::stoi(tmp_str);
