@@ -327,6 +327,11 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                         goto Find;
                   }
             }
+            // checking if input is valid integer before populating mem_map
+            if(integers && !valid_int(tmp_str)){
+                  std::cout << "enter a valid integer to search" << std::endl;
+                  goto Find;
+            }
             if(first)populate_mem_map(vmem, vmem.pid, d_rgn, additional, integers);
             if(tmp_str == "\\w" || tmp_str == "\\u" || tmp_str == "\\q" || tmp_str == "\\r" || tmp_str == "\\?")tmp_str = tmp_str[1]; // allow searching for 'w' or 'u' with \w or \u
             if(tmp_str == "\\rv" || tmp_str == "\\rl")tmp_str = tmp_str[1] + tmp_str[2];
@@ -334,10 +339,6 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   update_mem_map(vmem, integers);
             }
             if(integers){
-                  if(!valid_int(tmp_str)){
-                        std::cout << "enter a valid integer to search" << std::endl;
-                        goto Find;
-                  }
                   tmp_val = std::stoi(tmp_str);
                   narrow_mem_map_int(vmem, tmp_val);
             }
