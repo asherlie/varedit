@@ -99,7 +99,7 @@ void logic_swap(const mem_map &mem){
       }
 }
 
-bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additional=true, bool verbose=false){
+bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additional=true, bool verbose=false, int result_print_limit=100){
       std::string search_mode_help = "search mode options:\n    'r' : reset mem map\n    \"wa\" <value> : write single value to all current results\n    ";
       if(integers)search_mode_help += "<integer> : enter an integer to narrow results\n    \"rv\" : remove volatile variables\n    ";
       else search_mode_help += "<string> : enter a string to narrow results - use delimeter '\\' to search for '?', 'q', 'u', 'r', \"rl\", 'w'\n    ";
@@ -118,7 +118,6 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
       int tmp_val;
       bool first = true;
       bool lock_mode;
-      int result_print_limit = 1000; 
       // the three variables below are used to keep track of var locks
       // TODO: decide if i want to keep this ridiculous child_pid storage system or just switch to an array of pid_t's and not print info at removal
       // or switch to this std::pair<pid_t, std::pair<void*, std::string> >[30] child_pid; //and just cast as mentioned below
@@ -356,7 +355,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   goto Find;
             }
             else{
-                  if(!verbose && vmem.size >= result_print_limit){
+                  if(!verbose && vmem.size > result_print_limit){
                         std::cout << "your search of " << tmp_str << " has " << vmem.size << " results\n" << 
                         "result_print_limit is set at " << result_print_limit << ". refusing to print" << std::endl;
                   }
@@ -371,7 +370,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
 
 
 int main(int argc, char* argv[]){
-      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory addres> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-v]}\n    -p : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -w : write single value to virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -f : interactive mode (default)\n    -sb : save backup of process memory to file\n    -wb : restore process memory to backup\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n    -v : verbose mode (only affects interactive mode and restore backup)\n";
+      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory addres> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-v] [-pl <print limit>]}\n    -p : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -w : write single value to virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -f : interactive mode (default)\n    -sb : save backup of process memory to file\n    -wb : restore process memory to backup\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n    -v : verbose mode (only affects interactive mode and restore backup)\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)\n";
 
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             std::cout << help_str;
@@ -379,7 +378,7 @@ int main(int argc, char* argv[]){
       }
       bool integers = true, additional=false, verbose=false;
       // TODO: initialize d_rgn to NONE and handle that case
-      int d_rgn = STACK;
+      int d_rgn = STACK, result_print_limit=100;
       for(int i = 0; i < argc; ++i){
             if(strcmp(argv[i], "-S") == 0){
                   d_rgn = STACK;
@@ -402,6 +401,10 @@ int main(int argc, char* argv[]){
             }
             if(strcmp(argv[i], "-v") == 0){
                   verbose = true;
+            }
+            // print limit only has an effect on interactive mode
+            if(strcmp(argv[i], "-pl") == 0){
+                 result_print_limit = std::stoi(argv[i+1]);
             }
       }
       pid_t pid = (pid_t)std::stoi(argv[1]);
@@ -437,7 +440,7 @@ int main(int argc, char* argv[]){
             if(strcmp(argv[2], "-f") == 0){
                   SAFE_INTER:
                   vmem.pid = pid;
-                  if(interactive_mode(vmem, integers, d_rgn, additional, verbose)){
+                  if(interactive_mode(vmem, integers, d_rgn, additional, verbose, result_print_limit)){
                         if(integers)delete[] vmem.mmap;
                         else delete[] vmem.cp_mmap;
                         delete[] vmem.mapped_rgn.remaining_addr;
