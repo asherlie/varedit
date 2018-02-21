@@ -38,18 +38,18 @@ vmem_access.h contains the following functions for reading and writing to virtua
 #include "vmem_access.h"
 
 int main(int argc, char* argv[]){
-	pid_t pid = std::stoi(argv[1]);
+    pid_t pid = std::stoi(argv[1]);
     // memory addresses must be cast to void* to work with read_bytes_from_pid_mem
-    mem_addr = (void*)strtoul(argv[2], 0, 16);
+    void* mem_addr = (void*)strtoul(argv[2], 0, 16);
     // the final parameter of read_bytes_from_pid_mem is nullptr when reading a single value
-	int* value = read_bytes_from_pid_mem(pid, 4, mem_addr, nullptr);
-    std::cout << *a << std::endl;
-    delete[] a;
+    int* value = read_bytes_from_pid_mem(pid, 4, mem_addr, nullptr);
+    std::cout << *value << std::endl;
+    delete[] value;
 }
 ```
 
 
-the following functions are also included and are used for creating and manipulating `mem_map` objects defined in vmem_access.h
+the remaining functions defined in vmem_access.h are used for creating and manipulating `mem_map` objects defined in vmem_access.h
 * void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn, bool use_additional_rgns, bool integers)
 * void update_mem_map(mem_map &mem, bool integers)
 * void narrow_mem_map_int(mem_map &mem, int match)
@@ -67,5 +67,3 @@ vmem.mapped_rgn = get_vmem_locations(pid, true);
 // BOTH is a macro that indicates we will be searching both the stack and heap
 populate_mem_map(vmem, pid, BOTH, true, true);
 ```
-
-
