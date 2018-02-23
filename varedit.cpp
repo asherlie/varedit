@@ -126,7 +126,9 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
       int num_locks = 0;
       while(1){
             Find:
-            std::cout << "enter current variable value or 'w' to enter write mode" << std::endl;
+            std::cout << "enter current variable value to search";
+            if(!first)std::cout << " or 'w' to enter write mode";
+            std::cout << std::endl;
             std::cin >> tmp_str;
             if(tmp_str == "q")return !first;
             if(tmp_str == "?"){
@@ -193,6 +195,10 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                               for(int i = 0; i < vmem.size; ++i){
                                     std::cout << i << ": (" << vmem.cp_mmap[i].first << ": \"" << vmem.cp_mmap[i].second << "\")" << std::endl;
                               }
+                        }
+                        if(first){
+                              std::cout << "no memory locations available for writing. returning to search" << std::endl;
+                              goto Find;
                         }
                         std::cout << "enter a number from [0-" << vmem.size-1 << "] or a range with a '-', followed by value to write OR 's' to continue searching" << std::endl;
                         std::cin >> v_loc_s;
