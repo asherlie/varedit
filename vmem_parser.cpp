@@ -2,6 +2,18 @@
 #include <stdlib.h>
 #include <fstream>
 
+// TODO: change this to return int and use the macros maybe add a function to 
+// translate the macros to std::string
+std::string which_rgn(mem_rgn rgn, void* addr){
+      char* addr_c = (char*)addr;
+      if(addr_c >= (char*)rgn.stack_start_addr && addr_c <= (char*)rgn.stack_end_addr)return "stack";
+      if(addr_c >= (char*)rgn.heap_start_addr && addr_c <= (char*)rgn.heap_end_addr)return "heap";
+      for(int i = 0; i < rgn.n_remaining; ++i){
+            if(addr_c >= rgn.remaining_addr[i].first && addr_c <= rgn.remaining_addr[i].second)return "unmarked region";
+      }
+      return "";
+}
+
 std::string get_proc_name(pid_t pid){
       std::string pname;
       std::string path = "/proc/" + std::to_string(pid) + "/cmdline";

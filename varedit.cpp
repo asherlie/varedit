@@ -10,11 +10,6 @@
 
 #include "vmem_access.h"
 
-#define STACK 0
-#define HEAP  1
-#define BOTH  2
-#define NONE  3
-
 bool valid_int(std::string str){
       char* res;
       strtol(str.c_str(), &res, 10);
@@ -76,16 +71,18 @@ int remove_volatile_values(mem_map &vmem){
       return n;
 }
 
-void print_mmap(const mem_map &mem, std::string contains="", bool integers=true){
+void print_mmap(const mem_map &mem, std::string contains="", bool integers=true, bool show_rgns=true){
       for(int i = 0; i < mem.size; ++i){
             if(integers){
                   if(std::to_string(mem.mmap[i].second).find(contains) != std::string::npos){
-                        std::cout << mem.mmap[i].first << ": " << mem.mmap[i].second << std::endl;
+                        if(show_rgns)std::cout << mem.mmap[i].first << " (" << which_rgn(mem.mapped_rgn, mem.mmap[i].first) << ") : " << mem.mmap[i].second << std::endl;
+                        else std::cout << mem.mmap[i].first << ": " << mem.mmap[i].second << std::endl;
                   }
             }
             else{
                   if(mem.cp_mmap[i].second.find(contains) != std::string::npos){
-                        std::cout << mem.cp_mmap[i].first << ": " << mem.cp_mmap[i].second << std::endl;
+                        if(show_rgns)std::cout << mem.cp_mmap[i].first << " (" << which_rgn(mem.mapped_rgn, mem.cp_mmap[i].first) << ") : " << mem.cp_mmap[i].second << std::endl;
+                        else std::cout << mem.cp_mmap[i].first << ": " << mem.cp_mmap[i].second << std::endl;
                   }
             }
       }
@@ -99,7 +96,7 @@ void logic_swap(const mem_map &mem){
       }
 }
 
-bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additional=true, bool verbose=false, int result_print_limit=100){
+bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additional=true, bool verbose=false, int result_print_limit=100, bool print_rgns=false){
       std::string search_mode_help = "search mode options:\n    'r' : reset mem map\n    \"wa\" <value> : write single value to all current results\n    ";
       if(integers)search_mode_help += "<integer> : enter an integer to narrow results\n    \"rv\" : remove volatile variables\n    ";
       else search_mode_help += "<string> : enter a string to narrow results - use delimeter '\\' to search for '?', 'q', 'u', 'r', \"rl\", 'w'\n    ";
@@ -138,7 +135,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
             if(tmp_str == "u"){
                   update_mem_map(vmem, integers);
                   std::cin.clear();
-                  print_mmap(vmem, "", integers);
+                  print_mmap(vmem, "", integers, print_rgns);
                   goto Find;
             }
             if(tmp_str == "r"){
@@ -205,7 +202,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                         if(v_loc_s == "s"){
                               std::cin.clear();
                               std::cin.ignore(1000, '\n');
-                              print_mmap(vmem, "", integers);
+                              print_mmap(vmem, "", integers, print_rgns);
                               goto Find;
                         }
                         if(v_loc_s == "q")return !first;
@@ -290,6 +287,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                                     // this will run for a long time so we might as well free up whatever memory we can
                                     if(integers)delete[] vmem.mmap;
                                     else delete[] vmem.cp_mmap;
+                                    delete[] vmem.mapped_rgn.remaining_addr;
                                     while(1){ // child process will forever repeat this
                                           for(int i = 0; i <= v_loc[vl_c]-v_loc[0]; ++i){
                                                 if(integers){
@@ -367,7 +365,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   }
                   else{
                         std::cout << "matches are now:" << std::endl;
-                        print_mmap(vmem, "", integers);
+                        print_mmap(vmem, "", integers, print_rgns);
                   }
             }
             first = false;
@@ -376,13 +374,13 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
 
 
 int main(int argc, char* argv[]){
-      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory addres> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-v] [-pl <print limit>]}\n    -p : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -w : write single value to virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -f : interactive mode (default)\n    -sb : save backup of process memory to file\n    -wb : restore process memory to backup\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n    -v : verbose mode (only affects interactive mode and restore backup)\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)\n";
+      std::string help_str = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory addres> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-v] [-pr] [-pl <print limit>]}\n    -p : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -w : write single value to virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -f : interactive mode (default)\n    -sb : save backup of process memory to file\n    -wb : restore process memory to backup\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n    -v : verbose mode (enables print region mode)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)\n";
 
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             std::cout << help_str;
             return -1;
       }
-      bool integers = true, additional=false, verbose=false;
+      bool integers = true, additional=false, verbose=false, print_rgns=false;
       // TODO: initialize d_rgn to NONE and handle that case
       int d_rgn = STACK, result_print_limit=100;
       for(int i = 0; i < argc; ++i){
@@ -407,6 +405,10 @@ int main(int argc, char* argv[]){
             }
             if(strcmp(argv[i], "-v") == 0){
                   verbose = true;
+                  print_rgns = true;
+            }
+            if(strcmp(argv[i], "-pr") == 0){
+                  print_rgns = true;
             }
             // print limit only has an effect on interactive mode
             if(strcmp(argv[i], "-pl") == 0){
@@ -441,12 +443,13 @@ int main(int argc, char* argv[]){
                   populate_mem_map(vmem, pid, d_rgn, additional, true);
                   save_pid_mem_state(vmem, argv[3]);
                   delete[] vmem.mmap;
+                  delete[] vmem.mapped_rgn.remaining_addr;
                   return 0;
             }
             if(strcmp(argv[2], "-f") == 0){
                   SAFE_INTER:
                   vmem.pid = pid;
-                  if(interactive_mode(vmem, integers, d_rgn, additional, verbose, result_print_limit)){
+                  if(interactive_mode(vmem, integers, d_rgn, additional, verbose, result_print_limit, print_rgns)){
                         if(integers)delete[] vmem.mmap;
                         else delete[] vmem.cp_mmap;
                         delete[] vmem.mapped_rgn.remaining_addr;
@@ -456,9 +459,9 @@ int main(int argc, char* argv[]){
             if(strcmp(argv[2], "-p") == 0){
                   populate_mem_map(vmem, pid, d_rgn, additional, integers);
                   if(argc > 3 && argv[3][0] != '-'){
-                        print_mmap(vmem, argv[3], integers);
+                        print_mmap(vmem, argv[3], integers, print_rgns);
                   }
-                  else print_mmap(vmem, "", integers);
+                  else print_mmap(vmem, "", integers, print_rgns);
                   if(integers)delete[] vmem.mmap;
                   else delete[] vmem.cp_mmap;
                   delete[] vmem.mapped_rgn.remaining_addr;

@@ -1,3 +1,8 @@
+#define STACK 0         
+#define HEAP  1         
+#define BOTH  2         
+#define NONE  3         
+
 #include <unistd.h>
 #include <string>
 
@@ -15,4 +20,5 @@ struct mem_rgn{
       std::pair<void*, void*>* remaining_addr;
 };
 
+std::string which_rgn(mem_rgn rgn, void* addr);
 mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional);
