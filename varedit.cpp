@@ -101,7 +101,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
       if(integers)search_mode_help += "<integer> : enter an integer to narrow results\n    \"rv\" : remove volatile variables\n    ";
       else search_mode_help += "<string> : enter a string to narrow results - use delimeter '\\' to search for '?', 'q', 'u', 'r', \"rl\", 'w'\n    ";
       search_mode_help += "'u' : update visible values\n    \"rl\" : remove most recently applied lock\n    '?' : show this\n    'q' : quit";
-      std::string write_mode_help = "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)\n    '?' : show this\n    'q' : quit";
+      std::string write_mode_help = "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)\n    \"rl\" : remove most recently applied lock\n    '?' : show this\n    'q' : quit";
       std::cout << "in interactive mode on process " << vmem.pid << " (" << vmem.mapped_rgn.p_name << ")\nusing ";
       if(d_rgn == STACK)std::cout << "stack";
       if(d_rgn == HEAP)std::cout << "heap";
@@ -116,9 +116,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
       bool first = true;
       bool lock_mode;
       // the three variables below are used to keep track of var locks
-      // TODO: decide if i want to keep this ridiculous child_pid storage system or just switch to an array of pid_t's and not print info at removal
-      // or switch to this std::pair<pid_t, std::pair<void*, std::string> >[30] child_pid; //and just cast as mentioned below
-      std::pair<std::pair<pid_t, std::pair<void*, int> >[30], std::pair<pid_t, std::pair<void*, std::string> >[30]> child_pid;
+      std::pair<pid_t, std::pair<void*, std::pair<int, std::string> > > child_pid[30];
       pid_t temp_pid;
       int num_locks = 0;
       while(1){
@@ -153,14 +151,9 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
             if(tmp_str == "rl"){
                   if(num_locks == 0)std::cout << "no locks are currently in place" << std::endl;
                   else {
-                        if(integers){
-                              kill(child_pid.first[--num_locks].first, SIGKILL);
-                              std::cout << "lock with value " << child_pid.first[num_locks].second.second << " removed (" << child_pid.first[num_locks].second.first << ")" << std::endl;
-                        }
-                        else{
-                              kill(child_pid.second[--num_locks].first, SIGKILL);
-                              std::cout << "lock with value \"" << child_pid.second[num_locks].second.second << "\" removed (" << child_pid.second[num_locks].second.first << ")" << std::endl;
-                        }
+                        kill(child_pid[--num_locks].first, SIGKILL);
+                        if(integers)std::cout << "lock with value " << child_pid[num_locks].second.second.first << " removed (" << child_pid[num_locks].second.first << ")" << std::endl;
+                        else std::cout << "lock with value \"" << child_pid[num_locks].second.second.second << "\" removed (" << child_pid[num_locks].second.first << ")" << std::endl;
                         wait(NULL);
                   }
                   std::cin.clear();
@@ -220,14 +213,9 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                         if(v_loc_s == "rl"){
                               if(num_locks == 0)std::cout << "no locks are currently in place" << std::endl;
                               else {
-                                    if(integers){
-                                          kill(child_pid.first[--num_locks].first, SIGKILL);
-                                          std::cout << "lock with value " << child_pid.first[num_locks].second.second << " removed (" << child_pid.first[num_locks].second.first << ")" << std::endl;
-                                    }
-                                    else{
-                                          kill(child_pid.second[--num_locks].first, SIGKILL);
-                                          std::cout << "lock with value " << child_pid.second[num_locks].second.second << " removed (" << child_pid.second[num_locks].second.first << ")" << std::endl;
-                                    }
+                                    kill(child_pid[--num_locks].first, SIGKILL);
+                                    if(integers)std::cout << "lock with value " << child_pid[num_locks].second.second.first << " removed (" << child_pid[num_locks].second.first << ")" << std::endl;
+                                    else std::cout << "lock with value \"" << child_pid[num_locks].second.second.second << "\" removed (" << child_pid[num_locks].second.first << ")" << std::endl;
                                     wait(NULL);
                               }
                               std::cin.clear();
@@ -240,7 +228,7 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                         }
                         // std::ws to get rid of leading whitespace
                         std::getline(std::cin >> std::ws, to_w);
-                        if(integers && !valid_int(to_w)){
+                        if(integers && !valid_int(to_w) && !(lock_mode && to_w == "_")){
                               std::cout << "enter a valid integer to write" << std::endl;
                               goto Write;
                         }
@@ -301,10 +289,11 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                                           }
                                     }
                               }
-                              // TODO: maybe rep both of these with just one <pid_t, <void*, std::string> > and just std::to_string all the ints. this is a little ridiculous
-                              //                                                                     because using v_loc[0], it will only show first addr of range
-                              if(integers)child_pid.first[num_locks++] = std::make_pair(temp_pid, std::make_pair(vmem.mmap[v_loc[0]].first, std::stoi(to_w)));
-                              else child_pid.second[num_locks++] = std::make_pair(temp_pid, std::make_pair(vmem.cp_mmap[v_loc[0]].first, to_w));
+                              // TODO: to_w will be "_" when lock mode is used to lock vars to current value
+                              //       maybe put "_" in the string section and just check for it when removing and printing
+                              // TODO: add show/print lock mode
+                              if(integers)child_pid[num_locks++] = std::make_pair(temp_pid, std::make_pair(vmem.mmap[v_loc[0]].first, std::make_pair(std::stoi(to_w), "")));
+                              else std::make_pair(temp_pid, std::make_pair(vmem.cp_mmap[v_loc[0]].first, std::make_pair(NULL, to_w)));
                               std::cout << "variable(s) locked" << std::endl;
                               update_mem_map(vmem, integers);
                               //goto Find; // TODO: decide what behavior should be after vars have been locked
