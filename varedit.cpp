@@ -152,6 +152,9 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                   if(num_locks == 0)std::cout << "no locks are currently in place" << std::endl;
                   else {
                         kill(child_pid[--num_locks].first, SIGKILL);
+                        // TODO possibly let user know that we're using freeze/same mode
+                        // TODO possibly let user know that we're printing the first of a range
+                        //if(child_pid[num_locks].second.second == "_")
                         if(integers)std::cout << "lock with value " << child_pid[num_locks].second.second.first << " removed (" << child_pid[num_locks].second.first << ")" << std::endl;
                         else std::cout << "lock with value \"" << child_pid[num_locks].second.second.second << "\" removed (" << child_pid[num_locks].second.first << ")" << std::endl;
                         wait(NULL);
@@ -289,11 +292,19 @@ bool interactive_mode(mem_map &vmem, bool integers, int d_rgn=STACK, int additio
                                           }
                                     }
                               }
-                              // TODO: to_w will be "_" when lock mode is used to lock vars to current value
-                              //       maybe put "_" in the string section and just check for it when removing and printing
                               // TODO: add show/print lock mode
-                              if(integers)child_pid[num_locks++] = std::make_pair(temp_pid, std::make_pair(vmem.mmap[v_loc[0]].first, std::make_pair(std::stoi(to_w), "")));
-                              else std::make_pair(temp_pid, std::make_pair(vmem.cp_mmap[v_loc[0]].first, std::make_pair(NULL, to_w)));
+                              child_pid[num_locks++] = std::make_pair(temp_pid, std::make_pair((void*)0x0, std::make_pair(NULL, NULL)));
+                              // writing raw string to child_pid regardless of string/int mode - this avoids the need to handle strings separately from ints
+                              child_pid[num_locks-1].second.second.second = to_w;
+                              if(integers){
+                                    child_pid[num_locks-1].second.first = vmem.mmap[v_loc[0]].first;
+                                    // if we're locking values using "_" notation don't try std::stoi
+                                    if(to_w != "_"){
+                                          child_pid[num_locks-1].second.second.first = std::stoi(to_w);
+                                    }
+                                    else child_pid[num_locks-1].second.second.first = vmem.mmap[v_loc[0]].second;
+                              }
+                              else child_pid[num_locks-1].second.first = vmem.cp_mmap[v_loc[0]].first;
                               std::cout << "variable(s) locked" << std::endl;
                               update_mem_map(vmem, integers);
                               //goto Find; // TODO: decide what behavior should be after vars have been locked
