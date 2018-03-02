@@ -82,7 +82,7 @@ bool write_str_to_pid_mem(pid_t pid, void* vm, std::string str){
       return written == str.size();
 }
 
-void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, bool integers=true){
+void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn=STACK, bool use_additional_rgns=true, bool integers=true, int bytes=4){
       long m_size = 0;
       void* vm_l_stack; void* vm_l_heap;
       if(d_rgn == STACK || d_rgn == BOTH){
@@ -100,7 +100,7 @@ void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn=STACK, bool use_additi
       }
       mmap.size = 0;
       if(integers){
-            m_size /= 4;
+            m_size /= bytes;
             mmap.mmap = new std::pair<void*, int>[m_size];
       }
       else mmap.cp_mmap = new std::pair<void*, std::string>[m_size];
@@ -109,15 +109,15 @@ void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn=STACK, bool use_additi
       if(integers){
             mmap.size = m_size;
             if(d_rgn == STACK || d_rgn == BOTH){
-                  int* ints_in_stack = read_bytes_from_pid_mem(pid, 4, vm_l_stack, mmap.mapped_rgn.stack_end_addr);
-                  for(int d = 0; vm_l_stack != mmap.mapped_rgn.stack_end_addr; vm_l_stack = (void*)(((char*)vm_l_stack)+4)){ // +4 for ints
+                  int* ints_in_stack = read_bytes_from_pid_mem(pid, bytes, vm_l_stack, mmap.mapped_rgn.stack_end_addr);
+                  for(int d = 0; vm_l_stack != mmap.mapped_rgn.stack_end_addr; vm_l_stack = (void*)(((char*)vm_l_stack)+bytes)){ // +4 for ints
                         mmap.mmap[c++] = std::make_pair(vm_l_stack, ints_in_stack[d++]);
                   }
                   delete[] ints_in_stack;
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
-                  int* ints_in_heap = read_bytes_from_pid_mem(pid, 4, vm_l_heap, mmap.mapped_rgn.heap_end_addr);
-                  for(int d = 0; vm_l_heap != mmap.mapped_rgn.heap_end_addr; vm_l_heap = (void*)(((char*)vm_l_heap)+4)){
+                  int* ints_in_heap = read_bytes_from_pid_mem(pid, bytes, vm_l_heap, mmap.mapped_rgn.heap_end_addr);
+                  for(int d = 0; vm_l_heap != mmap.mapped_rgn.heap_end_addr; vm_l_heap = (void*)(((char*)vm_l_heap)+bytes)){
                         mmap.mmap[c++] = std::make_pair(vm_l_heap, ints_in_heap[d++]);
                   }
                   delete[] ints_in_heap;
@@ -125,12 +125,12 @@ void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn=STACK, bool use_additi
             }
             if(use_additional_rgns){
                   for(int i = 0; i < mmap.mapped_rgn.n_remaining; ++i){
-                        int* ints_in_adtnl = read_bytes_from_pid_mem(pid, 4, mmap.mapped_rgn.remaining_addr[i].first, 
+                        int* ints_in_adtnl = read_bytes_from_pid_mem(pid, bytes, mmap.mapped_rgn.remaining_addr[i].first, 
                                                                              mmap.mapped_rgn.remaining_addr[i].second);
                         int d = 0;
                         for(void* vm_l = mmap.mapped_rgn.remaining_addr[i].first;
                                   vm_l != mmap.mapped_rgn.remaining_addr[i].second;
-                                  vm_l = (void*)(((char*)vm_l)+4)){
+                                  vm_l = (void*)(((char*)vm_l)+bytes)){
                               mmap.mmap[c++] = std::make_pair(vm_l, ints_in_adtnl[d++]);
                         }
                         delete[] ints_in_adtnl;
@@ -209,10 +209,10 @@ void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn=STACK, bool use_additi
       }
 }
 
-void update_mem_map(mem_map &mem, bool integers=true){
+void update_mem_map(mem_map &mem, bool integers=true, int bytes=4){
       if(integers){
             for(int i = 0; i < mem.size; ++i){
-                  mem.mmap[i].second = read_single_val_from_pid_mem(mem.pid, 4, mem.mmap[i].first);
+                  mem.mmap[i].second = read_single_val_from_pid_mem(mem.pid, bytes, mem.mmap[i].first);
             }
       }
       else{
@@ -224,10 +224,9 @@ void update_mem_map(mem_map &mem, bool integers=true){
 
 void narrow_mem_map_int(mem_map &mem, int match){
       int initial = mem.size;
-      std::string match_str = std::to_string(match);
       for(int i = 0; i < mem.size; ++i){
             // std::pair<void*, int> is initialized to <0, 0> - erase these pairs
-            if(std::to_string(mem.mmap[i].second) != match_str){ // exact
+            if(mem.mmap[i].second != match){
                   mem.mmap[i--] = mem.mmap[--mem.size];
                   /*
                    *  // essentially, 
