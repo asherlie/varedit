@@ -27,5 +27,6 @@ struct mem_rgn{
       struct m_addr_pair* remaining_addr;
 };
 
+bool is_substr(const char* substr, const char* str);
 struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional);
 const char* which_rgn(struct mem_rgn rgn, void* addr);

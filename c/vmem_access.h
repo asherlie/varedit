@@ -27,6 +27,7 @@ struct mem_map{
       long size;
 };
 
+bool is_substr(const char* substr, const char* str);
 void free_mem_map(struct mem_map* mmap, bool integers);
 int* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e);
 int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm);

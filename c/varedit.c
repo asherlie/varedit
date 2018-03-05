@@ -9,7 +9,6 @@
 bool valid_int(const char* str){
       char* res;
       strtol(str, &res, 10);
-      printf("%i\n", *res);
       return *res == 0;
 }
 
@@ -82,7 +81,7 @@ void print_mmap(const struct mem_map* mem, const char* contains, bool integers, 
                   }
             }
             else{
-                  if(strcmp(contains, "") == 0 || strcmp(mem->cp_mmap[i].second, contains) != -1){
+                  if(strcmp(contains, "") == 0 || is_substr(contains, mem->cp_mmap[i].second)){
                         if(show_rgns)printf("%p (%s) : %s\n", mem->cp_mmap[i].first, which_rgn(mem->mapped_rgn, mem->cp_mmap[i].first), mem->cp_mmap[i].second);
                         else printf("%p: %s\n", mem->cp_mmap[i].first, mem->cp_mmap[i].second);
                   }
@@ -211,7 +210,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
                         printf("enter a number from [0-%li] or a range with a '-', followed by a value to write OR 's' to continue searching\n", vmem->size-1);
                         //fgets(v_loc_s, 10, stdin);
                         scanf(" %49[^ \t.\n]%*c", v_loc_s);
-                        printf("vlocs: %i\n", atoi(v_loc_s));
                         //v_loc_s[strlen(v_loc_s)-1]='\0';
                         //std::cin >> v_loc_s;
                         if(strcmp(v_loc_s, "s") == 0){
@@ -270,7 +268,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
                          *}
                          */
                         //to_w[strlen(to_w)-1] = '\0';
-                        printf("strlen: %li\n", strlen(to_w));
                         if(integers && !valid_int(to_w) && !(lock_mode && strcmp(to_w, "_") == 0)){
                               printf("enter a valid integer to write\n");
                               goto Write;
@@ -287,7 +284,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
                                           printf("enter a valid integer or range of integers\n");
                                           goto Write;
                                     }
-                                    printf("just added %s\n", tmp_num);
                                     v_loc[vl_c++] = atoi(tmp_num);
                                     memset(tmp_num, '\0', sizeof(char)*20);
                               }
@@ -297,7 +293,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
                               }
                         }
                         // checking second int of range
-                        printf("tmp num: %s\n", tmp_num);
                         if(!valid_int(tmp_num)){
                               printf("enter a valid integer or range of integers\n");
                               goto Write;
@@ -479,6 +474,7 @@ int main(int argc, char* argv[]){
       // vmem->mapped_rgn = get_vmem_locations(pid, true);
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.cpp
       vmem.mapped_rgn = get_vmem_locations(pid, false); // disabling unmarked additional rgns until criteria for unmarked additional mem rgns are fixed
+      if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
       if(argc > 2){
             // -r and -w can be done without slowly loading a complete mem_map
             if(strcmp(argv[2], "-r") == 0){
@@ -534,10 +530,9 @@ int main(int argc, char* argv[]){
                   free_mem_map(&vmem, integers);
                   return 0;
             }
-            goto SAFE_INTER; // go back to interactive mode before mem_rgn_warn is called again
+            goto SAFE_INTER;
       }
       // argc <= 2
-      if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
       // default to interactive mode
       goto SAFE_INTER;
 }

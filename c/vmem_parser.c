@@ -2,6 +2,19 @@
 #include <string.h>
 #include <stdlib.h>
 
+bool is_substr(const char* substr, const char* str){
+      int len = strlen(substr);
+      char buf[len+1];
+      int i = 0;
+      while(str[i+len-1] != '\0'){
+            memset(buf, '\0', len);
+            memcpy(buf, str+(i++), len);
+            buf[len]='\0';
+            if(strcmp(buf, substr) == 0)return true;
+      }
+      return false;
+}
+
 // TODO: change this to return int and use the macros maybe add a function to 
 const char* which_rgn(struct mem_rgn rgn, void* addr){
       char* addr_c = (char*)addr;
@@ -22,6 +35,7 @@ const char* get_proc_name(pid_t pid){
       strcat(path, "/cmdline");              
       char* line;
       FILE* fp = fopen(path, "r");
+      if(fp == NULL)return line;
       size_t sz = 0;
       getline(&line, &sz, fp);
       // maybe replace with getdelim()
@@ -47,9 +61,10 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
       vmem.stack_end_addr = NULL;
       vmem.heap_start_addr = NULL;
       vmem.heap_end_addr = NULL;
-      vmem.remaining_addr = (struct m_addr_pair*)malloc(sizeof(struct m_addr_pair)*100); // 100 should be enough
-      int rem_alloc_sz = 100;
       vmem.n_remaining = 0;
+      vmem.remaining_addr = (struct m_addr_pair*)malloc(sizeof(struct m_addr_pair)*100); // 100 should be enough
+      if(fp == NULL)return vmem;
+      int rem_alloc_sz = 100;
       void* p_end = NULL;
       size_t sz = 0;
       while(getline(&tmp, &sz, fp) != -1){
