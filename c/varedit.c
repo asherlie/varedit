@@ -223,7 +223,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
                         }
                         if(strcmp(v_loc_s, "q") == 0)return !first;
                         if(strcmp(v_loc_s, "?") == 0){
-                              printf(write_mode_help);
+                              printf("%s", write_mode_help);
                               fseek(stdin, 0, SEEK_END);
                               goto Write;
                         }
@@ -338,8 +338,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
                                     }
                               }
                               // TODO: add show/print lock mode
-                              //lock_container tmp_lock;
-                              //tmp_lock.first = temp_pid; tmp_lock.second.first = (void*)0x0; tmp_lock.second.second.second = NULL; 
                               // writing raw string to child_pid regardless of string/int mode - this avoids the need to handle strings separately from ints
                               ++num_locks;
                               child_pid[num_locks-1].s_value = to_w;
@@ -352,7 +350,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
                                     }
                                     else child_pid[num_locks-1].i_value = vmem->mmap[v_loc[0]].second;
                               }
-                              else child_pid[num_locks-1].s_value = vmem->cp_mmap[v_loc[0]].first;
+                              else child_pid[num_locks-1].m_addr = vmem->cp_mmap[v_loc[0]].first;
                               printf("variable(s) locked\n");
                               update_mem_map(vmem, integers);
                               //goto Find; // TODO: decide what behavior should be after vars have been locked
@@ -437,7 +435,7 @@ int main(int argc, char* argv[]){
       char help_str[1101] = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory addres> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-v] [-pr] [-pl <print limit>]}\n    -p : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -w : write single value to virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -f : interactive mode (default)\n    -sb : save backup of process memory to file\n    -wb : restore process memory to backup\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n    -v : verbose mode (enables print region mode)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)\n";
 
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
-            printf(help_str);
+            printf("%s", help_str);
             return -1;
       }
       bool integers = true, additional=false, verbose=false, print_rgns=false;

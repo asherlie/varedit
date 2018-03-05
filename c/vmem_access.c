@@ -7,6 +7,12 @@
 #define HEAP 1
 #define BOTH 2
 
+#ifdef IOV_MAX
+#define IM IOV_MAX
+#else 
+#define IM __IOV_MAX
+#endif
+
 void free_mem_map(struct mem_map* mmap, bool integers){
       if(mmap->mapped_rgn.n_remaining > 0)free(mmap->mapped_rgn.remaining_addr);
       if(integers)free(mmap->mmap);
@@ -35,10 +41,10 @@ int* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e){
       remote[0].iov_base = vm_s;
       remote[0].iov_len = sz_rgn;
       int c = 0;
-      for(int i = 0; i < (n_items/__IOV_MAX)+1; ++i){
-            process_vm_readv(pid, local+c, __IOV_MAX, remote, 1, 0);
-            remote[0].iov_base = (void*)(((char*)remote[0].iov_base)+__IOV_MAX*bytes);
-            c+=__IOV_MAX;
+      for(int i = 0; i < (n_items/IM)+1; ++i){
+            process_vm_readv(pid, local+c, IM, remote, 1, 0);
+            remote[0].iov_base = (void*)(((char*)remote[0].iov_base)+IM*bytes);
+            c+=IM;
       }
       free(local);
       return buf;
