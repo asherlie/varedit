@@ -146,9 +146,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
             }
             if(strcmp(tmp_str, "r") == 0){
                   if(vmem->size != 0){
-                        //if(integers)delete[] vmem->mmap;
                         if(integers)free(vmem->mmap);
-                        //else delete[] vmem->cp_mmap;
                         else free(vmem->cp_mmap);
                         vmem->size = 0;
                         first = true;
@@ -161,13 +159,13 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
             if(strcmp(tmp_str, "rl") == 0){
                   if(num_locks == 0)printf("no locks are currently in place\n");
                   else {
-                        printf("killing %i\n", child_pid[num_locks-1].first);
-                        kill(child_pid[--num_locks].first, SIGKILL);
+                        printf("killing %i\n", child_pid[num_locks-1].pid);
+                        kill(child_pid[--num_locks].pid, SIGKILL);
                         // TODO possibly let user know that we're using freeze/same mode
                         // TODO possibly let user know that we're printing the first of a range
                         //if(child_pid[num_locks].second.second == "_")
-                        if(integers)printf("lock with value %i removed (%p)\n", child_pid[num_locks].second.second.first, child_pid[num_locks].second.first);
-                        else printf("lock with value \"%s\" removed (%p)\n", child_pid[num_locks].second.second.second, child_pid[num_locks].second.first);
+                        if(integers)printf("lock with value %i removed (%p)\n", child_pid[num_locks].i_value, child_pid[num_locks].m_addr);
+                        else printf("lock with value \"%s\" removed (%p)\n", child_pid[num_locks].s_value, child_pid[num_locks].m_addr);
                         wait(NULL);
                   }
                   fseek(stdin, 0, SEEK_END);
@@ -238,9 +236,9 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
                         if(strcmp(v_loc_s, "rl") == 0){
                               if(num_locks == 0)printf("no locks are currently in place\n");
                               else {
-                                    kill(child_pid[--num_locks].first, SIGKILL);
-                                    if(integers)printf("lock with value %i removed (%p)\n", child_pid[num_locks].second.second.first, child_pid[num_locks].second.first);
-                                    else printf("lock with value \"%s\" removed (%p)\n", child_pid[num_locks].second.second.second, child_pid[num_locks].second.first);
+                                    kill(child_pid[--num_locks].pid, SIGKILL);
+                                    if(integers)printf("lock with value %i removed (%p)\n", child_pid[num_locks].i_value, child_pid[num_locks].m_addr);
+                                    else printf("lock with value \"%s\" removed (%p)\n", child_pid[num_locks].s_value, child_pid[num_locks].m_addr);
                                     wait(NULL);
                               }
                               fseek(stdin, 0, SEEK_END);
@@ -325,13 +323,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
                                     }
                                     // this will run for a long time so we might as well free up whatever memory we can
                                     free_mem_map(vmem, integers);
-                                    /*
-                                     *if(integers)free(vmem->mmap);//delete[] vmem->mmap;
-                                     * //else delete[] vmem->cp_mmap;
-                                     *else free(vmem->cp_mmap);
-                                     * //delete[] vmem->mapped_rgn.remaining_addr;
-                                     * free(vmem->mapped_rgn.remaining_addr);
-                                     */
                                     while(1){ // child process will forever repeat this
                                           for(int i = 0; i <= v_loc[vl_c]-v_loc[0]; ++i){
                                                 if(integers){
@@ -351,18 +342,17 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
                               //tmp_lock.first = temp_pid; tmp_lock.second.first = (void*)0x0; tmp_lock.second.second.second = NULL; 
                               // writing raw string to child_pid regardless of string/int mode - this avoids the need to handle strings separately from ints
                               ++num_locks;
-                              child_pid[num_locks-1].second.second.second = (char*)to_w;
-                              child_pid[num_locks-1].first = temp_pid;
+                              child_pid[num_locks-1].s_value = to_w;
+                              child_pid[num_locks-1].pid = temp_pid;
                               if(integers){
-                                    child_pid[num_locks-1].second.first = vmem->mmap[v_loc[0]].first;
+                                    child_pid[num_locks-1].m_addr = vmem->mmap[v_loc[0]].first;
                                     // if we're locking values using "_" notation don't try atoi
                                     if(strcmp(to_w, "_") != 0){
-                                          printf("same msode\n");
-                                          child_pid[num_locks-1].second.second.first = atoi(to_w);
+                                          child_pid[num_locks-1].i_value = atoi(to_w);
                                     }
-                                    else child_pid[num_locks-1].second.second.first = vmem->mmap[v_loc[0]].second;
+                                    else child_pid[num_locks-1].i_value = vmem->mmap[v_loc[0]].second;
                               }
-                              else child_pid[num_locks-1].second.first = vmem->cp_mmap[v_loc[0]].first;
+                              else child_pid[num_locks-1].s_value = vmem->cp_mmap[v_loc[0]].first;
                               printf("variable(s) locked\n");
                               update_mem_map(vmem, integers);
                               //goto Find; // TODO: decide what behavior should be after vars have been locked
@@ -522,9 +512,7 @@ int main(int argc, char* argv[]){
                   SAFE_INTER:
                   vmem.pid = pid;
                   if(interactive_mode(&vmem, integers, d_rgn, additional, verbose, result_print_limit, print_rgns)){
-                        if(integers)free(vmem.mmap);
-                        else free(vmem.cp_mmap);
-                        free(vmem.mapped_rgn.remaining_addr);
+                        free_mem_map(&vmem, integers);
                   }
                   return 0;
             }
@@ -534,30 +522,18 @@ int main(int argc, char* argv[]){
                         print_mmap(&vmem, argv[3], integers, print_rgns);
                   }
                   else print_mmap(&vmem, "", integers, print_rgns);
-                  if(integers)free(vmem.mmap);
-                  else free(vmem.cp_mmap);
-                  free(vmem.mapped_rgn.remaining_addr);
+                  free_mem_map(&vmem, integers);
                   return 0;
             }
             if(strcmp(argv[2], "-i") == 0){
-                  populate_mem_map(&vmem, pid, d_rgn, additional, integers);
                   if(!integers){
                         printf("cannot invert string/char*\n");
-                        //if(integers)delete[] vmem->mmap;
-                        if(integers)free(vmem.mmap);
-                        //else delete[] vmem->cp_mmap;
-                        else free(vmem.cp_mmap);
-                        //delete[] vmem->mapped_rgn.remaining_addr;
-                        free(vmem.mapped_rgn.remaining_addr);
+                        free_mem_map(&vmem, false);
                         return -1;
                   }
+                  populate_mem_map(&vmem, pid, d_rgn, additional, integers);
                   logic_swap(&vmem);
-                  //if(integers)delete[] vmem->mmap;
-                  if(integers)free(vmem.mmap);
-                  //else delete[] vmem->cp_mmap;
-                  else free(vmem.cp_mmap);
-                  //delete[] vmem->mapped_rgn.remaining_addr;
-                  free(vmem.mapped_rgn.remaining_addr);
+                  free_mem_map(&vmem, integers);
                   return 0;
             }
             goto SAFE_INTER; // go back to interactive mode before mem_rgn_warn is called again

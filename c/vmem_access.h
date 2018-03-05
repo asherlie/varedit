@@ -1,15 +1,10 @@
 #include "vmem_parser.h"
 
 struct lock_container{
-      // TODO: rename these items sensibly
-      pid_t first;
-      struct /* pair of void* pair int string*/ lock_pair{
-            void* first;
-            struct int_string_pair{
-                  int first;
-                  char* second;
-            }second;
-      }second;
+      pid_t pid;
+      void* m_addr;
+      int i_value;
+      char* s_value;
 };
 
 struct addr_int_pair{
