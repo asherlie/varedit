@@ -213,8 +213,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               }
                         }
                         printf("enter a number from [0-%li] or a range with a '-', followed by a value to write OR 's' to continue searching\n", vmem->size-1);
-                        //fgets(v_loc_s, 10, stdin);
-                        scanf(" %49[^ \t.\n]%*c", v_loc_s);
+                        // width is 1 less than length of length of v_loc_s to avoid overwriting '\0'
+                        scanf(" %9[^ \t.\n]%*c", v_loc_s);
                         //v_loc_s[strlen(v_loc_s)-1]='\0';
                         if(strcmp(v_loc_s, "s") == 0){
                               fseek(stdin, 0, SEEK_END);
@@ -249,12 +249,12 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               lock_mode = true;
                               //std::cin >> v_loc_s;
                               //fgets(v_loc_s, 10, stdin);
-                              scanf(" %49[^ \t.\n]%*c", v_loc_s);
+                              scanf(" %9[^ \t.\n]%*c", v_loc_s);
                               //v_loc_s[strlen(v_loc_s)-1]='\0';
                         }
                         // std::ws to get rid of leading whitespace
                         //std::getline(std::cin >> std::ws, to_w); // TODO: maybe learn how to ignore leading ws
-                        scanf(" %49[^ \t.\n]%*c", to_w);
+                        scanf(" %19[^ \t.\n]%*c", to_w);
                         /*
                          *fgets(to_w, 20, stdin);
                          * { // to limit scope of s
@@ -375,8 +375,12 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             }
             // checking if input is valid integer before populating mem_map
             //tmp_str[strlen(tmp_str)-1] = '\0';
-            if(integers && !valid_int(tmp_str)){
+            if((strcmp(tmp_str, "") == 0 || !valid_int(tmp_str)) && integers){
                   printf("enter a valid integer to search\n");
+                  goto Find;
+            }
+            else if(strcmp(tmp_str, "") == 0){
+                  printf("enter a valid string to search\n");
                   goto Find;
             }
             if(first)populate_mem_map(vmem, vmem->pid, d_rgn, additional, integers, int_mode_bytes);
@@ -390,24 +394,17 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   tmp_str[1] = tmp_str[2];
                   tmp_str[2] = '\0';
             }
-            //LMAO JUST TOOK THE ABOVE OUT
-            //TODO
-            if(!first){
-                  update_mem_map(vmem, integers);
-            }
+            if(!first)update_mem_map(vmem, integers);
             if(integers){
                   tmp_val = atoi(tmp_str);
                   narrow_mem_map_int(vmem, tmp_val);
             }
-            else {
-                  narrow_mem_map_str(vmem, tmp_str, false);
-            }
+            else narrow_mem_map_str(vmem, tmp_str, false);
             if(vmem->size == 0){
                   printf("nothing matches your search of: %s\nresetting mem map\n", tmp_str);
                   if(integers)free(vmem->mmap);
                   else free(vmem->cp_mmap);
-                  // setting first to true to imitate behavior of first search and load
-                  // reducing space complexity by waiting to repopulate mem_map
+                  // setting first to true to imitate behavior of first search and load, reducing space complexity by waiting to repopulate mem_map
                   // TODO: decide whether or not to repopulate immediately - don't think i should so results are accurate to time of search
                   // populate_mem_map(vmem, vmem->pid, d_rgn, additional, integers);
                   // this might introduce an issue where memory isn't fully freed when no results are found
@@ -476,6 +473,7 @@ int main(int argc, char* argv[]){
       pid_t pid = (pid_t)atoi(argv[1]);
       // initializing here extends scope to default behavior to avoid rescanning memory
       struct mem_map vmem;
+      vmem.size = 0;
       // vmem->mapped_rgn = get_vmem_locations(pid, true);
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.cpp
       vmem.mapped_rgn = get_vmem_locations(pid, false); // disabling unmarked additional rgns until criteria for unmarked additional mem rgns are fixed

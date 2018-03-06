@@ -14,6 +14,7 @@
 #endif
 
 void free_mem_map(struct mem_map* mmap, bool integers){
+      free(mmap->mapped_rgn.p_name);
       if(mmap->mapped_rgn.n_remaining > 0)free(mmap->mapped_rgn.remaining_addr);
       if(integers)free(mmap->mmap);
       else{ // TODO do i need to free all strings
@@ -328,7 +329,6 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
                   }
             }
             else{
-                  /*if(mem->cp_mmap[i].first == 0 || strcmp(mem->cp_mmap[i].second, "") == 0 || strstr(match, mem->cp_mmap[i].second) == NULL){*/
                   if(mem->cp_mmap[i].first == 0 || !is_substr(match, mem->cp_mmap[i].second)){
                         --mem->size;
                         if(mem->size == 0)break;

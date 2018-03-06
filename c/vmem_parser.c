@@ -26,7 +26,7 @@ const char* which_rgn(struct mem_rgn rgn, void* addr){
       return "";
 }
 
-const char* get_proc_name(pid_t pid){        
+char* get_proc_name(pid_t pid){        
       char path[100];
       strcpy(path, "/proc/");
       char pid_ch[10];
@@ -40,6 +40,7 @@ const char* get_proc_name(pid_t pid){
       getline(&line, &sz, fp);
       // maybe replace with getdelim()
       // because the original one did and used '\0' 
+      fclose(fp);
       return line;
 }                 
 
@@ -62,11 +63,11 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
       vmem.heap_start_addr = NULL;
       vmem.heap_end_addr = NULL;
       vmem.n_remaining = 0;
-      vmem.remaining_addr = (struct m_addr_pair*)malloc(sizeof(struct m_addr_pair)*100); // 100 should be enough
       if(fp == NULL)return vmem;
-      int rem_alloc_sz = 100;
+      int rem_alloc_sz = 0;
       void* p_end = NULL;
       size_t sz = 0;
+      bool first_unmarked = true;
       while(getline(&tmp, &sz, fp) != -1){
             char start_add[20]; int sa_p = 0;
             char end_add[20]; int ea_p = 0;
@@ -92,17 +93,22 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
             // TODO: fix criteria for unmarked additional mem rgns
             while(tmp[i-1] != '/' && tmp[i-1] != '[' && i < strlen(tmp)){
                   if(tmp[i] == '/' || i >= strlen(tmp)-1){
-                        if(strstr(tmp, vmem.p_name) != NULL || (unmarked_additional && p_end != l_start_add && i >= strlen(tmp)-1)){
+                        if(is_substr(vmem.p_name, tmp) || (unmarked_additional && p_end != l_start_add && i >= strlen(tmp)-1)){
                               struct m_addr_pair tmp_pair;
                               tmp_pair.first = (void*)l_start_add;
                               tmp_pair.second = (void*)l_end_add;
-                              //                 n_additional space-1
-                              if(vmem.n_remaining == rem_alloc_sz-1){
+                              if(vmem.n_remaining == rem_alloc_sz){
                                     ++rem_alloc_sz;
-                                    struct m_addr_pair* tmp_realloc = (struct m_addr_pair*)malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
-                                    memcpy(tmp_realloc, vmem.remaining_addr, sizeof(struct m_addr_pair)*rem_alloc_sz);
-                                    free(vmem.remaining_addr);
-                                    vmem.remaining_addr = tmp_realloc;
+                                    if(first_unmarked){
+                                          first_unmarked = false;
+                                          vmem.remaining_addr = (struct m_addr_pair*)malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
+                                    }
+                                    else {
+                                          struct m_addr_pair* tmp_realloc = (struct m_addr_pair*)malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
+                                          memcpy(tmp_realloc, vmem.remaining_addr, sizeof(struct m_addr_pair)*rem_alloc_sz);
+                                          free(vmem.remaining_addr);
+                                          vmem.remaining_addr = tmp_realloc;
+                                    }
                               }
                               vmem.remaining_addr[vmem.n_remaining++] = tmp_pair;
                         }
@@ -128,6 +134,8 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
                   }
             }
       }
+      // free memory allocated by getline
+      free(tmp);
       fclose(fp);
       return vmem;
 }
