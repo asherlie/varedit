@@ -97,7 +97,7 @@ void logic_swap(const struct mem_map* mem){
       }
 }
 
-bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additional, bool verbose, int result_print_limit, bool print_rgns){
+bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, int result_print_limit, bool print_rgns){
       char search_mode_help[600];
       strcpy(search_mode_help, "search mode options:\n    'r' : reset mem map\n    \"wa\" <value> : write single value to all current results\n    ");
       if(integers)strcpy(search_mode_help, "<integer> : enter an integer to narrow results\n    \"rv\" : remove volatile variables\n    ");
@@ -170,23 +170,28 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
                   fseek(stdin, 0, SEEK_END);
                   goto Find;
             }
-            if(strcmp(tmp_str, "wa") == 0){
-                  //std::cin >> tmp_str;
-                  fgets(tmp_str, 20, stdin);
-                  tmp_str[strlen(tmp_str)-1]='\0';
-                  //if(integers)tmp_val = atoi(tmp_str);
-                  if(integers)tmp_val = atoi(tmp_str);
+            // wa mode
+            if(tmp_str[0] == 'w' && tmp_str[1] == 'a'){
+                  char val[18]; int v_s = 0;
+                  bool in_str = false;
+                  for(unsigned int s = 2; s < strlen(tmp_str); ++s){
+                        if(tmp_str[s] != ' '){
+                              in_str = true;
+                              val[v_s++] = tmp_str[s];
+                        }
+                        else if(in_str)break;
+                  }
+                  // get rid of possible initialized values
+                  memset(val+v_s, '\0', sizeof(char)*(18-v_s));
+                  if(integers)tmp_val = atoi(val);
                   for(int i = 0; i < vmem->size; ++i){
                         if(integers)write_int_to_pid_mem(vmem->pid, vmem->mmap[i].first, tmp_val);
-                        else write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].first, tmp_str);
+                        else write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].first, val);
                   }
-                  printf("wrote %s to %li memory locations\n", tmp_str, vmem->size);
-                  //std::cin.ignore(1000, '\n'); // TODO TRANS THIS TO C
-                  while(getchar() != '\n');
+                  printf("wrote %s to %li memory locations\n", val, vmem->size);
                   goto Find;
             }
             if(strcmp(tmp_str, "w") == 0){
-            //printf("lmao fuck this %s\n", tmp_str);
                   int vl_c;
                   char tmp_num[20], v_loc_s[10], to_w[20];
                   int tmp_num_p = 0;// v_loc_s_p = 0, to_w_p = 0;
@@ -211,11 +216,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
                         //fgets(v_loc_s, 10, stdin);
                         scanf(" %49[^ \t.\n]%*c", v_loc_s);
                         //v_loc_s[strlen(v_loc_s)-1]='\0';
-                        //std::cin >> v_loc_s;
                         if(strcmp(v_loc_s, "s") == 0){
                               fseek(stdin, 0, SEEK_END);
-                              //std::cin.ignore(1000, '\n'); // TODO TRANSLATE THIS TO C
-                              while(getchar() != '\n');
                               print_mmap(vmem, "", integers, print_rgns);
                               goto Find;
                         }
@@ -377,7 +379,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
                   printf("enter a valid integer to search\n");
                   goto Find;
             }
-            if(first)populate_mem_map(vmem, vmem->pid, d_rgn, additional, integers);
+            if(first)populate_mem_map(vmem, vmem->pid, d_rgn, additional, integers, int_mode_bytes);
             if(strcmp(tmp_str, "\\w") == 0 || strcmp(tmp_str, "\\u") == 0 || strcmp(tmp_str, "\\q") == 0 || strcmp(tmp_str, "\\r") == 0 || strcmp(tmp_str, "\\?") == 0){
                   tmp_str[0] = tmp_str[1]; // allow searching for 'w' or 'u' with \w or \u
                   tmp_str[1] = '\0';
@@ -401,7 +403,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
                   narrow_mem_map_str(vmem, tmp_str, false);
             }
             if(vmem->size == 0){
-                  printf("nothing matches your search of: %s\nresetting mem map", tmp_str);
+                  printf("nothing matches your search of: %s\nresetting mem map\n", tmp_str);
                   if(integers)free(vmem->mmap);
                   else free(vmem->cp_mmap);
                   // setting first to true to imitate behavior of first search and load
@@ -427,7 +429,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int d_rgn, int additi
 
 
 int main(int argc, char* argv[]){
-      char help_str[1101] = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory addres> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-v] [-pr] [-pl <print limit>]}\n    -p : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -w : write single value to virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -f : interactive mode (default)\n    -sb : save backup of process memory to file\n    -wb : restore process memory to backup\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n    -v : verbose mode (enables print region mode)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)\n";
+      char help_str[1185] = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory addres> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-b <integer>] [-v] [-pr] [-pl <print limit>]}\n    -p : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -w : write single value to virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -f : interactive mode (default)\n    -sb : save backup of process memory to file\n    -wb : restore process memory to backup\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n    -b : set number of bytes to read at a time in integer mode\n    -v : verbose mode (enables print region mode)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)\n";
 
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             printf("%s", help_str);
@@ -435,7 +437,7 @@ int main(int argc, char* argv[]){
       }
       bool integers = true, additional=false, verbose=false, print_rgns=false;
       // TODO: initialize d_rgn to NONE and handle that case
-      int d_rgn = STACK, result_print_limit=100;
+      int d_rgn = STACK, n_bytes=4, result_print_limit=100;
       for(int i = 0; i < argc; ++i){
             if(strcmp(argv[i], "-S") == 0){
                   d_rgn = STACK;
@@ -455,6 +457,9 @@ int main(int argc, char* argv[]){
             }
             if(strcmp(argv[i], "-C") == 0){
                   integers = false;
+            }
+            if(strcmp(argv[i], "-b") == 0){
+                  n_bytes = atoi(argv[i+1]);
             }
             if(strcmp(argv[i], "-v") == 0){
                   verbose = true;
@@ -505,13 +510,13 @@ int main(int argc, char* argv[]){
             if(strcmp(argv[2], "-f") == 0){
                   SAFE_INTER:
                   vmem.pid = pid;
-                  if(interactive_mode(&vmem, integers, d_rgn, additional, verbose, result_print_limit, print_rgns)){
+                  if(interactive_mode(&vmem, integers, n_bytes, d_rgn, additional, verbose, result_print_limit, print_rgns)){
                         free_mem_map(&vmem, integers);
                   }
                   return 0;
             }
             if(strcmp(argv[2], "-p") == 0){
-                  populate_mem_map(&vmem, pid, d_rgn, additional, integers);
+                  populate_mem_map(&vmem, pid, d_rgn, additional, integers, n_bytes);
                   if(argc > 3 && argv[3][0] != '-'){
                         print_mmap(&vmem, argv[3], integers, print_rgns);
                   }
@@ -525,7 +530,7 @@ int main(int argc, char* argv[]){
                         free_mem_map(&vmem, false);
                         return -1;
                   }
-                  populate_mem_map(&vmem, pid, d_rgn, additional, integers);
+                  populate_mem_map(&vmem, pid, d_rgn, additional, integers, 1);
                   logic_swap(&vmem);
                   free_mem_map(&vmem, integers);
                   return 0;
