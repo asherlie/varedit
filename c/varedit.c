@@ -89,7 +89,6 @@ void print_mmap(const struct mem_map* mem, const char* contains, bool integers, 
       }
 }
 
-// param can be const ref because i'm just using the mem_map as a guide for which mem locations to invert
 void logic_swap(const struct mem_map* mem){
       for(int i = 0; i < mem->size; ++i){
             if(mem->mmap[i].second == 0 || mem->mmap[i].second == 1)
@@ -128,9 +127,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             printf("enter current variable value to search");
             if(!first)printf(" or 'w' to enter write mode");
             printf("\n");
-            //std::cin >> tmp_str;
-            // too small to search for strings
-            /*fgets(tmp_str, 20, stdin);*/
             fgets(tmp_str, 4096, stdin);
             tmp_str[strlen(tmp_str)-1]='\0';
             if(strcmp(tmp_str, "q") == 0)return !first;
@@ -140,8 +136,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             }
             if(strcmp(tmp_str, "u") == 0){
                   update_mem_map(vmem, integers);
-                  //fseek(stdin, 0, SEEK_END);
-                  //std::cin.clear();
                   fseek(stdin, 0, SEEK_END);
                   print_mmap(vmem, "", integers, print_rgns);
                   goto Find;
@@ -165,7 +159,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         kill(child_pid[--num_locks].pid, SIGKILL);
                         // TODO possibly let user know that we're using freeze/same mode
                         // TODO possibly let user know that we're printing the first of a range
-                        //if(child_pid[num_locks].second.second == "_")
                         if(integers)printf("lock with value %i removed (%p)\n", child_pid[num_locks].i_value, child_pid[num_locks].m_addr);
                         else printf("lock with value \"%s\" removed (%p)\n", child_pid[num_locks].s_value, child_pid[num_locks].m_addr);
                         wait(NULL);
@@ -220,7 +213,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         printf("enter a number from [0-%li] or a range with a '-', followed by a value to write OR 's' to continue searching\n", vmem->size-1);
                         // width is 1 less than length of length of v_loc_s to avoid overwriting '\0'
                         scanf(" %9[^ \t.\n]%*c", v_loc_s);
-                        //v_loc_s[strlen(v_loc_s)-1]='\0';
                         if(strcmp(v_loc_s, "s") == 0){
                               fseek(stdin, 0, SEEK_END);
                               print_mmap(vmem, "", integers, print_rgns);
@@ -252,29 +244,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         lock_mode = false;
                         if(strcmp(v_loc_s, "l") == 0){
                               lock_mode = true;
-                              //std::cin >> v_loc_s;
-                              //fgets(v_loc_s, 10, stdin);
                               scanf(" %9[^ \t.\n]%*c", v_loc_s);
-                              //v_loc_s[strlen(v_loc_s)-1]='\0';
                         }
-                        // std::ws to get rid of leading whitespace
-                        //std::getline(std::cin >> std::ws, to_w); // TODO: maybe learn how to ignore leading ws
+                        // ignore leading whitespace
                         scanf(" %4095[^ \t.\n]%*c", to_w);
-                        /*
-                         *fgets(to_w, 20, stdin);
-                         * { // to limit scope of s
-                         *unsigned int s = 0;
-                         *for(; s < strlen(to_w); ++s){
-                         *      if(to_w[s] != ' ' && to_w[s] != '\n')break;
-                         * }
-                         * // my attempt to get rid of whitespace - fix this up by clearing extra string demonstrated below
-                         * strcpy(to_w, to_w+s);
-                         * //memset(to_w
-                         * //"  aas" s = 1
-                         * //"aasas" 
-                         *}
-                         */
-                        //to_w[strlen(to_w)-1] = '\0';
                         if(integers && !valid_int(to_w) && !(lock_mode && strcmp(to_w, "_") == 0)){
                               printf("enter a valid integer to write\n");
                               goto Write;
@@ -310,7 +283,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               if(temp_pid == 0){ // TODO: kill this if overwriting the same mem location
                                     bool same = false;
                                     int to_w_i;
-                                    //int to_w_i = 0; // to silence -Wmaybe-uninitialized
                                     if(strcmp(to_w, "_") == 0)same = true;
                                     else if(integers)to_w_i = atoi(to_w);
                                     // creating pair arrays to store relevant addresses and values so i can free up memory
@@ -379,7 +351,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   }
             }
             // checking if input is valid integer before populating mem_map
-            //tmp_str[strlen(tmp_str)-1] = '\0';
             if((strcmp(tmp_str, "") == 0 || !valid_int(tmp_str)) && integers){
                   printf("enter a valid integer to search\n");
                   goto Find;
@@ -431,7 +402,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 
 
 int main(int argc, char* argv[]){
-      char help_str[1185] = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory addres> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-b <integer>] [-v] [-pr] [-pl <print limit>]}\n    -p : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r : read single value from virtual memory address\n    -w : write single value to virtual memory address\n    -i : inverts all 1s and 0s in specified memory region\n    -f : interactive mode (default)\n    -sb : save backup of process memory to file\n    -wb : restore process memory to backup\n    -S : use stack (default)\n    -H : use heap\n    -B : use both heap and stack\n    -A : look for additional momory regions\n    -E : use all available memory regions\n    -C : use char/string mode\n    -b : set number of bytes to read at a time in integer mode\n    -v : verbose mode (enables print region mode)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)\n";
+      char help_str[1185] = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory addres> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-b <integer>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -i  : inverts all 1s and 0s in specified memory region\n    -f  : interactive mode (default)\n    -sb : save backup of process memory to file\n    -wb : restore process memory to backup\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose mode (enables print region mode)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)\n";
 
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             printf("%s", help_str);
@@ -479,12 +450,11 @@ int main(int argc, char* argv[]){
       // initializing here extends scope to default behavior to avoid rescanning memory
       struct mem_map vmem;
       vmem.size = 0;
-      // vmem->mapped_rgn = get_vmem_locations(pid, true);
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.cpp
       vmem.mapped_rgn = get_vmem_locations(pid, false); // disabling unmarked additional rgns until criteria for unmarked additional mem rgns are fixed
       if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
       if(argc > 2){
-            // -r and -w can be done without slowly loading a complete mem_map
+            // -r and -w can be used without slowly loading a complete mem_map
             if(strcmp(argv[2], "-r") == 0){
                   if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], 0, 16)));
                   else printf("%s\n", read_str_from_mem_block_slow(pid, (void*)strtoul(argv[3], 0, 16), NULL));

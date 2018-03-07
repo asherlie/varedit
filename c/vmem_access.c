@@ -64,8 +64,7 @@ int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm){
 }
 
 char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end){
-// TODO: maybe change this to read in blocks of 10/20 chars and then parse. would be faster
-// regardless, should probably switch to read_bytes_from_pid_mem implementation
+// should probably switch to read_bytes_from_pid_mem implementation
       char tmp;
       char* ret = (char*)malloc(sizeof(char)*100); int ret_p = 0;
       int str_sz = 100;
@@ -75,12 +74,13 @@ char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end){
                   ret[ret_p] = '\0';
                   return ret;
             }
-            if(ret_p >= str_sz)str_sz += 10;
-            char tmp_ret[str_sz-10];
-            strcpy(tmp_ret, ret);
-            free(ret);
-            ret = (char*)malloc(sizeof(char*)*str_sz);
-            strcpy(ret, tmp_ret);
+            if(ret_p == str_sz-1){
+                  str_sz += 10;
+                  char* tmp_ret = (char*)malloc(sizeof(char)*str_sz);
+                  strcpy(tmp_ret, ret);
+                  free(ret);
+                  ret = tmp_ret;
+            }
             ret[ret_p++] = tmp;
       }
       return ret;
@@ -163,7 +163,6 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                         for(void* vm_l = mmap->mapped_rgn.remaining_addr[i].first;
                                   vm_l != mmap->mapped_rgn.remaining_addr[i].second;
                                   vm_l = (void*)(((char*)vm_l)+bytes)){
-                              // TODO: might have to malloc these pairs
                               struct addr_int_pair tmp;
                               tmp.first = vm_l; tmp.second = ints_in_adtnl[d++];
                               mmap->mmap[c++] = tmp;
@@ -173,8 +172,6 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             }
       }
       else{
-            // when searching for end of string, all permutations of string show up
-            //char* tmp = (char*)malloc(sizeof(char)*tmp_size);
             bool in_str = false;
             if(d_rgn == STACK || d_rgn == BOTH){
                   // dont forget to dealloc this after each loop

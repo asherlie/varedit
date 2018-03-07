@@ -64,8 +64,6 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
       while(getline(&tmp, &sz, fp) != -1){
             char start_add[20]; int sa_p = 0;
             char end_add[20]; int ea_p = 0;
-            //desc[0] = '\0';
-            //memset(desc, 0, sizeof(desc));
             found_desc = true;
             i = 0;
             while(tmp[i] != '-'){
