@@ -113,7 +113,9 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       if(integers)printf("integers\n");
       else printf("strings\n");
       printf("enter 'u' at any time to update visible values, 'q' to exit or '?' for help\n");
-      char tmp_str[20];
+      // tmp_str needs to be large enough for any search string
+      // TODO: read in chunks to assure large enough string/not to overuse memory or use getline
+      char tmp_str[4096];
       int tmp_val;
       bool first = true;
       bool lock_mode;
@@ -128,7 +130,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             printf("\n");
             //std::cin >> tmp_str;
             // too small to search for strings
-            fgets(tmp_str, 20, stdin);
+            /*fgets(tmp_str, 20, stdin);*/
+            fgets(tmp_str, 4096, stdin);
             tmp_str[strlen(tmp_str)-1]='\0';
             if(strcmp(tmp_str, "q") == 0)return !first;
             if(strcmp(tmp_str, "?") == 0){
@@ -193,8 +196,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             }
             if(strcmp(tmp_str, "w") == 0){
                   int vl_c;
-                  char tmp_num[20], v_loc_s[10], to_w[20];
-                  int tmp_num_p = 0;// v_loc_s_p = 0, to_w_p = 0;
+                  // to_w needs to be large enough to store any write string
+                  // TODO: make to_w char* and use getline()
+                  char tmp_num[20], v_loc_s[10], to_w[4096];
+                  int tmp_num_p = 0;
                   int v_loc[2]; // v_loc stores start and end of a range
                   while(1){
                         Write:
@@ -254,7 +259,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         // std::ws to get rid of leading whitespace
                         //std::getline(std::cin >> std::ws, to_w); // TODO: maybe learn how to ignore leading ws
-                        scanf(" %19[^ \t.\n]%*c", to_w);
+                        scanf(" %4095[^ \t.\n]%*c", to_w);
                         /*
                          *fgets(to_w, 20, stdin);
                          * { // to limit scope of s
@@ -481,7 +486,7 @@ int main(int argc, char* argv[]){
       if(argc > 2){
             // -r and -w can be done without slowly loading a complete mem_map
             if(strcmp(argv[2], "-r") == 0){
-                  if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, 4, (void*)strtoul(argv[3], 0, 16)));
+                  if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], 0, 16)));
                   else printf("%s\n", read_str_from_mem_block_slow(pid, (void*)strtoul(argv[3], 0, 16), NULL));
                   return 0;
             }
