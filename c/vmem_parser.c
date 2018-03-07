@@ -2,6 +2,11 @@
 #include <string.h>
 #include <stdlib.h>
 
+void free_mem_rgn(struct mem_rgn* mr){
+      free(mr->p_name);
+      if(mr->n_remaining > 0)free(mr->remaining_addr);
+}
+
 bool is_substr(const char* substr, const char* str){
       int len = strlen(substr);
       char buf[len+1];
@@ -15,7 +20,6 @@ bool is_substr(const char* substr, const char* str){
       return false;
 }
 
-// TODO: change this to return int and use the macros maybe add a function to 
 const char* which_rgn(struct mem_rgn rgn, void* addr){
       char* addr_c = (char*)addr;
       if(addr_c >= (char*)rgn.stack_start_addr && addr_c <= (char*)rgn.stack_end_addr)return "stack";

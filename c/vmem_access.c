@@ -14,8 +14,6 @@
 #endif
 
 void free_mem_map(struct mem_map* mmap, bool integers){
-      free(mmap->mapped_rgn.p_name);
-      if(mmap->mapped_rgn.n_remaining > 0)free(mmap->mapped_rgn.remaining_addr);
       if(integers)free(mmap->mmap);
       else{ // TODO do i need to free all strings
             for(int i = 0; i < mmap->size; ++i){

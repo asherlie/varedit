@@ -67,4 +67,6 @@ vmem.size = 0;
 vmem.mapped_rgn = get_vmem_locations(pid, true);
 // BOTH is a macro that indicates we will be searching both the stack and heap
 populate_mem_map(vmem, pid, BOTH, true, true, 4);
+free_mem_rgn(&vmem.mapped_rgn);
+free_mem_map(&vmem);
 ```

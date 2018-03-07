@@ -143,7 +143,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             if(strcmp(tmp_str, "r") == 0){
                   if(vmem->size != 0){
                         if(integers)free(vmem->mmap);
-                        else free(vmem->cp_mmap);
+                        else {
+                              for(int i = 0; i < vmem->size; ++i)free(vmem->cp_mmap[i].second);
+                              free(vmem->cp_mmap);
+                        }
                         vmem->size = 0;
                         first = true;
                   }
@@ -486,6 +489,8 @@ int main(int argc, char* argv[]){
                   if(interactive_mode(&vmem, integers, n_bytes, d_rgn, additional, verbose, result_print_limit, print_rgns)){
                         free_mem_map(&vmem, integers);
                   }
+                  // we need to free mapped_rgn even if mem_map wasn't populated
+                  free_mem_rgn(&vmem.mapped_rgn);
                   return 0;
             }
             if(strcmp(argv[2], "-p") == 0){
