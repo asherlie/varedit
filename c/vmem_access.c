@@ -84,8 +84,8 @@ char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end){
       return ret;
 }
 
-bool write_int_to_pid_mem(pid_t pid, void* vm, int value){
-      int buff_sz = 4; // sizeof int
+bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, int value){
+      int buff_sz = bytes;
       int buf[buff_sz];
       buf[0] = value;
       struct iovec local[1];
@@ -97,11 +97,15 @@ bool write_int_to_pid_mem(pid_t pid, void* vm, int value){
       return (buff_sz == process_vm_writev((pid_t)pid, local, 1, remote, 1, 0));
 }
 
+bool write_int_to_pid_mem(pid_t pid, void* vm, int value){
+      return write_bytes_to_pid_mem(pid, 4, vm, value);
+}
+
 bool write_str_to_pid_mem(pid_t pid, void* vm, const char* str){
       int s_c = 0;
       unsigned int written = 0; 
       for(void* i = vm; i != (void*)(((char*)vm)+strlen(str)); i = (void*)((char*)i+1)){
-            written += write_int_to_pid_mem(pid, i, str[s_c++]);
+            written += write_bytes_to_pid_mem(pid, 1, i, str[s_c++]);
       }
       return written == strlen(str);
 }

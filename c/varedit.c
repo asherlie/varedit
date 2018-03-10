@@ -92,7 +92,7 @@ void print_mmap(const struct mem_map* mem, const char* contains, bool integers, 
 void logic_swap(const struct mem_map* mem){
       for(int i = 0; i < mem->size; ++i){
             if(mem->mmap[i].second == 0 || mem->mmap[i].second == 1)
-            write_int_to_pid_mem(mem->pid, mem->mmap[i].first, (int)!mem->mmap[i].second);
+            write_bytes_to_pid_mem(mem->pid, 1, mem->mmap[i].first, (int)!mem->mmap[i].second);
       }
 }
 
@@ -184,7 +184,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   memset(val+v_s, '\0', sizeof(char)*(18-v_s));
                   if(integers)tmp_val = atoi(val);
                   for(int i = 0; i < vmem->size; ++i){
-                        if(integers)write_int_to_pid_mem(vmem->pid, vmem->mmap[i].first, tmp_val);
+                        if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].first, tmp_val);
                         else write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].first, val);
                   }
                   printf("wrote %s to %li memory locations\n", val, vmem->size);
@@ -304,7 +304,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                           for(int i = 0; i <= v_loc[vl_c]-v_loc[0]; ++i){
                                                 if(integers){
                                                       if(same)to_w_i = vmem_int_subset[i].second;
-                                                      write_int_to_pid_mem(vmem->pid, vmem_int_subset[i].first, to_w_i);
+                                                      write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem_int_subset[i].first, to_w_i);
                                                 }
                                                 else{
                                                       //if(same)to_w = vmem_str_subset[i].second;
@@ -334,7 +334,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               continue;
                         }
                         for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
-                              if(integers)write_int_to_pid_mem(vmem->pid, vmem->mmap[i].first, atoi(to_w));
+                              if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].first, atoi(to_w));
                               else{
                                     if(strlen(to_w) > strlen(vmem->cp_mmap[i].second)){
                                           printf("WARNING (%i: %p): writing a string that is larger than the original string in its memory location causes undefined behavior\n", vmem->pid, vmem->cp_mmap[i].first);
@@ -464,7 +464,7 @@ int main(int argc, char* argv[]){
                   return 0;
             }
             if(strcmp(argv[2], "-w") == 0){
-                  if(integers)write_int_to_pid_mem(pid, (void*)strtoul(argv[3], 0, 16), atoi(argv[4]));
+                  if(integers)write_bytes_to_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], 0, 16), atoi(argv[4]));
                   else write_str_to_pid_mem(pid, (void*)strtoul(argv[3], 0, 16), argv[4]);
                   return 0;
             }
