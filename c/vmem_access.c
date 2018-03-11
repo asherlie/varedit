@@ -93,7 +93,6 @@ char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end){
 bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, int value){
       int buff_sz = bytes;
       int buf[buff_sz];
-      // i think the size of this buffer
       buf[0] = value;
       struct iovec local[1];
       struct iovec remote[1];
