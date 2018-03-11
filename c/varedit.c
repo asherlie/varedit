@@ -33,7 +33,7 @@ bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional){
  *void save_pid_mem_state(const mem_map &vmem, std::string outf){
  *      std::ofstream ofs(outf);
  *      for(int i = 0; i < vmem->size; ++i){
- *            ofs << vmem->mmap[i].first << " " << vmem->mmap[i].second << "\n";
+ *            ofs << vmem->mmap[i].addr << " " << vmem->mmap[i].value << "\n";
  *      }
  *      ofs.close();
  *}
@@ -61,7 +61,7 @@ int remove_volatile_values(struct mem_map* vmem){
       int n = 0;
       for(int i = 0; i < vmem->size; ++i){
             for(int in = 0; in < 10; ++in){
-                  if(vmem->mmap[i].second != read_single_val_from_pid_mem(vmem->pid, 4, vmem->mmap[i].first)){
+                  if(vmem->mmap[i].value != read_single_val_from_pid_mem(vmem->pid, 4, vmem->mmap[i].addr)){
                         vmem->mmap[i--] = vmem->mmap[--vmem->size];
                         ++n;
                   }
@@ -74,16 +74,16 @@ void print_mmap(const struct mem_map* mem, const char* contains, bool integers, 
       char tmp_num[20];
       for(int i = 0; i < mem->size; ++i){
             if(integers){
-                  sprintf(tmp_num, "%d", mem->mmap[i].second);
+                  sprintf(tmp_num, "%d", mem->mmap[i].value);
                   if(strcmp(contains, "") == 0 || strcmp(tmp_num, contains) == 0){
-                        if(show_rgns)printf("%p (%s) : %i\n", mem->mmap[i].first, which_rgn(mem->mapped_rgn, mem->mmap[i].first), mem->mmap[i].second);
-                        else printf("%p: %i\n", mem->mmap[i].first, mem->mmap[i].second);
+                        if(show_rgns)printf("%p (%s) : %i\n", mem->mmap[i].addr, which_rgn(mem->mapped_rgn, mem->mmap[i].addr), mem->mmap[i].value);
+                        else printf("%p: %i\n", mem->mmap[i].addr, mem->mmap[i].value);
                   }
             }
             else{
-                  if(strcmp(contains, "") == 0 || is_substr(contains, mem->cp_mmap[i].second)){
-                        if(show_rgns)printf("%p (%s) : %s\n", mem->cp_mmap[i].first, which_rgn(mem->mapped_rgn, mem->cp_mmap[i].first), mem->cp_mmap[i].second);
-                        else printf("%p: %s\n", mem->cp_mmap[i].first, mem->cp_mmap[i].second);
+                  if(strcmp(contains, "") == 0 || is_substr(contains, mem->cp_mmap[i].value)){
+                        if(show_rgns)printf("%p (%s) : %s\n", mem->cp_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->cp_mmap[i].addr), mem->cp_mmap[i].value);
+                        else printf("%p: %s\n", mem->cp_mmap[i].addr, mem->cp_mmap[i].value);
                   }
             }
       }
@@ -91,8 +91,8 @@ void print_mmap(const struct mem_map* mem, const char* contains, bool integers, 
 
 void logic_swap(const struct mem_map* mem){
       for(int i = 0; i < mem->size; ++i){
-            if(mem->mmap[i].second == 0 || mem->mmap[i].second == 1)
-            write_bytes_to_pid_mem(mem->pid, 1, mem->mmap[i].first, (int)!mem->mmap[i].second);
+            if(mem->mmap[i].value == 0 || mem->mmap[i].value == 1)
+            write_bytes_to_pid_mem(mem->pid, 1, mem->mmap[i].addr, (int)!mem->mmap[i].value);
       }
 }
 
@@ -144,7 +144,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   if(vmem->size != 0){
                         if(integers)free(vmem->mmap);
                         else {
-                              for(int i = 0; i < vmem->size; ++i)free(vmem->cp_mmap[i].second);
+                              for(int i = 0; i < vmem->size; ++i)free(vmem->cp_mmap[i].value);
                               free(vmem->cp_mmap);
                         }
                         vmem->size = 0;
@@ -184,8 +184,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   memset(val+v_s, '\0', sizeof(char)*(18-v_s));
                   if(integers)tmp_val = atoi(val);
                   for(int i = 0; i < vmem->size; ++i){
-                        if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].first, tmp_val);
-                        else write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].first, val);
+                        if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, tmp_val);
+                        else write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, val);
                   }
                   printf("wrote %s to %li memory locations\n", val, vmem->size);
                   goto Find;
@@ -205,12 +205,12 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         if(integers){
                               for(int i = 0; i < vmem->size; ++i){
-                                    printf("%i: (%p: %i)\n", i, vmem->mmap[i].first, vmem->mmap[i].second);
+                                    printf("%i: (%p: %i)\n", i, vmem->mmap[i].addr, vmem->mmap[i].value);
                               }
                         }
                         else{
                               for(int i = 0; i < vmem->size; ++i){
-                                    printf("%i: (%p: \"%s\")\n", i, vmem->cp_mmap[i].first, vmem->cp_mmap[i].second);
+                                    printf("%i: (%p: \"%s\")\n", i, vmem->cp_mmap[i].addr, vmem->cp_mmap[i].value);
                               }
                         }
                         printf("enter a number from [0-%li] or a range with a '-', followed by a value to write OR 's' to continue searching\n", vmem->size-1);
@@ -303,13 +303,13 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     while(1){ // child process will forever repeat this
                                           for(int i = 0; i <= v_loc[vl_c]-v_loc[0]; ++i){
                                                 if(integers){
-                                                      if(same)to_w_i = vmem_int_subset[i].second;
-                                                      write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem_int_subset[i].first, to_w_i);
+                                                      if(same)to_w_i = vmem_int_subset[i].value;
+                                                      write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem_int_subset[i].addr, to_w_i);
                                                 }
                                                 else{
-                                                      //if(same)to_w = vmem_str_subset[i].second;
-                                                      if(same)strcpy(to_w, vmem_str_subset[i].second);
-                                                      write_str_to_pid_mem(vmem->pid, vmem_str_subset[i].first, to_w);
+                                                      //if(same)to_w = vmem_str_subset[i].value;
+                                                      if(same)strcpy(to_w, vmem_str_subset[i].value);
+                                                      write_str_to_pid_mem(vmem->pid, vmem_str_subset[i].addr, to_w);
                                                 }
                                           }
                                     }
@@ -320,27 +320,27 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               child_pid[num_locks-1].s_value = to_w;
                               child_pid[num_locks-1].pid = temp_pid;
                               if(integers){
-                                    child_pid[num_locks-1].m_addr = vmem->mmap[v_loc[0]].first;
+                                    child_pid[num_locks-1].m_addr = vmem->mmap[v_loc[0]].addr;
                                     // if we're locking values using "_" notation don't try atoi
                                     if(strcmp(to_w, "_") != 0){
                                           child_pid[num_locks-1].i_value = atoi(to_w);
                                     }
-                                    else child_pid[num_locks-1].i_value = vmem->mmap[v_loc[0]].second;
+                                    else child_pid[num_locks-1].i_value = vmem->mmap[v_loc[0]].value;
                               }
-                              else child_pid[num_locks-1].m_addr = vmem->cp_mmap[v_loc[0]].first;
+                              else child_pid[num_locks-1].m_addr = vmem->cp_mmap[v_loc[0]].addr;
                               printf("variable(s) locked\n");
                               update_mem_map(vmem, integers);
                               //goto Find; // TODO: decide what behavior should be after vars have been locked
                               continue;
                         }
                         for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
-                              if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].first, atoi(to_w));
+                              if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, atoi(to_w));
                               else{
-                                    if(strlen(to_w) > strlen(vmem->cp_mmap[i].second)){
-                                          printf("WARNING (%i: %p): writing a string that is larger than the original string in its memory location causes undefined behavior\n", vmem->pid, vmem->cp_mmap[i].first);
+                                    if(strlen(to_w) > strlen(vmem->cp_mmap[i].value)){
+                                          printf("WARNING (%i: %p): writing a string that is larger than the original string in its memory location causes undefined behavior\n", vmem->pid, vmem->cp_mmap[i].addr);
                                     }
-                                    // TODO: add option to fill up destination string with NUL \0 if to_w.size() < vmem->cp_mmap[i].second.size()
-                                    write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].first, to_w);
+                                    // TODO: add option to fill up destination string with NUL \0 if to_w.size() < vmem->cp_mmap[i].value.size()
+                                    write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, to_w);
                               }
                         }
                         update_mem_map(vmem, integers); // to make sure accurate values are printed

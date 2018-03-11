@@ -8,13 +8,13 @@ struct lock_container{
 };
 
 struct addr_int_pair{
-      void* first;
-      int second;
+      void* addr;
+      int value;
 };
 
 struct addr_str_pair{
-      void* first;
-      char* second;
+      void* addr;
+      char* value;
 };
 
 struct mem_map{

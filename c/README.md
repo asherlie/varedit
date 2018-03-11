@@ -30,6 +30,7 @@ vmem_access.h contains the following functions for reading and writing to virtua
 * int* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e)
 * int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm)
 * char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end)
+* bool write_bytes_from_pid_mem(pid_t pid, int bytes, void* vm, int value)
 * bool write_int_to_pid_mem(pid_t pid, void* vm, int value)
 * bool write_str_to_pid_mem(pid_t pid, void* vm, const char* str)
 ##### the following is a simple program that will print the value stored in the specified virtual memory location of the specified process id

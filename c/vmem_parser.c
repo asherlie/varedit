@@ -25,7 +25,7 @@ const char* which_rgn(struct mem_rgn rgn, void* addr){
       if(addr_c >= (char*)rgn.stack_start_addr && addr_c <= (char*)rgn.stack_end_addr)return "stack";
       if(addr_c >= (char*)rgn.heap_start_addr && addr_c <= (char*)rgn.heap_end_addr)return "heap";
       for(int i = 0; i < rgn.n_remaining; ++i){
-            if(addr_c >= (char*)rgn.remaining_addr[i].first && addr_c <= (char*)rgn.remaining_addr[i].second)return "unmarked region";
+            if(addr_c >= (char*)rgn.remaining_addr[i].start && addr_c <= (char*)rgn.remaining_addr[i].end)return "unmarked region";
       }
       return "";
 }
@@ -90,8 +90,8 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
                   if(tmp[i] == '/' || i >= strlen(tmp)-1){
                         if(is_substr(vmem.p_name, tmp) || (unmarked_additional && p_end != l_start_add && i >= strlen(tmp)-1)){
                               struct m_addr_pair tmp_pair;
-                              tmp_pair.first = (void*)l_start_add;
-                              tmp_pair.second = (void*)l_end_add;
+                              tmp_pair.start = (void*)l_start_add;
+                              tmp_pair.end = (void*)l_end_add;
                               if(vmem.n_remaining == rem_alloc_sz){
                                     ++rem_alloc_sz;
                                     if(first_unmarked){

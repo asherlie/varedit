@@ -9,8 +9,8 @@
 #include <stdlib.h>
 
 struct m_addr_pair{
-      void* first;
-      void* second;
+      void* start;
+      void* end;
 };
 
 // keeps track of virtual memory address ranges for heap, stack and remaining memory
