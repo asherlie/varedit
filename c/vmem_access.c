@@ -141,6 +141,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
       }
       else mmap->cp_mmap = (struct addr_str_pair*)malloc(sizeof(struct addr_str_pair)*m_size);
       //TODO: find smarter way to allocate string mmap memory, this assumes that each memory location stores an individual string
+      //TODO: initialize small and resize dynamically
       long c = 0;
       if(integers){
             mmap->size = m_size;
@@ -183,17 +184,24 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             bool in_str = false;
             if(d_rgn == STACK || d_rgn == BOTH){
                   // dont forget to dealloc this after each loop
+                  //TODO TODO TODO: change 22 to something much smaller. wasting so much mem allocating 22 bytes for empty strs
+                  //initilize to 1, add 5 or 10 each resize
                   int tmp_size = 22;
                   char* tmp = (char*)malloc(sizeof(char)*tmp_size); int tmp_p = 0;
                   memset(tmp, '\0', sizeof(char)*tmp_size);
                   // TODO: check for emptiness in strings before adding them
                   int* chars_in_stack = read_bytes_from_pid_mem(pid, 1, vm_l_stack, mmap->mapped_rgn.stack_end_addr);
                   void* current_addr = vm_l_stack; void* str_st_addr;
-                  for(int i = 0; i < (char*)mmap->mapped_rgn.stack_end_addr-(char*)vm_l_stack; ++i){
+                  int n_items = (char*)mmap->mapped_rgn.stack_end_addr-(char*)vm_l_stack;
+                  // TODO: account for ending a parse session while still in a string - might have to push back tmp when i == size
+                  // also account for no string found afte rrealloc beause we werent at end of input
+                  for(int i = 0; i < n_items; ++i){
                         if(chars_in_stack[i] > 0 && chars_in_stack[i] < 127){
                               if(!in_str)str_st_addr = current_addr; // first char of a string
                               in_str = true;
                               if(tmp_p >= tmp_size-1){
+                              /*if(tmp_p == tmp_size){*/
+                                    /*printf("resizing\n");*/
                                     tmp_size += 20;
                                     char* tmp_tmp = (char*)malloc(sizeof(char)*tmp_size);
                                     strcpy(tmp_tmp, tmp);
@@ -201,19 +209,35 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                                     tmp = tmp_tmp;
                               }
                               tmp[tmp_p++] = (char)chars_in_stack[i];
+                              // TODO: possibly add string in progress if we've gotten to the end of input on a valid char
+                              /*
+                               *if(i == n_items-1){
+                               *      goto ADD_STR;
+                               *}
+                               */
                         }
                         else if(in_str){
+                              /*ADD_STR:*/
                               in_str = false;
                               struct addr_str_pair tmp_pair;
                               tmp_pair.addr = str_st_addr; tmp_pair.value = tmp;
+                              /*
+                               *tmp_pair.value = malloc(strlen(tmp));
+                               *strcpy(tmp_pair.value, tmp);
+                               *free(tmp);
+                               */
                               mmap->cp_mmap[c++] = tmp_pair;
                               ++mmap->size;
-                              tmp_size = 22;
-                              tmp = (char*)malloc(sizeof(char)*tmp_size); tmp_p = 0;
-                              memset(tmp, '\0', sizeof(char)*tmp_size);
+                              // only realloc tmp if we plan on parsing more strings
+                              if(i != n_items-1){
+                                    tmp_size = 22;
+                                    tmp = (char*)malloc(sizeof(char)*tmp_size); tmp_p = 0;
+                                    memset(tmp, '\0', sizeof(char)*tmp_size);
+                              }
                         }
                         current_addr = (void*)(((char*)current_addr)+1);
                   }
+                  /*if(!in_str)free(tmp);*/
                   free(chars_in_stack);
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
@@ -223,7 +247,8 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   memset(tmp, '\0', sizeof(char)*tmp_size);
                   int* chars_in_heap = read_bytes_from_pid_mem(pid, 1, vm_l_heap, mmap->mapped_rgn.heap_end_addr);
                   void* current_addr = vm_l_heap; void* str_st_addr;
-                  for(int i = 0; i < (char*)mmap->mapped_rgn.heap_end_addr-(char*)vm_l_heap; ++i){
+                  int n_items = (char*)mmap->mapped_rgn.heap_end_addr-(char*)vm_l_heap;
+                  for(int i = 0; i < n_items; ++i){
                         if(chars_in_heap[i] > 0 && chars_in_heap[i] < 127){
                               if(!in_str)str_st_addr = current_addr;
                               in_str = true;
@@ -242,9 +267,11 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                               tmp_pair.addr = str_st_addr; tmp_pair.value = tmp;
                               mmap->cp_mmap[c++] = tmp_pair;
                               ++mmap->size;
-                              tmp_size = 22;
-                              tmp = (char*)malloc(sizeof(char)*tmp_size); tmp_p = 0;
-                              memset(tmp, '\0', sizeof(char)*tmp_size);   
+                              if(i != n_items-1){
+                                    tmp_size = 22;
+                                    tmp = (char*)malloc(sizeof(char)*tmp_size); tmp_p = 0;
+                                    memset(tmp, '\0', sizeof(char)*tmp_size);   
+                              }
                         }
                         current_addr = (void*)(((char*)current_addr)+1);
                   }
@@ -335,6 +362,7 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
             }
             else{
                   if(mem->cp_mmap[i].addr == 0 || !is_substr(match, mem->cp_mmap[i].value)){
+                        free(mem->cp_mmap[i].value);
                         --mem->size;
                         if(mem->size == 0)break;
                         mem->cp_mmap[i--] = mem->cp_mmap[mem->size];
