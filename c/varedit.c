@@ -142,11 +142,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             }
             if(strcmp(tmp_str, "r") == 0){
                   if(vmem->size != 0){
-                        if(integers)free(vmem->mmap);
-                        else {
-                              for(int i = 0; i < vmem->size; ++i)free(vmem->cp_mmap[i].value);
-                              free(vmem->cp_mmap);
-                        }
+                        free_mem_map(vmem, integers);
                         vmem->size = 0;
                         first = true;
                   }
@@ -500,17 +496,20 @@ int main(int argc, char* argv[]){
                   }
                   else print_mmap(&vmem, "", integers, print_rgns);
                   free_mem_map(&vmem, integers);
+                  free_mem_rgn(&vmem.mapped_rgn);
                   return 0;
             }
             if(strcmp(argv[2], "-i") == 0){
                   if(!integers){
                         printf("cannot invert string/char*\n");
                         free_mem_map(&vmem, false);
+                        free_mem_rgn(&vmem.mapped_rgn);
                         return -1;
                   }
                   populate_mem_map(&vmem, pid, d_rgn, additional, integers, 1);
                   logic_swap(&vmem);
                   free_mem_map(&vmem, integers);
+                  free_mem_rgn(&vmem.mapped_rgn);
                   return 0;
             }
             goto SAFE_INTER;
