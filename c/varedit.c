@@ -303,7 +303,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                                       write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem_int_subset[i].addr, to_w_i);
                                                 }
                                                 else{
-                                                      //if(same)to_w = vmem_str_subset[i].value;
                                                       if(same)strcpy(to_w, vmem_str_subset[i].value);
                                                       write_str_to_pid_mem(vmem->pid, vmem_str_subset[i].addr, to_w);
                                                 }

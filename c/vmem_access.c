@@ -198,6 +198,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                         if(chars_in_stack[i] > 0 && chars_in_stack[i] < 127){
                               if(!in_str){
                                     str_st_addr = current_addr; // first char of a string
+                                    // if first char of string, realloc tmp
                                     tmp_size = initial_str_sz;
                                     tmp = (char*)malloc(sizeof(char)*tmp_size); tmp_p = 0;
                                     memset(tmp, '\0', sizeof(char)*tmp_size);
@@ -205,7 +206,6 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                               in_str = true;
                               if(tmp_p >= tmp_size-1){
                               /*if(tmp_p == tmp_size){*/
-                                    /*printf("resizing\n");*/
                                     tmp_size += 20;
                                     char* tmp_tmp = (char*)malloc(sizeof(char)*tmp_size);
                                     strcpy(tmp_tmp, tmp);
@@ -214,30 +214,16 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                               }
                               tmp[tmp_p++] = (char)chars_in_stack[i];
                               // TODO: possibly add string in progress if we've gotten to the end of input on a valid char
-                              // and add to heap and addt'l
-                              if(i == n_items-1)goto ADD_STR;
                         }
                         else if(in_str){
-                              ADD_STR:
                               in_str = false;
                               struct addr_str_pair tmp_pair;
                               tmp_pair.addr = str_st_addr; tmp_pair.value = tmp;
                               mmap->cp_mmap[c++] = tmp_pair;
                               ++mmap->size;
-                              // only realloc tmp if we plan on parsing more strings
-                              // TODO: add to heap and addt'l
-                              /*
-                               *if(i != n_items-1){
-                               *      tmp_size = initial_str_sz;
-                               *      tmp = (char*)malloc(sizeof(char)*tmp_size); tmp_p = 0;
-                               *      memset(tmp, '\0', sizeof(char)*tmp_size);
-                               *}
-                               */
                         }
-                        /*else free(tmp);*/
                         current_addr = (void*)(((char*)current_addr)+1);
                   }
-                  // if we ended before constructing a new string, free tmp
                   free(chars_in_stack);
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
@@ -252,6 +238,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                         if(chars_in_heap[i] > 0 && chars_in_heap[i] < 127){
                               if(!in_str){
                                     str_st_addr = current_addr;
+                                    // if first char of string, realloc tmp
                                     tmp_size = initial_str_sz;
                                     tmp = (char*)malloc(sizeof(char)*tmp_size); tmp_p = 0;
                                     memset(tmp, '\0', sizeof(char)*tmp_size);   
@@ -272,13 +259,6 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                               tmp_pair.addr = str_st_addr; tmp_pair.value = tmp;
                               mmap->cp_mmap[c++] = tmp_pair;
                               ++mmap->size;
-                              /*
-                               *if(i != n_items-1){
-                               *      tmp_size = initial_str_sz;
-                               *      tmp = (char*)malloc(sizeof(char)*tmp_size); tmp_p = 0;
-                               *      memset(tmp, '\0', sizeof(char)*tmp_size);   
-                               *}
-                               */
                         }
                         current_addr = (void*)(((char*)current_addr)+1);
                   }
@@ -299,8 +279,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                         for(int j = 0; j < n_items; ++j){
                               if(chars_in_addtnl[j] > 0 && chars_in_addtnl[j] < 127){
                                     if(!in_str){
-                                          // TODO: follow this model with stack and heap
-                                          //realloc tmp here
+                                          // if first char of string, realloc tmp
                                           str_st_addr = current_addr;
                                           tmp_size = initial_str_sz;
                                           tmp = (char*)malloc(sizeof(char*)*tmp_size); tmp_p = 0;
@@ -323,13 +302,6 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                                     tmp_pair.addr = str_st_addr; tmp_pair.value = tmp;
                                     mmap->cp_mmap[c++] = tmp_pair;
                                     ++mmap->size;
-                                    /*
-                                     *if(j != n_items-1){
-                                     *      tmp_size = initial_str_sz;
-                                     *      tmp = (char*)malloc(sizeof(char)*tmp_size); tmp_p = 0;
-                                     *      memset(tmp, '\0', sizeof(char)*tmp_size);
-                                     *}
-                                     */
                               }
                         }
                         // i want to free mem if we realloc'd bc j != n_items-1
@@ -383,6 +355,7 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
       for(int i = 0; i < mem->size; ++i){
             if(exact){
                   if(mem->cp_mmap[i].addr == 0 || strcmp(mem->cp_mmap[i].value, match) != 0){
+                        free(mem->cp_mmap[i].value);
                         mem->cp_mmap[i--] = mem->cp_mmap[--mem->size];
                   }
             }
