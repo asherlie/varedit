@@ -61,11 +61,12 @@ int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm){
       return ret;
 }
 
+// read_str_from_mem_block_slow should be used when no end of range is know. rename
 char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end){
-// should probably switch to read_bytes_from_pid_mem implementation
+// TODO: switch to read_bytes_from_pid_mem implementation
       char tmp;
-      char* ret = (char*)malloc(sizeof(char)*100); int ret_p = 0;
-      int str_sz = 100;
+      char* ret = (char*)malloc(sizeof(char)*10); int ret_p = 0;
+      int str_sz = 10;
       for(void* i = mb_start; i != mb_end; i = (void*)(((char*)i)+1)){ 
             tmp = (char)read_single_val_from_pid_mem(pid, 1, i);
             if(!(tmp > 0 && tmp < 127)){
@@ -184,12 +185,9 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             const int initial_str_sz = 1;
             bool in_str = false;
             if(d_rgn == STACK || d_rgn == BOTH){
-                  // dont forget to dealloc this after each loop
-                  //TODO TODO TODO: change initial_str_sz to something much smaller. wasting so much mem allocating initial_str_sz bytes for empty strs
-                  //initilize to 1, add 5 or 10 each resize
+                  // TODO: test different initial_str_sz's
                   int tmp_size = initial_str_sz;
-                  char* tmp = (char*)malloc(sizeof(char)*tmp_size); int tmp_p = 0;
-                  memset(tmp, '\0', sizeof(char)*tmp_size);
+                  char* tmp; int tmp_p = 0;
                   // TODO: check for emptiness in strings before adding them
                   int* chars_in_stack = read_bytes_from_pid_mem(pid, 1, vm_l_stack, mmap->mapped_rgn.stack_end_addr);
                   void* current_addr = vm_l_stack; void* str_st_addr;
@@ -229,8 +227,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             if(d_rgn == HEAP || d_rgn == BOTH){
                   in_str = false;
                   int tmp_size = initial_str_sz;
-                  char* tmp = (char*)malloc(sizeof(char)*tmp_size); int tmp_p = 0;
-                  memset(tmp, '\0', sizeof(char)*tmp_size);
+                  char* tmp; int tmp_p = 0;
                   int* chars_in_heap = read_bytes_from_pid_mem(pid, 1, vm_l_heap, mmap->mapped_rgn.heap_end_addr);
                   void* current_addr = vm_l_heap; void* str_st_addr;
                   int n_items = (char*)mmap->mapped_rgn.heap_end_addr-(char*)vm_l_heap;
@@ -244,7 +241,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                                     memset(tmp, '\0', sizeof(char)*tmp_size);   
                               }
                               in_str = true;
-                              if(tmp_p >= tmp_size){
+                              if(tmp_p >= tmp_size-1){
                                     tmp_size += 20;
                                     char* tmp_tmp = (char*)malloc(sizeof(char)*tmp_size);
                                     strcpy(tmp_tmp, tmp);
@@ -262,14 +259,12 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                         }
                         current_addr = (void*)(((char*)current_addr)+1);
                   }
-                  if(!in_str)free(tmp);
                   free(chars_in_heap);
             }
             if(use_additional_rgns){
                   in_str = false;
                   int n_items, tmp_size = initial_str_sz;
-                  char* tmp = (char*)malloc(sizeof(char)*tmp_size); int tmp_p = 0;
-                  memset(tmp, '\0', sizeof(char)*tmp_size);
+                  char* tmp; int tmp_p = 0;
                   int* chars_in_addtnl;
                   void* current_addr; void* str_st_addr;
                   for(int i = 0; i < mmap->mapped_rgn.n_remaining; ++i){
