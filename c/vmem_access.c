@@ -1,4 +1,5 @@
 #include "vmem_access.h"
+
 #include <string.h>
 #include <sys/uio.h>
 #include <limits.h> // for IOV_MAX
@@ -13,6 +14,8 @@
 #define IM __IOV_MAX
 #endif
 
+typedef unsigned char BYTE;
+
 void free_mem_map(struct mem_map* mmap, bool integers){
       if(integers)free(mmap->mmap);
       else{
@@ -23,27 +26,39 @@ void free_mem_map(struct mem_map* mmap, bool integers){
       }
 }
 
-int* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e){
+BYTE* read_bytes_from_pid_mem_exp(pid_t pid, int bytes, void* vm_s, void* vm_e){
       int sz_rgn;
       if(vm_e == NULL)sz_rgn = bytes;
       else sz_rgn = (char*)vm_e-(char*)vm_s;
-      int n_items = sz_rgn/bytes;
-      struct iovec* local = (struct iovec*)malloc(sizeof(struct iovec)*n_items);
+      struct iovec* local = (struct iovec*)malloc(sizeof(struct iovec)*sz_rgn);
       struct iovec remote[1];
-      int* buf = (int*)malloc(sizeof(int)*n_items);
+      // TODO: !! /*try alloc'ing remote on heap and pre-setting up also*/
+      BYTE* buf = malloc(sz_rgn+1);
+      buf[sz_rgn] = '\0';
       int byte_c = 0;
-      for(int i = 0; i < n_items; ++i){
-            local[i].iov_base = &(buf[i]);
-            local[i].iov_len = bytes;
-            byte_c+=bytes;
+      local->iov_base = buf;
+      local->iov_len = sz_rgn;
+      for(int i = 0; i < sz_rgn; ++i){
+            local[i].iov_base = &(buf[byte_c]);
+            local[i].iov_len = IM;
+            byte_c += IM;
       }
       remote[0].iov_base = vm_s;
+      // total amt of bytes to read
       remote[0].iov_len = sz_rgn;
       int c = 0;
-      for(int i = 0; i < (n_items/IM)+1; ++i){
-            process_vm_readv(pid, local+c, IM, remote, 1, 0);
-            remote[0].iov_base = (void*)(((char*)remote[0].iov_base)+IM*bytes);
-            c+=IM;
+      if(sz_rgn < IM){
+            process_vm_readv(pid, local, sz_rgn, remote, 1, 0);
+      }
+      else{
+            for(int i = 0; i < (sz_rgn/IM)+1; ++i){
+                  process_vm_readv(pid, local+c, IM, remote, 1, 0);
+                 /*process_vm_readv(pid, local, 1, remote, 1, 0);*/
+                  /*remote[0].iov_base = (void*)(((char*)remote[0].iov_base)+IM*bytes);*/
+                  remote[0].iov_base = (void*)(((char*)remote[0].iov_base)+IM);
+                  remote[0].iov_len = IM;
+                  c+=IM;
+            }
       }
       free(local);
       return buf;
@@ -61,21 +76,23 @@ int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm){
       return ret;
 }
 
-// read_str_from_mem_block_slow should be used when no end of range is know. rename
+char* read_str_from_mem_block(pid_t pid, void* mb_start, int len){
+      return (char*)read_bytes_from_pid_mem_exp(pid, 1, mb_start, (void*)((char*)mb_start+len));
+}
+
 char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end){
-// TODO: switch to read_bytes_from_pid_mem implementation
       char tmp;
-      char* ret = (char*)malloc(sizeof(char)*10); int ret_p = 0;
-      int str_sz = 10;
+      int str_sz = 1;
+      char* ret = (char*)malloc(sizeof(char)*str_sz+1); int ret_p = 0;
       for(void* i = mb_start; i != mb_end; i = (void*)(((char*)i)+1)){ 
             tmp = (char)read_single_val_from_pid_mem(pid, 1, i);
             if(!(tmp > 0 && tmp < 127)){
-                  ret[ret_p] = '\0';
                   return ret;
             }
-            if(ret_p == str_sz-1){
+            if(ret_p == str_sz){
                   str_sz += 10;
-                  char* tmp_ret = (char*)malloc(sizeof(char)*str_sz);
+                  char* tmp_ret = (char*)malloc(sizeof(char)*str_sz+1);
+                  memset(tmp_ret, '\0', str_sz);
                   strcpy(tmp_ret, ret);
                   free(ret);
                   ret = tmp_ret;
@@ -144,22 +161,32 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
       //TODO: find smarter way to allocate string mmap memory, this assumes that each memory location stores an individual string
       //TODO: initialize small and resize dynamically
       long c = 0;
+      int buf_s = 0;
+      int tmp = 0;
       if(integers){
             mmap->size = m_size;
             if(d_rgn == STACK || d_rgn == BOTH){
-                  int* ints_in_stack = read_bytes_from_pid_mem(pid, bytes, vm_l_stack, mmap->mapped_rgn.stack_end_addr);
-                  for(int d = 0; vm_l_stack != mmap->mapped_rgn.stack_end_addr; vm_l_stack = (void*)(((char*)vm_l_stack)+bytes)){
+                  /*int* ints_in_stack = read_bytes_from_pid_mem(pid, bytes, vm_l_stack, mmap->mapped_rgn.stack_end_addr);*/
+                  BYTE* ints_in_stack = read_bytes_from_pid_mem_exp(pid, bytes, vm_l_stack, mmap->mapped_rgn.stack_end_addr);
+                  for(; vm_l_stack != mmap->mapped_rgn.stack_end_addr; vm_l_stack = (void*)(((char*)vm_l_stack)+bytes)){
+                        memcpy(&tmp, &(ints_in_stack[buf_s]), bytes);
+                        buf_s += bytes;
                         struct addr_int_pair tmp_pair;
-                        tmp_pair.addr = vm_l_stack; tmp_pair.value = ints_in_stack[d++];
+                        /*tmp_pair.addr = vm_l_stack; tmp_pair.value = ints_in_stack[d++];*/
+                        tmp_pair.addr = vm_l_stack; tmp_pair.value = tmp;
                         mmap->mmap[c++] = tmp_pair;
                   }
                   free(ints_in_stack);
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
-                  int* ints_in_heap = read_bytes_from_pid_mem(pid, bytes, vm_l_heap, mmap->mapped_rgn.heap_end_addr);
-                  for(int d = 0; vm_l_heap != mmap->mapped_rgn.heap_end_addr; vm_l_heap = (void*)(((char*)vm_l_heap)+bytes)){
+                  buf_s = 0;
+                  BYTE* ints_in_heap = read_bytes_from_pid_mem_exp(pid, bytes, vm_l_heap, mmap->mapped_rgn.heap_end_addr);
+                  for(; vm_l_heap != mmap->mapped_rgn.heap_end_addr; vm_l_heap = (void*)(((char*)vm_l_heap)+bytes)){
+                        memcpy(&tmp, &(ints_in_heap[buf_s]), bytes);
+                        buf_s += bytes;
                         struct addr_int_pair tmp_pair;
-                        tmp_pair.addr = vm_l_heap; tmp_pair.value = ints_in_heap[d++];
+                        /*tmp_pair.addr = vm_l_heap; tmp_pair.value = ints_in_heap[d++];*/
+                        tmp_pair.addr = vm_l_heap; tmp_pair.value = tmp;
                         mmap->mmap[c++] = tmp_pair;
                   }
                   free(ints_in_heap);
@@ -167,20 +194,23 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             }
             if(use_additional_rgns){
                   for(int i = 0; i < mmap->mapped_rgn.n_remaining; ++i){
-                        int* ints_in_adtnl = read_bytes_from_pid_mem(pid, bytes, mmap->mapped_rgn.remaining_addr[i].start,
+                        BYTE* ints_in_adtnl = read_bytes_from_pid_mem_exp(pid, bytes, mmap->mapped_rgn.remaining_addr[i].start,
                                                                              mmap->mapped_rgn.remaining_addr[i].end);
-                        int d = 0;
+                        buf_s = 0;
                         for(void* vm_l = mmap->mapped_rgn.remaining_addr[i].start;
                                   vm_l != mmap->mapped_rgn.remaining_addr[i].end;
                                   vm_l = (void*)(((char*)vm_l)+bytes)){
-                              struct addr_int_pair tmp;
-                              tmp.addr = vm_l; tmp.value = ints_in_adtnl[d++];
-                              mmap->mmap[c++] = tmp;
+                              memcpy(&tmp, &(ints_in_adtnl[buf_s]), bytes);
+                              buf_s += bytes;
+                              struct addr_int_pair tmp_pair;
+                              tmp_pair.addr = vm_l; tmp_pair.value = tmp;
+                              mmap->mmap[c++] = tmp_pair;
                         }
                         free(ints_in_adtnl);
                   }
             }
       }
+      // !integers
       else{
             const int initial_str_sz = 1;
             bool in_str = false;
@@ -189,7 +219,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   int tmp_size = initial_str_sz;
                   char* tmp; int tmp_p = 0;
                   // TODO: check for emptiness in strings before adding them
-                  int* chars_in_stack = read_bytes_from_pid_mem(pid, 1, vm_l_stack, mmap->mapped_rgn.stack_end_addr);
+                  BYTE* chars_in_stack = read_bytes_from_pid_mem_exp(pid, 1, vm_l_stack, mmap->mapped_rgn.stack_end_addr);
                   void* current_addr = vm_l_stack; void* str_st_addr;
                   int n_items = (char*)mmap->mapped_rgn.stack_end_addr-(char*)vm_l_stack;
                   for(int i = 0; i < n_items; ++i){
@@ -198,14 +228,15 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                                     str_st_addr = current_addr; // first char of a string
                                     // if first char of string, realloc tmp
                                     tmp_size = initial_str_sz;
-                                    tmp = (char*)malloc(sizeof(char)*tmp_size); tmp_p = 0;
+                                    tmp = (char*)malloc(sizeof(char)*tmp_size+1); tmp_p = 0;
+                                    // TODO: should this be size+1?
                                     memset(tmp, '\0', sizeof(char)*tmp_size);
                               }
                               in_str = true;
                               if(tmp_p >= tmp_size-1){
                               /*if(tmp_p == tmp_size){*/
                                     tmp_size += 20;
-                                    char* tmp_tmp = (char*)malloc(sizeof(char)*tmp_size);
+                                    char* tmp_tmp = (char*)malloc(sizeof(char)*tmp_size+1);
                                     strcpy(tmp_tmp, tmp);
                                     free(tmp);
                                     tmp = tmp_tmp;
@@ -228,7 +259,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   in_str = false;
                   int tmp_size = initial_str_sz;
                   char* tmp; int tmp_p = 0;
-                  int* chars_in_heap = read_bytes_from_pid_mem(pid, 1, vm_l_heap, mmap->mapped_rgn.heap_end_addr);
+                  BYTE* chars_in_heap = read_bytes_from_pid_mem_exp(pid, 1, vm_l_heap, mmap->mapped_rgn.heap_end_addr);
                   void* current_addr = vm_l_heap; void* str_st_addr;
                   int n_items = (char*)mmap->mapped_rgn.heap_end_addr-(char*)vm_l_heap;
                   for(int i = 0; i < n_items; ++i){
@@ -237,13 +268,13 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                                     str_st_addr = current_addr;
                                     // if first char of string, realloc tmp
                                     tmp_size = initial_str_sz;
-                                    tmp = (char*)malloc(sizeof(char)*tmp_size); tmp_p = 0;
+                                    tmp = (char*)malloc(sizeof(char)*tmp_size+1); tmp_p = 0;
                                     memset(tmp, '\0', sizeof(char)*tmp_size);   
                               }
                               in_str = true;
                               if(tmp_p >= tmp_size-1){
                                     tmp_size += 20;
-                                    char* tmp_tmp = (char*)malloc(sizeof(char)*tmp_size);
+                                    char* tmp_tmp = (char*)malloc(sizeof(char)*tmp_size+1);
                                     strcpy(tmp_tmp, tmp);
                                     free(tmp);
                                     tmp = tmp_tmp;
@@ -265,10 +296,10 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   in_str = false;
                   int n_items, tmp_size = initial_str_sz;
                   char* tmp; int tmp_p = 0;
-                  int* chars_in_addtnl;
+                  BYTE* chars_in_addtnl;
                   void* current_addr; void* str_st_addr;
                   for(int i = 0; i < mmap->mapped_rgn.n_remaining; ++i){
-                        chars_in_addtnl = read_bytes_from_pid_mem(pid, 1, mmap->mapped_rgn.remaining_addr[i].start, mmap->mapped_rgn.remaining_addr[i].end);
+                        chars_in_addtnl = read_bytes_from_pid_mem_exp(pid, 1, mmap->mapped_rgn.remaining_addr[i].start, mmap->mapped_rgn.remaining_addr[i].end);
                         current_addr = mmap->mapped_rgn.remaining_addr[i].start;
                         n_items = (char*)mmap->mapped_rgn.remaining_addr[i].end-(char*)mmap->mapped_rgn.remaining_addr[i].start;
                         for(int j = 0; j < n_items; ++j){
@@ -277,13 +308,13 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                                           // if first char of string, realloc tmp
                                           str_st_addr = current_addr;
                                           tmp_size = initial_str_sz;
-                                          tmp = (char*)malloc(sizeof(char*)*tmp_size); tmp_p = 0;
+                                          tmp = (char*)malloc(sizeof(char*)*tmp_size+1); tmp_p = 0;
                                           memset(tmp, '\0', sizeof(char)*tmp_size);
                                     }
                                     in_str = true;
                                     if(tmp_p >= tmp_size){
                                           tmp_size += 20;
-                                          char* tmp_tmp = (char*)malloc(sizeof(char)*tmp_size);
+                                          char* tmp_tmp = (char*)malloc(sizeof(char)*tmp_size+1);
                                           strcpy(tmp_tmp, tmp);
                                           free(tmp);
                                           tmp = tmp_tmp;
@@ -316,9 +347,11 @@ void update_mem_map(struct mem_map* mem, bool integers){
             }
       }
       else{
+            int len;
             for(int i = 0; i < mem->size; ++i){
+                  len = strlen(mem->cp_mmap[i].value);
                   free(mem->cp_mmap[i].value);
-                  mem->cp_mmap[i].value = read_str_from_mem_block_slow(mem->pid, mem->cp_mmap[i].addr, NULL);
+                  mem->cp_mmap[i].value = read_str_from_mem_block(mem->pid, mem->cp_mmap[i].addr, len);
             }
       }
 }
@@ -346,6 +379,7 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
 }
 
 void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
+      printf("beginnign narrow process...\n");
       int initial = mem->size;
       for(int i = 0; i < mem->size; ++i){
             if(exact){
@@ -369,4 +403,5 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
             free(mem->cp_mmap);
             mem->cp_mmap = tmp_cp_mmap;
       }
+      printf("narrow process complete\n");
 }
