@@ -32,7 +32,7 @@ struct mem_map{
 
 bool is_substr(const char* substr, const char* str);
 void free_mem_map(struct mem_map* mmap, bool integers);
-unsigned char* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e);
+BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e);
 int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm);
 char* read_str_from_mem_block(pid_t pid, void* mb_start, int len);
 char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end);
