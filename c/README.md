@@ -27,8 +27,9 @@
 vmem_access is a library created to make programs like varedit easier to write
 
 vmem_access.h contains the following functions for reading and writing to virtual memory
-* int* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e)
+* BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e) // BYTE* is unsigned char
 * int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm)
+* char* read_str_from_mem_block(pid_t pid, void* mb_start, int len)
 * char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end)
 * bool write_bytes_from_pid_mem(pid_t pid, int bytes, void* vm, int value)
 * bool write_int_to_pid_mem(pid_t pid, void* vm, int value)
@@ -36,6 +37,7 @@ vmem_access.h contains the following functions for reading and writing to virtua
 ##### the following is a simple program that will print the value stored in the specified virtual memory location of the specified process id
 ```c
 #include <stdio.h>
+#include <string.h>
 #include "vmem_access.h"
 
 int main(int argc, char* argv[]){
@@ -43,9 +45,11 @@ int main(int argc, char* argv[]){
     // memory addresses must be cast to void* to work with read_bytes_from_pid_mem
     void* mem_addr = (void*)strtoul(argv[2], 0, 16);
     // the final parameter of read_bytes_from_pid_mem is NULL when reading a single value
-    int* value = read_bytes_from_pid_mem(pid, 4, mem_addr, NULL);
-    printf("value: %i\n", *value);
-    free(value);
+    BYTE* bytes = read_bytes_from_pid_mem(pid, 4, mem_addr, NULL);
+    int value;
+    memcpy(&value, bytes, 4);
+    printf("value: %i\n", value);
+    free(bytes);
 }
 ```
 
