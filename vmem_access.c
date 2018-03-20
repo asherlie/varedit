@@ -28,7 +28,7 @@ BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e){
       int sz_rgn;
       if(vm_e == NULL)sz_rgn = bytes;
       else sz_rgn = (char*)vm_e-(char*)vm_s;
-      struct iovec* local = (struct iovec*)malloc(sizeof(struct iovec)*sz_rgn);
+      struct iovec* local = malloc(sizeof(struct iovec)*sz_rgn);
       struct iovec remote[1];
       // TODO: !! /*try alloc'ing remote on heap and pre-setting up also*/
       BYTE* buf = malloc(sz_rgn+1);
@@ -82,7 +82,7 @@ char* read_str_from_mem_block(pid_t pid, void* mb_start, int len){
 char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end){
       char tmp;
       int str_sz = 1;
-      char* ret = (char*)malloc(sizeof(char)*str_sz+1); int ret_p = 0;
+      char* ret = malloc(sizeof(char)*str_sz+1); int ret_p = 0;
       for(void* i = mb_start; i != mb_end; i = (void*)(((char*)i)+1)){ 
             tmp = (char)read_single_val_from_pid_mem(pid, 1, i);
             if(!(tmp > 0 && tmp < 127)){
@@ -90,7 +90,7 @@ char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end){
             }
             if(ret_p == str_sz){
                   str_sz += 10;
-                  char* tmp_ret = (char*)malloc(sizeof(char)*str_sz+1);
+                  char* tmp_ret = malloc(sizeof(char)*str_sz+1);
                   memset(tmp_ret, '\0', str_sz);
                   strcpy(tmp_ret, ret);
                   free(ret);
@@ -154,9 +154,9 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
       mmap->size = 0;
       if(integers){
             m_size /= bytes;
-            mmap->mmap = (struct addr_int_pair*)malloc(sizeof(struct addr_int_pair)*m_size);
+            mmap->mmap = malloc(sizeof(struct addr_int_pair)*m_size);
       }
-      else mmap->cp_mmap = (struct addr_str_pair*)malloc(sizeof(struct addr_str_pair)*m_size);
+      else mmap->cp_mmap = malloc(sizeof(struct addr_str_pair)*m_size);
       //TODO: find smarter way to allocate string mmap memory, this assumes that each memory location stores an individual string
       //TODO: initialize small and resize dynamically
       long c = 0;
@@ -226,7 +226,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                                     str_st_addr = current_addr; // first char of a string
                                     // if first char of string, realloc tmp
                                     tmp_size = initial_str_sz;
-                                    tmp = (char*)malloc(sizeof(char)*tmp_size+1); tmp_p = 0;
+                                    tmp = malloc(sizeof(char)*tmp_size+1); tmp_p = 0;
                                     // TODO: should this be size+1?
                                     memset(tmp, '\0', sizeof(char)*tmp_size);
                               }
@@ -234,7 +234,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                               if(tmp_p >= tmp_size-1){
                               /*if(tmp_p == tmp_size){*/
                                     tmp_size += 20;
-                                    char* tmp_tmp = (char*)malloc(sizeof(char)*tmp_size+1);
+                                    char* tmp_tmp = malloc(sizeof(char)*tmp_size+1);
                                     strcpy(tmp_tmp, tmp);
                                     free(tmp);
                                     tmp = tmp_tmp;
@@ -266,13 +266,13 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                                     str_st_addr = current_addr;
                                     // if first char of string, realloc tmp
                                     tmp_size = initial_str_sz;
-                                    tmp = (char*)malloc(sizeof(char)*tmp_size+1); tmp_p = 0;
+                                    tmp = malloc(sizeof(char)*tmp_size+1); tmp_p = 0;
                                     memset(tmp, '\0', sizeof(char)*tmp_size);   
                               }
                               in_str = true;
                               if(tmp_p >= tmp_size-1){
                                     tmp_size += 20;
-                                    char* tmp_tmp = (char*)malloc(sizeof(char)*tmp_size+1);
+                                    char* tmp_tmp = malloc(sizeof(char)*tmp_size+1);
                                     strcpy(tmp_tmp, tmp);
                                     free(tmp);
                                     tmp = tmp_tmp;
@@ -306,13 +306,13 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                                           // if first char of string, realloc tmp
                                           str_st_addr = current_addr;
                                           tmp_size = initial_str_sz;
-                                          tmp = (char*)malloc(sizeof(char*)*tmp_size+1); tmp_p = 0;
+                                          tmp = malloc(sizeof(char*)*tmp_size+1); tmp_p = 0;
                                           memset(tmp, '\0', sizeof(char)*tmp_size);
                                     }
                                     in_str = true;
                                     if(tmp_p >= tmp_size){
                                           tmp_size += 20;
-                                          char* tmp_tmp = (char*)malloc(sizeof(char)*tmp_size+1);
+                                          char* tmp_tmp = malloc(sizeof(char)*tmp_size+1);
                                           strcpy(tmp_tmp, tmp);
                                           free(tmp);
                                           tmp = tmp_tmp;
@@ -369,7 +369,7 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
             }
       }
       if(mem->size < initial){
-            struct addr_int_pair* tmp_mmap = (struct addr_int_pair*)malloc(sizeof(struct addr_int_pair)*mem->size);
+            struct addr_int_pair* tmp_mmap = malloc(sizeof(struct addr_int_pair)*mem->size);
             memcpy(tmp_mmap, mem->mmap, sizeof(struct addr_int_pair)*mem->size);
             free(mem->mmap);
             mem->mmap = tmp_mmap;
@@ -395,7 +395,7 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
             }
       }
       if(mem->size < initial){
-            struct addr_str_pair* tmp_cp_mmap = (struct addr_str_pair*)malloc(sizeof(struct addr_str_pair)*mem->size);
+            struct addr_str_pair* tmp_cp_mmap = malloc(sizeof(struct addr_str_pair)*mem->size);
             memcpy(tmp_cp_mmap, mem->cp_mmap, sizeof(struct addr_str_pair)*mem->size);
             free(mem->cp_mmap);
             mem->cp_mmap = tmp_cp_mmap;
