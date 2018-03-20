@@ -220,6 +220,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   void* current_addr = vm_l_stack; void* str_st_addr;
                   int n_items = (char*)mmap->mapped_rgn.stack_end_addr-(char*)vm_l_stack;
                   for(int i = 0; i < n_items; ++i){
+                        // TODO: maybe move this expensive operation to be within narrow_mem_map_str, where we're iterating anyway
                         if(chars_in_stack[i] > 0 && chars_in_stack[i] < 127){
                               if(!in_str){
                                     str_st_addr = current_addr; // first char of a string
