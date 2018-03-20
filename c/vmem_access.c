@@ -63,7 +63,7 @@ BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e){
 }
 
 int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm){
-      int ret;
+      int ret = 0;
       struct iovec local[1];
       struct iovec remote[1];
       local->iov_base = &ret;
@@ -160,18 +160,17 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
       //TODO: find smarter way to allocate string mmap memory, this assumes that each memory location stores an individual string
       //TODO: initialize small and resize dynamically
       long c = 0;
-      int buf_s = 0;
-      int tmp = 0;
+      long buf_s = 0;
       if(integers){
             mmap->size = m_size;
             if(d_rgn == STACK || d_rgn == BOTH){
                   BYTE* ints_in_stack = read_bytes_from_pid_mem(pid, bytes, vm_l_stack, mmap->mapped_rgn.stack_end_addr);
                   for(; vm_l_stack != mmap->mapped_rgn.stack_end_addr; vm_l_stack = (void*)(((char*)vm_l_stack)+bytes)){
-                        memcpy(&tmp, &(ints_in_stack[buf_s]), bytes);
-                        buf_s += bytes;
                         struct addr_int_pair tmp_pair;
-                        /*tmp_pair.addr = vm_l_stack; tmp_pair.value = ints_in_stack[d++];*/
-                        tmp_pair.addr = vm_l_stack; tmp_pair.value = tmp;
+                        tmp_pair.addr = vm_l_stack;
+                        tmp_pair.value = 0;
+                        memcpy(&tmp_pair.value, &(ints_in_stack[buf_s]), bytes);
+                        buf_s += bytes;
                         mmap->mmap[c++] = tmp_pair;
                   }
                   free(ints_in_stack);
@@ -180,11 +179,11 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   buf_s = 0;
                   BYTE* ints_in_heap = read_bytes_from_pid_mem(pid, bytes, vm_l_heap, mmap->mapped_rgn.heap_end_addr);
                   for(; vm_l_heap != mmap->mapped_rgn.heap_end_addr; vm_l_heap = (void*)(((char*)vm_l_heap)+bytes)){
-                        memcpy(&tmp, &(ints_in_heap[buf_s]), bytes);
-                        buf_s += bytes;
                         struct addr_int_pair tmp_pair;
-                        /*tmp_pair.addr = vm_l_heap; tmp_pair.value = ints_in_heap[d++];*/
-                        tmp_pair.addr = vm_l_heap; tmp_pair.value = tmp;
+                        tmp_pair.addr = vm_l_heap;
+                        tmp_pair.value = 0;
+                        memcpy(&tmp_pair.value, &(ints_in_heap[buf_s]), bytes);
+                        buf_s += bytes;
                         mmap->mmap[c++] = tmp_pair;
                   }
                   free(ints_in_heap);
@@ -198,18 +197,18 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                         for(void* vm_l = mmap->mapped_rgn.remaining_addr[i].start;
                                   vm_l != mmap->mapped_rgn.remaining_addr[i].end;
                                   vm_l = (void*)(((char*)vm_l)+bytes)){
-                              memcpy(&tmp, &(ints_in_adtnl[buf_s]), bytes);
-                              buf_s += bytes;
                               struct addr_int_pair tmp_pair;
-                              tmp_pair.addr = vm_l; tmp_pair.value = tmp;
+                              tmp_pair.addr = vm_l;
+                              tmp_pair.value = 0;
+                              memcpy(&tmp_pair.value, &(ints_in_adtnl[buf_s]), bytes);
+                              buf_s += bytes;
                               mmap->mmap[c++] = tmp_pair;
                         }
                         free(ints_in_adtnl);
                   }
             }
       }
-      // !integers
-      else{
+      else{ // !integers
             const int initial_str_sz = 1;
             bool in_str = false;
             if(d_rgn == STACK || d_rgn == BOTH){
@@ -377,7 +376,6 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
 }
 
 void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
-      printf("beginnign narrow process...\n");
       int initial = mem->size;
       for(int i = 0; i < mem->size; ++i){
             if(exact){
@@ -401,5 +399,4 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
             free(mem->cp_mmap);
             mem->cp_mmap = tmp_cp_mmap;
       }
-      printf("narrow process complete\n");
 }
