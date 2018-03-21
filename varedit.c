@@ -99,9 +99,9 @@ void logic_swap(const struct mem_map* mem){
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, int result_print_limit, bool print_rgns){
       char search_mode_help[600];
       strcpy(search_mode_help, "search mode options:\n    'r' : reset mem map\n    \"wa\" <value> : write single value to all current results\n    ");
-      if(integers)strcpy(search_mode_help, "<integer> : enter an integer to narrow results\n    \"rv\" : remove volatile variables\n    ");
-      else strcpy(search_mode_help, "<string> : enter a string to narrow results - use delimeter '\\' to search for '?', 'q', 'u', 'r', \"rl\", 'w'\n    ");
-      strcpy(search_mode_help, "'u' : update visible values\n    \"rl\" : remove most recently applied lock\n    '?' : show this\n    'q' : quit");
+      if(integers)strcpy(search_mode_help+110, "<integer> : enter an integer to narrow results\n    \"rv\" : remove volatile variables\n    ");
+      else strcpy(search_mode_help+110, "<string> : enter a string to narrow results - use delimeter '\\' to search for '?', 'q', 'u', 'r', \"rl\", 'w'\n    ");
+      strcpy(search_mode_help+strlen(search_mode_help), "'u' : update visible values\n    \"rl\" : remove most recently applied lock\n    '?' : show this\n    'q' : quit");
       char write_mode_help[480] = "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)\n    \"rl\" : remove most recently applied lock\n    '?' : show this\n    'q' : quit";
       printf("in interactive mode on process %i (%s)\nusing ", vmem->pid, vmem->mapped_rgn.p_name);
       if(d_rgn == STACK)printf("stack");
