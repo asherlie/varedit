@@ -26,8 +26,10 @@ struct mem_map{
       // only one will be initialized at any given moment
       // both are included in this struct to simplify code
       pid_t pid;
-      long size;
+      int d_rgn;
+      unsigned long size;
       int int_mode_bytes;
+      bool use_addtnl;
 };
 
 bool is_substr(const char* substr, const char* str);

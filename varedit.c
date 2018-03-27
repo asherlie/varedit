@@ -59,7 +59,7 @@ bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional){
 
 int remove_volatile_values(struct mem_map* vmem){
       int n = 0;
-      for(int i = 0; i < vmem->size; ++i){
+      for(unsigned long i = 0; i < vmem->size; ++i){
             for(int in = 0; in < 10; ++in){
                   if(vmem->mmap[i].value != read_single_val_from_pid_mem(vmem->pid, 4, vmem->mmap[i].addr)){
                         vmem->mmap[i--] = vmem->mmap[--vmem->size];
@@ -72,7 +72,7 @@ int remove_volatile_values(struct mem_map* vmem){
 
 void print_mmap(const struct mem_map* mem, const char* contains, bool integers, bool show_rgns){
       char tmp_num[20];
-      for(int i = 0; i < mem->size; ++i){
+      for(unsigned long i = 0; i < mem->size; ++i){
             if(integers){
                   sprintf(tmp_num, "%d", mem->mmap[i].value);
                   if(strcmp(contains, "") == 0 || strcmp(tmp_num, contains) == 0){
@@ -90,13 +90,13 @@ void print_mmap(const struct mem_map* mem, const char* contains, bool integers, 
 }
 
 void logic_swap(const struct mem_map* mem){
-      for(int i = 0; i < mem->size; ++i){
+      for(unsigned long i = 0; i < mem->size; ++i){
             if(mem->mmap[i].value == 0 || mem->mmap[i].value == 1)
             write_bytes_to_pid_mem(mem->pid, 1, mem->mmap[i].addr, (int)!mem->mmap[i].value);
       }
 }
 
-bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, int result_print_limit, bool print_rgns){
+bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned long result_print_limit, bool print_rgns){
       char search_mode_help[600];
       strcpy(search_mode_help, "search mode options:\n    'r' : reset mem map\n    \"wa\" <value> : write single value to all current results\n    ");
       if(integers)strcpy(search_mode_help+110, "<integer> : enter an integer to narrow results\n    \"rv\" : remove volatile variables\n    ");
@@ -179,7 +179,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   // get rid of possible initialized values
                   memset(val+v_s, '\0', sizeof(char)*(18-v_s));
                   if(integers)tmp_val = atoi(val);
-                  for(int i = 0; i < vmem->size; ++i){
+                  for(unsigned long i = 0; i < vmem->size; ++i){
                         if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, tmp_val);
                         else write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, val);
                   }
@@ -200,13 +200,13 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               goto Find;
                         }
                         if(integers){
-                              for(int i = 0; i < vmem->size; ++i){
-                                    printf("%i: (%p: %i)\n", i, vmem->mmap[i].addr, vmem->mmap[i].value);
+                              for(unsigned long i = 0; i < vmem->size; ++i){
+                                    printf("%li: (%p: %i)\n", i, vmem->mmap[i].addr, vmem->mmap[i].value);
                               }
                         }
                         else{
-                              for(int i = 0; i < vmem->size; ++i){
-                                    printf("%i: (%p: \"%s\")\n", i, vmem->cp_mmap[i].addr, vmem->cp_mmap[i].value);
+                              for(unsigned long i = 0; i < vmem->size; ++i){
+                                    printf("%li: (%p: \"%s\")\n", i, vmem->cp_mmap[i].addr, vmem->cp_mmap[i].value);
                               }
                         }
                         printf("enter a number from [0-%li] or a range with a '-', followed by a value to write OR 's' to continue searching\n", vmem->size-1);
@@ -359,14 +359,11 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             }
             if(first)populate_mem_map(vmem, vmem->pid, d_rgn, additional, integers, int_mode_bytes);
             if(strcmp(tmp_str, "\\w") == 0 || strcmp(tmp_str, "\\u") == 0 || strcmp(tmp_str, "\\q") == 0 || strcmp(tmp_str, "\\r") == 0 || strcmp(tmp_str, "\\?") == 0){
-                  tmp_str[0] = tmp_str[1]; // allow searching for 'w' or 'u' with \w or \u
-                  tmp_str[1] = '\0';
+                  // allow searching for 'w' or 'u' with \w or \u
+                  tmp_str[0] = tmp_str[1]; tmp_str[1] = '\0';
             }
             if(strcmp(tmp_str, "\\rv") == 0 || strcmp(tmp_str, "\\rl") == 0){
-                  //tmp_str = tmp_str[1] + tmp_str[2];
-                  tmp_str[0] = tmp_str[1];
-                  tmp_str[1] = tmp_str[2];
-                  tmp_str[2] = '\0';
+                  tmp_str[0] = tmp_str[1]; tmp_str[1] = tmp_str[2]; tmp_str[2] = '\0';
             }
             if(!first)update_mem_map(vmem, integers);
             if(integers){
@@ -376,18 +373,13 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             else narrow_mem_map_str(vmem, tmp_str, false);
             if(vmem->size == 0){
                   printf("nothing matches your search of: %s\nresetting mem map\n", tmp_str);
-                  if(integers)free(vmem->mmap);
-                  else free(vmem->cp_mmap);
                   // setting first to true to imitate behavior of first search and load, reducing space complexity by waiting to repopulate mem_map
-                  // TODO: decide whether or not to repopulate immediately - don't think i should so results are accurate to time of search
-                  // populate_mem_map(vmem, vmem->pid, d_rgn, additional, integers);
-                  // this might introduce an issue where memory isn't fully freed when no results are found
                   first = true;
                   goto Find;
             }
             else{
                   if(!verbose && vmem->size > result_print_limit){
-                        printf("your search of %s has %li results\nresult_print_limit is set at %i. refusing to print\n", tmp_str, vmem->size, result_print_limit);
+                        printf("your search of %s has %li results\nresult_print_limit is set at %li. refusing to print\n", tmp_str, vmem->size, result_print_limit);
                   }
                   else{
                         printf("matches are now:\n");
