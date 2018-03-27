@@ -92,7 +92,7 @@ void print_mmap(const struct mem_map* mem, const char* contains, bool integers, 
 void logic_swap(const struct mem_map* mem){
       for(unsigned long i = 0; i < mem->size; ++i){
             if(mem->mmap[i].value == 0 || mem->mmap[i].value == 1)
-            write_bytes_to_pid_mem(mem->pid, 1, mem->mmap[i].addr, (int)!mem->mmap[i].value);
+            write_bytes_to_pid_mem(mem->pid, 1, mem->mmap[i].addr, (unsigned char*)&mem->mmap[i].value);
       }
 }
 
@@ -178,9 +178,14 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   }
                   // get rid of possible initialized values
                   memset(val+v_s, '\0', sizeof(char)*(18-v_s));
-                  if(integers)tmp_val = atoi(val);
+                  // for int mode
+                  BYTE write[int_mode_bytes];
+                  if(integers){
+                        tmp_val = atoi(val);
+                        memcpy(write, &tmp_val, int_mode_bytes);
+                  }
                   for(unsigned long i = 0; i < vmem->size; ++i){
-                        if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, tmp_val);
+                        if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, write);
                         else write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, val);
                   }
                   printf("wrote %s to %li memory locations\n", val, vmem->size);
@@ -296,11 +301,16 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     }
                                     // this will run for a long time so we might as well free up whatever memory we can
                                     free_mem_map(vmem, integers);
+                                    BYTE to_w_b[int_mode_bytes];
+                                    if(integers)memcpy(to_w_b, &to_w_i, int_mode_bytes);
                                     while(1){ // child process will forever repeat this
                                           for(int i = 0; i <= v_loc[vl_c]-v_loc[0]; ++i){
                                                 if(integers){
-                                                      if(same)to_w_i = vmem_int_subset[i].value;
-                                                      write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem_int_subset[i].addr, to_w_i);
+                                                      if(same){
+                                                            to_w_i = vmem_int_subset[i].value;
+                                                            memcpy(to_w_b, &to_w_i, int_mode_bytes);
+                                                      }
+                                                      write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem_int_subset[i].addr, to_w_b);
                                                 }
                                                 else{
                                                       if(same)strcpy(to_w, vmem_str_subset[i].value);
@@ -328,8 +338,14 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               //goto Find; // TODO: decide what behavior should be after vars have been locked
                               continue;
                         }
+                        BYTE to_w_b[int_mode_bytes];
+                        int tmp_i;
                         for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
-                              if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, atoi(to_w));
+                              if(integers){
+                                    tmp_i = atoi(to_w);
+                                    memcpy(to_w_b, &tmp_i, int_mode_bytes);
+                                    write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, to_w_b);
+                              }
                               else{
                                     if(strlen(to_w) > strlen(vmem->cp_mmap[i].value)){
                                           printf("WARNING (%i: %p): writing a string that is larger than the original string in its memory location causes undefined behavior\n", vmem->pid, vmem->cp_mmap[i].addr);
@@ -452,25 +468,15 @@ int main(int argc, char* argv[]){
                   return 0;
             }
             if(strcmp(argv[2], "-w") == 0){
-                  if(integers)write_bytes_to_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], 0, 16), atoi(argv[4]));
+                  if(integers){
+                        int tmp_i = atoi(argv[4]);
+                        BYTE to_w[n_bytes];
+                        memcpy(to_w, &tmp_i, n_bytes);
+                        write_bytes_to_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], 0, 16), to_w);
+                  }
                   else write_str_to_pid_mem(pid, (void*)strtoul(argv[3], 0, 16), argv[4]);
                   return 0;
             }
-            /*
-             *if(strcmp(argv[2], "-wb") == 0){
-             *      restore_pid_mem_state(pid, argv[3], verbose);
-             *      return 0;
-             *}
-             *if(!mem_rgn_warn(d_rgn, vmem->mapped_rgn, additional))return -1;
-             * // stop here if none of our required data regions are available
-             *if(strcmp(argv[2], "-sb") == 0){
-             *      populate_mem_map(vmem, pid, d_rgn, additional, true);
-             *      save_pid_mem_state(vmem, argv[3]);
-             *      delete[] vmem->mmap;
-             *      delete[] vmem->mapped_rgn.remaining_addr;
-             *      return 0;
-             *}
-             */
             if(strcmp(argv[2], "-f") == 0){
                   SAFE_INTER:
                   vmem.pid = pid;

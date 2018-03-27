@@ -102,36 +102,31 @@ char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end){
       return ret;
 }
 
-/*
- *bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_bytes){
- *      return write_bytes_to_pid_mem(dest_pid, n_bytes, dest, read_single_val_from_pid_mem(src_pid, n_bytes, src));
- *}
- */
-
-bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, int value){
-      int buff_sz = bytes;
-      int buf[buff_sz];
-      buf[0] = value;
-      struct iovec local[1];
-      struct iovec remote[1];
-      local[0].iov_base = buf;
-      local[0].iov_len = buff_sz;
-      remote[0].iov_len = buff_sz;
-      remote[0].iov_base = vm;
-      return (buff_sz == process_vm_writev((pid_t)pid, local, 1, remote, 1, 0));
+bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_bytes){
+      BYTE* bytes = read_bytes_from_pid_mem(src_pid, n_bytes, src, NULL);
+      return write_bytes_to_pid_mem(dest_pid, n_bytes, dest, bytes);
 }
 
+bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, BYTE* value){
+      struct iovec local[1];
+      struct iovec remote[1];
+      local->iov_base = value;
+      local->iov_len = bytes;
+      remote->iov_base = vm;
+      remote->iov_len = bytes;
+      return (bytes == process_vm_writev(pid, local, 1, remote, 1, 0));
+}
+
+// TODO: maybe allow this function to take in nbytes as in how much of the int do we wanna write
+// this would avoid the need to memcpy ints to BYTE*s in varedit
 bool write_int_to_pid_mem(pid_t pid, void* vm, int value){
-      return write_bytes_to_pid_mem(pid, 4, vm, value);
+      BYTE byte_int[4];
+      memcpy(byte_int, &value, 4);
+      return write_bytes_to_pid_mem(pid, 4, vm, byte_int);
 }
 
 bool write_str_to_pid_mem(pid_t pid, void* vm, const char* str){
-      int s_c = 0;
-      unsigned int written = 0; 
-      for(void* i = vm; i != (void*)(((char*)vm)+strlen(str)); i = (void*)((char*)i+1)){
-            written += write_bytes_to_pid_mem(pid, 1, i, str[s_c++]);
-      }
-      return written == strlen(str);
+      return write_bytes_to_pid_mem(pid, strlen(str), vm, (BYTE*)str);
 }
 
 // bytes parameter only affects integer mode
