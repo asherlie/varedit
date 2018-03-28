@@ -28,35 +28,6 @@ bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional){
       return true;
 }
 
-// TODO trans this
-/*
- *void save_pid_mem_state(const mem_map &vmem, std::string outf){
- *      std::ofstream ofs(outf);
- *      for(int i = 0; i < vmem->size; ++i){
- *            ofs << vmem->mmap[i].addr << " " << vmem->mmap[i].value << "\n";
- *      }
- *      ofs.close();
- *}
- *
- *void restore_pid_mem_state(pid_t pid, std::string inf, bool verbose){
- *      std::ifstream ifs(inf);
- *      std::string tmp_addr;
- *      int tmp_i;
- *      while(ifs >> tmp_addr >> tmp_i){
- *            if(tmp_addr != "0"){
- *            //if(tmp_addr != "0" && tmp_i != 0 && tmp_i != 1){ // TODO: should i write 1's and 0's?
- *                  if(verbose){
- *                        if(tmp_i != read_single_val_from_pid_mem(pid, 4, (void*)strtoul(tmp_addr.c_str(), 0, 16))){
- *                              printf("%s: %i -> %i\n", tmp_addr.c_str(), read_single_val_from_pid_mem(pid, 4, (void*)strtoul(tmp_addr.c_str(), 0, 16)), tmp_i);
- *                        }
- *                  }
- *                  write_int_to_pid_mem(pid, (void*)strtoul(tmp_addr.c_str(), 0, 16), tmp_i);
- *            }
- *      }
- *      ifs.close();
- *}
- */
-
 int remove_volatile_values(struct mem_map* vmem){
       int n = 0;
       for(unsigned long i = 0; i < vmem->size; ++i){
