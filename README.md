@@ -35,7 +35,7 @@ vmem_access.h contains the following functions for reading and writing to virtua
 * bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, int value)
 * bool write_int_to_pid_mem(pid_t pid, void* vm, int value)
 * bool write_str_to_pid_mem(pid_t pid, void* vm, const char* str)
-##### the following is a simple program that will print the value stored in the specified virtual memory location of the specified process id
+##### the following is a simple program written using vmem_access.h that will print the value stored in the specified virtual memory location of the specified process id
 ```c
 #include <stdio.h>
 #include <string.h>
@@ -57,13 +57,16 @@ int main(int argc, char* argv[]){
 ```c
 // assuming pid_t src_pid = some valid process id
 
-// assuming void* addr_double_array = a memory location in src_pid pointing to an array of doubles
-// assuming int n_doubles is the number of elements in the double array in src_pid
+// assumptions for double array example:
+//    void* addr_double_array = a memory location in src_pid pointing to an array of doubles
+//    int n_doubles = the number of elements in the double array in src_pid
 double arr[n_doubles];
 // copying an array of doubles from src_pid:addr_double_array to arr
 pid_memcpy(getpid(), src_pid, arr, addr_double_array, n_doubles*sizeof(double));
 
-// assuming void* addr_mem_rgn = a memory location in src_pid pointing to a mem_rgn struct
+// assumption for struct mem_rgn example:
+//    void* addr_mem_rgn = a memory location in src_pid pointing to a mem_rgn struct
+
 struct mem_rgn rgn;
 // copying a mem_rgn struct from src_pid:addr_mem_rgn to rgn
 pid_memcpy(getpid(), src_pid, &rgn, addr_mem_rgn, sizeof(struct mem_rgn));
