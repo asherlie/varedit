@@ -145,7 +145,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
       mmap->int_mode_bytes = bytes;
       mmap->d_rgn = d_rgn;
       mmap->use_addtnl = use_additional_rgns;
-      long m_size = 0;
+      unsigned long m_size = 0;
       void* vm_l_stack; void* vm_l_heap;
       if(d_rgn == STACK || d_rgn == BOTH){
             vm_l_stack = mmap->mapped_rgn.stack_start_addr;
@@ -165,7 +165,11 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             m_size /= bytes;
             mmap->mmap = malloc(sizeof(struct addr_int_pair)*m_size);
       }
-      else mmap->cp_mmap = malloc(sizeof(struct addr_str_pair)*m_size);
+      else {
+            m_size /= 3;
+            // TODO: dynamically reallocate this
+            mmap->cp_mmap = malloc(sizeof(struct addr_str_pair)*m_size);
+      }
       //TODO: find smarter way to allocate string mmap memory, this assumes that each memory location stores an individual string
       //TODO: initialize small and resize dynamically
       unsigned long c = 0;
@@ -329,6 +333,12 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                         /*seg faulting w addtnl mem for some reason*/
                         free(chars_in_addtnl);
                   }
+            }
+            if(mmap->size < m_size){
+                  struct addr_str_pair* tmp_cp_mmap = malloc(sizeof(struct addr_str_pair)*mmap->size);
+                  memcpy(tmp_cp_mmap, mmap->cp_mmap, sizeof(struct addr_str_pair)*mmap->size);
+                  free(mmap->cp_mmap);
+                  mmap->cp_mmap = tmp_cp_mmap;
             }
       }
 }

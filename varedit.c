@@ -275,6 +275,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     BYTE to_w_b[int_mode_bytes];
                                     if(integers)memcpy(to_w_b, &to_w_i, int_mode_bytes);
                                     while(1){ // child process will forever repeat this
+                                          // sleeping to limit cpu usage
+                                          usleep(1000);
                                           for(int i = 0; i <= v_loc[vl_c]-v_loc[0]; ++i){
                                                 if(integers){
                                                       if(same){

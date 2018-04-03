@@ -100,7 +100,7 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
                                     }
                                     else {
                                           struct m_addr_pair* tmp_realloc = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
-                                          memcpy(tmp_realloc, vmem.remaining_addr, sizeof(struct m_addr_pair)*rem_alloc_sz);
+                                          memcpy(tmp_realloc, vmem.remaining_addr, sizeof(struct m_addr_pair)*(rem_alloc_sz-1));
                                           free(vmem.remaining_addr);
                                           vmem.remaining_addr = tmp_realloc;
                                     }
