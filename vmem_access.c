@@ -173,20 +173,19 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             mmap->mmap = malloc(sizeof(struct addr_int_pair)*m_size);
       }
       else {
-            m_size /= 2;
+            m_size /= 10;
+            // can safely assume that not every memory location stores its own string
             // TODO: dynamically reallocate this
             mmap->cp_mmap = malloc(sizeof(struct addr_str_pair)*m_size);
       }
       //TODO: initialize small and resize dynamically
-      unsigned long c = 0;
       long buf_s = 0;
       if(integers){
-            mmap->size = m_size;
             if(d_rgn == STACK || d_rgn == BOTH){
                   BYTE* ints_in_stack = read_bytes_from_pid_mem(pid, bytes, vm_l_stack, mmap->mapped_rgn.stack_end_addr);
                   for(; vm_l_stack != mmap->mapped_rgn.stack_end_addr; vm_l_stack = (void*)(((char*)vm_l_stack)+bytes)){
-                        mmap->mmap[c].addr = vm_l_stack; mmap->mmap[c].value = 0;
-                        memcpy(&(mmap->mmap[c++].value), &(ints_in_stack[buf_s]), bytes);
+                        mmap->mmap[mmap->size].addr = vm_l_stack; mmap->mmap[mmap->size].value = 0;
+                        memcpy(&(mmap->mmap[mmap->size++].value), &(ints_in_stack[buf_s]), bytes);
                         buf_s += bytes;
                   }
                   free(ints_in_stack);
@@ -195,8 +194,8 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   buf_s = 0;
                   BYTE* ints_in_heap = read_bytes_from_pid_mem(pid, bytes, vm_l_heap, mmap->mapped_rgn.heap_end_addr);
                   for(; vm_l_heap != mmap->mapped_rgn.heap_end_addr; vm_l_heap = (void*)(((char*)vm_l_heap)+bytes)){
-                        mmap->mmap[c].addr = vm_l_heap; mmap->mmap[c].value = 0;
-                        memcpy(&(mmap->mmap[c++].value), &(ints_in_heap[buf_s]), bytes);
+                        mmap->mmap[mmap->size].addr = vm_l_heap; mmap->mmap[mmap->size].value = 0;
+                        memcpy(&(mmap->mmap[mmap->size++].value), &(ints_in_heap[buf_s]), bytes);
                         buf_s += bytes;
                   }
                   free(ints_in_heap);
@@ -210,8 +209,8 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                         for(void* vm_l = mmap->mapped_rgn.remaining_addr[i].start;
                                   vm_l != mmap->mapped_rgn.remaining_addr[i].end;
                                   vm_l = (void*)(((char*)vm_l)+bytes)){
-                              mmap->mmap[c].addr = vm_l; mmap->mmap[c].value = 0;  
-                              memcpy(&(mmap->mmap[c++].value), &(ints_in_adtnl[buf_s]), bytes);
+                              mmap->mmap[mmap->size].addr = vm_l; mmap->mmap[mmap->size].value = 0;  
+                              memcpy(&(mmap->mmap[mmap->size++].value), &(ints_in_adtnl[buf_s]), bytes);
                               buf_s += bytes;
                         }
                         free(ints_in_adtnl);
@@ -219,6 +218,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             }
       }
       else{ // !integers
+            // m_size may be too small
             int len;
             if(d_rgn == STACK || d_rgn == BOTH){
                   // TODO: check for emptiness in strings before adding them
@@ -229,11 +229,10 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   for(int i = 0; i < n_items; ++i){
                         if(chars_in_stack[i] > 0 && chars_in_stack[i] < 127){
                               len = strlen(chars_in_stack+i);
-                              mmap->cp_mmap[c].addr = current_addr;
-                              mmap->cp_mmap[c].value = malloc(sizeof(char)*(len+1));
-                              memcpy(mmap->cp_mmap[c++].value, chars_in_stack+i, len);
+                              mmap->cp_mmap[mmap->size].addr = current_addr;
+                              mmap->cp_mmap[mmap->size].value = malloc(sizeof(char)*(len+1));
+                              memcpy(mmap->cp_mmap[mmap->size++].value, chars_in_stack+i, len);
                               i += len;
-                              ++mmap->size;
                               current_addr = (void*)(((char*)current_addr)+len);
                         }
                         current_addr = (void*)(((char*)current_addr)+1);
@@ -248,11 +247,10 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   for(int i = 0; i < n_items; ++i){
                         if(chars_in_heap[i] > 0 && chars_in_heap[i] < 127){
                               len = strlen(chars_in_heap+i);
-                              mmap->cp_mmap[c].addr = current_addr;
-                              mmap->cp_mmap[c].value = malloc(sizeof(char)*(len+1));
-                              memcpy(mmap->cp_mmap[c++].value, chars_in_heap+i, len);
+                              mmap->cp_mmap[mmap->size].addr = current_addr;
+                              mmap->cp_mmap[mmap->size].value = malloc(sizeof(char)*(len+1));
+                              memcpy(mmap->cp_mmap[mmap->size++].value, chars_in_heap+i, len);
                               i += len;
-                              ++mmap->size;
                               current_addr = (void*)(((char*)current_addr)+len);
                         }
                         current_addr = (void*)(((char*)current_addr)+1);
@@ -271,11 +269,10 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                         for(int j = 0; j < n_items; ++j){
                               if(chars_in_addtnl[j] > 0 && chars_in_addtnl[j] < 127){
                                     len = strlen(chars_in_addtnl+j);
-                                    mmap->cp_mmap[c].addr = current_addr;
-                                    mmap->cp_mmap[c].value = malloc(sizeof(char)*(len+1));
-                                    memcpy(mmap->cp_mmap[c++].value, chars_in_addtnl+j, len);
+                                    mmap->cp_mmap[mmap->size].addr = current_addr;
+                                    mmap->cp_mmap[mmap->size].value = malloc(sizeof(char)*(len+1));
+                                    memcpy(mmap->cp_mmap[mmap->size++].value, chars_in_addtnl+j, len);
                                     j += len;
-                                    ++mmap->size;
                                     current_addr = (void*)(((char*)current_addr)+len);
                               }
                               current_addr = (void*)(((char*)current_addr)+1);
