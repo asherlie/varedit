@@ -31,33 +31,42 @@ BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e){
       int sz_rgn;
       if(vm_e == NULL)sz_rgn = bytes;
       else sz_rgn = (char*)vm_e-(char*)vm_s;
-      struct iovec* local = malloc(sizeof(struct iovec)*sz_rgn);
+      // using calloc to zero memory
+      struct iovec* local = calloc(sizeof(struct iovec), sz_rgn);
       struct iovec remote[1];
-      // TODO: !! /*try alloc'ing remote on heap and pre-setting up also*/
-      BYTE* buf = malloc(sz_rgn+1);
-      buf[sz_rgn] = '\0';
+      BYTE* buf = calloc(1, sz_rgn+1);
       int byte_c = 0;
       local->iov_base = buf;
       local->iov_len = sz_rgn;
+      int n_iovl = IM;
+      bool rn = false;
       for(int i = 0; i < sz_rgn; ++i){
             local[i].iov_base = &(buf[byte_c]);
-            local[i].iov_len = IM;
+            local[i].iov_len = n_iovl;
             byte_c += IM;
+            if(rn)break;
+            if(byte_c > sz_rgn){
+                  byte_c = sz_rgn - (byte_c-IM);
+                  n_iovl = sz_rgn-byte_c;
+                  rn = true;
+            }
       }
       remote[0].iov_base = vm_s;
-      // total amt of bytes to read
       remote[0].iov_len = sz_rgn;
       int c = 0;
       if(sz_rgn < IM){
             process_vm_readv(pid, local, sz_rgn, remote, 1, 0);
       }
       else{
-            for(int i = 0; i < (sz_rgn/IM)+1; ++i){
+            for(int i = 0; i < (sz_rgn/IM); ++i){
                   process_vm_readv(pid, local+c, IM, remote, 1, 0);
                   remote[0].iov_base = (void*)(((char*)remote[0].iov_base)+IM);
                   remote[0].iov_len = IM;
                   c+=IM;
             }
+            // still need to do one last read
+            remote->iov_len = sz_rgn-c;
+            process_vm_readv(pid, local+c, remote->iov_len, remote, 1, 0);
       }
       free(local);
       return buf;
@@ -86,9 +95,7 @@ char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end){
       char* ret = malloc(sizeof(char)*str_sz+1); int ret_p = 0;
       for(void* i = mb_start; i != mb_end; i = (void*)(((char*)i)+1)){ 
             tmp = (char)read_single_val_from_pid_mem(pid, 1, i);
-            if(!(tmp > 0 && tmp < 127)){
-                  return ret;
-            }
+            if(!(tmp > 0 && tmp < 127))return ret;
             if(ret_p == str_sz){
                   str_sz += 10;
                   char* tmp_ret = malloc(sizeof(char)*str_sz+1);
@@ -166,11 +173,10 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             mmap->mmap = malloc(sizeof(struct addr_int_pair)*m_size);
       }
       else {
-            m_size /= 3;
+            m_size /= 2;
             // TODO: dynamically reallocate this
             mmap->cp_mmap = malloc(sizeof(struct addr_str_pair)*m_size);
       }
-      //TODO: find smarter way to allocate string mmap memory, this assumes that each memory location stores an individual string
       //TODO: initialize small and resize dynamically
       unsigned long c = 0;
       long buf_s = 0;
@@ -213,124 +219,67 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             }
       }
       else{ // !integers
-            const int initial_str_sz = 1;
-            bool in_str = false;
+            int len;
             if(d_rgn == STACK || d_rgn == BOTH){
-                  // TODO: test different initial_str_sz's
-                  int tmp_size = initial_str_sz;
-                  char* tmp; int tmp_p = 0;
                   // TODO: check for emptiness in strings before adding them
-                  BYTE* chars_in_stack = read_bytes_from_pid_mem(pid, 1, vm_l_stack, mmap->mapped_rgn.stack_end_addr);
-                  void* current_addr = vm_l_stack; void* str_st_addr;
+                  char* chars_in_stack = (char*)read_bytes_from_pid_mem(pid, 1, vm_l_stack, mmap->mapped_rgn.stack_end_addr);
+                  void* current_addr = vm_l_stack;
                   int n_items = (char*)mmap->mapped_rgn.stack_end_addr-(char*)vm_l_stack;
+                  len = 0;
                   for(int i = 0; i < n_items; ++i){
-                        // TODO: maybe move this expensive operation to be within narrow_mem_map_str, where we're iterating anyway
                         if(chars_in_stack[i] > 0 && chars_in_stack[i] < 127){
-                              if(!in_str){
-                                    str_st_addr = current_addr; // first char of a string
-                                    // if first char of string, realloc tmp
-                                    tmp_size = initial_str_sz;
-                                    tmp = malloc(sizeof(char)*tmp_size+1); tmp_p = 0;
-                                    // TODO: should this be size+1?
-                                    memset(tmp, '\0', sizeof(char)*tmp_size);
-                              }
-                              in_str = true;
-                              if(tmp_p >= tmp_size-1){
-                                    tmp_size += 20;
-                                    char* tmp_tmp = malloc(sizeof(char)*tmp_size+1);
-                                    strcpy(tmp_tmp, tmp);
-                                    free(tmp);
-                                    tmp = tmp_tmp;
-                              }
-                              tmp[tmp_p++] = (char)chars_in_stack[i];
-                              // TODO: possibly add string in progress if we've gotten to the end of input on a valid char
-                        }
-                        else if(in_str){
-                              in_str = false;
-                              mmap->cp_mmap[c].addr = str_st_addr;
-                              mmap->cp_mmap[c++].value = tmp;
+                              len = strlen(chars_in_stack+i);
+                              mmap->cp_mmap[c].addr = current_addr;
+                              mmap->cp_mmap[c].value = malloc(sizeof(char)*(len+1));
+                              memcpy(mmap->cp_mmap[c++].value, chars_in_stack+i, len);
+                              i += len;
                               ++mmap->size;
+                              current_addr = (void*)(((char*)current_addr)+len);
                         }
                         current_addr = (void*)(((char*)current_addr)+1);
                   }
                   free(chars_in_stack);
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
-                  in_str = false;
-                  int tmp_size = initial_str_sz;
-                  char* tmp; int tmp_p = 0;
-                  BYTE* chars_in_heap = read_bytes_from_pid_mem(pid, 1, vm_l_heap, mmap->mapped_rgn.heap_end_addr);
-                  void* current_addr = vm_l_heap; void* str_st_addr;
+                  char* chars_in_heap = (char*)read_bytes_from_pid_mem(pid, 1, vm_l_heap, mmap->mapped_rgn.heap_end_addr);
+                  void* current_addr = vm_l_heap;
                   int n_items = (char*)mmap->mapped_rgn.heap_end_addr-(char*)vm_l_heap;
+                  len = 0;
                   for(int i = 0; i < n_items; ++i){
                         if(chars_in_heap[i] > 0 && chars_in_heap[i] < 127){
-                              if(!in_str){
-                                    str_st_addr = current_addr;
-                                    // if first char of string, realloc tmp
-                                    tmp_size = initial_str_sz;
-                                    tmp = malloc(sizeof(char)*tmp_size+1); tmp_p = 0;
-                                    memset(tmp, '\0', sizeof(char)*tmp_size);   
-                              }
-                              in_str = true;
-                              if(tmp_p >= tmp_size-1){
-                                    tmp_size += 20;
-                                    char* tmp_tmp = malloc(sizeof(char)*tmp_size+1);
-                                    strcpy(tmp_tmp, tmp);
-                                    free(tmp);
-                                    tmp = tmp_tmp;
-                              }
-                              tmp[tmp_p++] = (char)chars_in_heap[i];
-                        }
-                        else if(in_str){
-                              in_str = false;
-                              mmap->cp_mmap[c].addr = str_st_addr;
-                              mmap->cp_mmap[c++].value = tmp;
+                              len = strlen(chars_in_heap+i);
+                              mmap->cp_mmap[c].addr = current_addr;
+                              mmap->cp_mmap[c].value = malloc(sizeof(char)*(len+1));
+                              memcpy(mmap->cp_mmap[c++].value, chars_in_heap+i, len);
+                              i += len;
                               ++mmap->size;
+                              current_addr = (void*)(((char*)current_addr)+len);
                         }
                         current_addr = (void*)(((char*)current_addr)+1);
                   }
                   free(chars_in_heap);
             }
             if(use_additional_rgns){
-                  in_str = false;
-                  int n_items, tmp_size = initial_str_sz;
-                  char* tmp; int tmp_p = 0;
-                  BYTE* chars_in_addtnl;
-                  void* current_addr; void* str_st_addr;
+                  int n_items;
+                  char* chars_in_addtnl;
+                  void* current_addr;
+                  len = 0;
                   for(int i = 0; i < mmap->mapped_rgn.n_remaining; ++i){
-                        chars_in_addtnl = read_bytes_from_pid_mem(pid, 1, mmap->mapped_rgn.remaining_addr[i].start, mmap->mapped_rgn.remaining_addr[i].end);
+                        chars_in_addtnl = (char*)read_bytes_from_pid_mem(pid, 1, mmap->mapped_rgn.remaining_addr[i].start, mmap->mapped_rgn.remaining_addr[i].end);
                         current_addr = mmap->mapped_rgn.remaining_addr[i].start;
                         n_items = (char*)mmap->mapped_rgn.remaining_addr[i].end-(char*)mmap->mapped_rgn.remaining_addr[i].start;
                         for(int j = 0; j < n_items; ++j){
                               if(chars_in_addtnl[j] > 0 && chars_in_addtnl[j] < 127){
-                                    if(!in_str){
-                                          // if first char of string, realloc tmp
-                                          str_st_addr = current_addr;
-                                          tmp_size = initial_str_sz;
-                                          tmp = malloc(sizeof(char*)*tmp_size+1); tmp_p = 0;
-                                          memset(tmp, '\0', sizeof(char)*tmp_size);
-                                    }
-                                    in_str = true;
-                                    if(tmp_p == tmp_size){
-                                          tmp_size += 20;
-                                          char* tmp_tmp = malloc(sizeof(char)*tmp_size+1);
-                                          strcpy(tmp_tmp, tmp);
-                                          free(tmp); // this free sometimes produces an error TODO: look into this
-                                          tmp = tmp_tmp;
-                                    }
-                                    tmp[tmp_p++] = (char)chars_in_addtnl[j];
-                              }
-                              // if we've reached the end of a valid string the last char was part of a string
-                              else if(in_str){
-                                    in_str = false;
-                                    mmap->cp_mmap[c].addr = str_st_addr; 
-                                    mmap->cp_mmap[c++].value = tmp;
+                                    len = strlen(chars_in_addtnl+j);
+                                    mmap->cp_mmap[c].addr = current_addr;
+                                    mmap->cp_mmap[c].value = malloc(sizeof(char)*(len+1));
+                                    memcpy(mmap->cp_mmap[c++].value, chars_in_addtnl+j, len);
+                                    j += len;
                                     ++mmap->size;
+                                    current_addr = (void*)(((char*)current_addr)+len);
                               }
                               current_addr = (void*)(((char*)current_addr)+1);
                         }
-                        // i want to free mem if we realloc'd bc j != n_items-1
-                        /*seg faulting w addtnl mem for some reason*/
                         free(chars_in_addtnl);
                   }
             }

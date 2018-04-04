@@ -34,7 +34,7 @@ char* get_proc_name(pid_t pid){
       char path[100];
       strcpy(path, "/proc/");
       sprintf(path, "/proc/%d/cmdline", pid);
-      char* line;
+      char* line = NULL;
       FILE* fp = fopen(path, "r");
       if(fp == NULL)return line;
       size_t sz = 0;
@@ -47,7 +47,7 @@ char* get_proc_name(pid_t pid){
 
 
 struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
-      char* tmp;
+      char* tmp = NULL;
       char map_path[100];
       sprintf(map_path, "/proc/%d/maps", pid);
       FILE* fp = fopen(map_path, "r");
@@ -68,6 +68,8 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
       while(getline(&tmp, &sz, fp) != -1){
             char start_add[20]; int sa_p = 0;
             char end_add[20]; int ea_p = 0;
+            memset(start_add, '\0', 20);
+            memset(end_add, '\0', 20);
             found_desc = true;
             i = 0;
             while(tmp[i] != '-'){
