@@ -187,6 +187,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         printf("enter a number from [0-%li] or a range with a '-', followed by a value to write OR 's' to continue searching\n", vmem->size-1);
                         // width is 1 less than length of length of v_loc_s to avoid overwriting '\0'
+                        // ignore leading whitespace
                         scanf(" %9[^ \t.\n]%*c", v_loc_s);
                         if(strcmp(v_loc_s, "s") == 0){
                               fseek(stdin, 0, SEEK_END);
@@ -221,8 +222,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               lock_mode = true;
                               scanf(" %9[^ \t.\n]%*c", v_loc_s);
                         }
-                        // ignore leading whitespace
-                        scanf(" %4095[^ \t.\n]%*c", to_w);
+                        scanf("%4095[^\t.\n]%*c", to_w);
                         if(integers && !valid_int(to_w) && !(lock_mode && strcmp(to_w, "_") == 0)){
                               printf("enter a valid integer to write\n");
                               goto Write;
@@ -235,6 +235,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               if(v_loc_s[i] == '-'){
                                     found_d = true;
                                     // checking first int of range
+                                    // TODO: check that tmp_num <= vmem->size-1
                                     if(!valid_int(tmp_num)){
                                           printf("enter a valid integer or range of integers\n");
                                           goto Write;
@@ -248,6 +249,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               }
                         }
                         // checking second int of range
+                        // TODO: and again here
                         if(!valid_int(tmp_num)){
                               printf("enter a valid integer or range of integers\n");
                               goto Write;
@@ -381,7 +383,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 
 
 int main(int argc, char* argv[]){
-      char help_str[1214] = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory addres> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-b <integer>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -i  : inverts all 1s and 0s in specified memory region\n    -f  : interactive mode (default)\n    -sb : save backup of process memory to file (not yet implemented)\n    -wb : restore process memory to backup (not yet implemented)\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose mode (enables print region mode)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)\n";
+      char help_str[1214] = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory address> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-b <integer>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -i  : inverts all 1s and 0s in specified memory region\n    -f  : interactive mode (default)\n    -sb : save backup of process memory to file (not yet implemented)\n    -wb : restore process memory to backup (not yet implemented)\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose mode (enables print region mode)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)\n";
 
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             printf("%s", help_str);
