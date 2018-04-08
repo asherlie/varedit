@@ -147,6 +147,12 @@ bool write_str_to_pid_mem(pid_t pid, void* vm, const char* str){
       return write_bytes_to_pid_mem(pid, strlen(str), vm, (BYTE*)str);
 }
 
+int ststrlen(char* str){
+      int i = 0;
+      for(; str[i] > 0 && str[i] < 127; ++i);
+      return i;
+}
+
 // bytes parameter only affects integer mode
 void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_additional_rgns, bool integers, int bytes){
       mmap->int_mode_bytes = bytes;
@@ -228,9 +234,10 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   len = 0;
                   for(int i = 0; i < n_items; ++i){
                         if(chars_in_stack[i] > 0 && chars_in_stack[i] < 127){
-                              len = strlen(chars_in_stack+i);
+                              len = ststrlen(chars_in_stack+i);
                               mmap->cp_mmap[mmap->size].addr = current_addr;
                               mmap->cp_mmap[mmap->size].value = malloc(sizeof(char)*(len+1));
+                              mmap->cp_mmap[mmap->size].value[len] = '\0';
                               memcpy(mmap->cp_mmap[mmap->size++].value, chars_in_stack+i, len);
                               i += len;
                               current_addr = (void*)(((char*)current_addr)+len);
@@ -246,9 +253,10 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   len = 0;
                   for(int i = 0; i < n_items; ++i){
                         if(chars_in_heap[i] > 0 && chars_in_heap[i] < 127){
-                              len = strlen(chars_in_heap+i);
+                              len = ststrlen(chars_in_heap+i);
                               mmap->cp_mmap[mmap->size].addr = current_addr;
                               mmap->cp_mmap[mmap->size].value = malloc(sizeof(char)*(len+1));
+                              mmap->cp_mmap[mmap->size].value[len] = '\0';
                               memcpy(mmap->cp_mmap[mmap->size++].value, chars_in_heap+i, len);
                               i += len;
                               current_addr = (void*)(((char*)current_addr)+len);
@@ -268,9 +276,10 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                         n_items = (char*)mmap->mapped_rgn.remaining_addr[i].end-(char*)mmap->mapped_rgn.remaining_addr[i].start;
                         for(int j = 0; j < n_items; ++j){
                               if(chars_in_addtnl[j] > 0 && chars_in_addtnl[j] < 127){
-                                    len = strlen(chars_in_addtnl+j);
+                                    len = ststrlen(chars_in_addtnl+j);
                                     mmap->cp_mmap[mmap->size].addr = current_addr;
                                     mmap->cp_mmap[mmap->size].value = malloc(sizeof(char)*(len+1));
+                                    mmap->cp_mmap[mmap->size].value[len] = '\0';
                                     memcpy(mmap->cp_mmap[mmap->size++].value, chars_in_addtnl+j, len);
                                     j += len;
                                     current_addr = (void*)(((char*)current_addr)+len);
@@ -299,7 +308,7 @@ void update_mem_map(struct mem_map* mem, bool integers){
             else{
                   int len;
                   for(unsigned long i = 0; i < mem->size; ++i){
-                        len = strlen(mem->cp_mmap[i].value);
+                        len = ststrlen(mem->cp_mmap[i].value);
                         free(mem->cp_mmap[i].value);
                         mem->cp_mmap[i].value = read_str_from_mem_block(mem->pid, mem->cp_mmap[i].addr, len);
                   }
