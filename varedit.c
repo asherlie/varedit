@@ -324,6 +324,14 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               else{
                                     if(strlen(to_w) > strlen(vmem->cp_mmap[i].value)){
                                           printf("WARNING (%i: %p): writing a string that is larger than the original string in its memory location causes undefined behavior\n", vmem->pid, vmem->cp_mmap[i].addr);
+                                          free(vmem->cp_mmap[i].value);
+                                          // allocating enough space for updated string in mmap and 
+                                          // hoping that writing it doesn't infringe on other strings
+                                          vmem->cp_mmap[i].value = malloc(sizeof(char)*strlen(to_w)+1);
+                                          // this string can contain anything as long as its length == strlen(to_w)
+                                          // it's about to be overwritten by update_mem_map
+                                          memset(vmem->cp_mmap[i].value, '1', strlen(to_w));
+
                                     }
                                     // TODO: add option to fill up destination string with NUL \0 if to_w.size() < vmem->cp_mmap[i].value.size()
                                     write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, to_w);
@@ -380,7 +388,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             first = false;
       }
 }
-
 
 int main(int argc, char* argv[]){
       char help_str[1214] = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory address> <value>] [-i] [-f] [-sb <filename>] [-wb <filename>] [-S] [-H] [-B] [-A] [-E] [-C] [-b <integer>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -i  : inverts all 1s and 0s in specified memory region\n    -f  : interactive mode (default)\n    -sb : save backup of process memory to file (not yet implemented)\n    -wb : restore process memory to backup (not yet implemented)\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose mode (enables print region mode)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)\n";
