@@ -93,13 +93,15 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       struct lock_container child_pid[30];
       pid_t temp_pid;
       int num_locks = 0;
+      short tmp_strlen = 0;
       while(1){
             Find:
             printf("enter current variable value to search");
             if(!first)printf(" or 'w' to enter write mode");
             printf("\n");
             fgets(tmp_str, 4096, stdin);
-            tmp_str[strlen(tmp_str)-1]='\0';
+            short tmp_strlen = strlen(tmp_str);
+            tmp_str[tmp_strlen-1]='\0';
             if(strcmp(tmp_str, "q") == 0)return !first;
             if(strcmp(tmp_str, "?") == 0){
                   printf("%s\n", search_mode_help);
@@ -137,30 +139,21 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   goto Find;
             }
             // wa mode
-            if(tmp_str[0] == 'w' && tmp_str[1] == 'a'){
-                  char val[18]; int v_s = 0;
-                  bool in_str = false;
-                  for(unsigned int s = 2; s < strlen(tmp_str); ++s){
-                        if(tmp_str[s] != ' '){
-                              in_str = true;
-                              val[v_s++] = tmp_str[s];
+            if(tmp_strlen > 3){
+                  if(tmp_str[0] == 'w' && tmp_str[1] == 'a' && tmp_str[2] == ' '){
+                        // for int mode
+                        BYTE write[int_mode_bytes];
+                        if(integers){
+                              tmp_val = atoi(tmp_str+3);
+                              memcpy(write, &tmp_val, int_mode_bytes);
                         }
-                        else if(in_str)break;
+                        for(unsigned long i = 0; i < vmem->size; ++i){
+                              if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, write);
+                              else write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, tmp_str+3);
+                        }
+                        printf("wrote %s to %li memory locations\n", tmp_str+3, vmem->size);
+                        goto Find;
                   }
-                  // get rid of possible initialized values
-                  memset(val+v_s, '\0', sizeof(char)*(18-v_s));
-                  // for int mode
-                  BYTE write[int_mode_bytes];
-                  if(integers){
-                        tmp_val = atoi(val);
-                        memcpy(write, &tmp_val, int_mode_bytes);
-                  }
-                  for(unsigned long i = 0; i < vmem->size; ++i){
-                        if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, write);
-                        else write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, val);
-                  }
-                  printf("wrote %s to %li memory locations\n", val, vmem->size);
-                  goto Find;
             }
             if(strcmp(tmp_str, "w") == 0){
                   int vl_c;
