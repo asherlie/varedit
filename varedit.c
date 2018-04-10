@@ -100,7 +100,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             if(!first)printf(" or 'w' to enter write mode");
             printf("\n");
             fgets(tmp_str, 4096, stdin);
-            short tmp_strlen = strlen(tmp_str);
+            tmp_strlen = strlen(tmp_str);
             tmp_str[tmp_strlen-1]='\0';
             if(strcmp(tmp_str, "q") == 0)return !first;
             if(strcmp(tmp_str, "?") == 0){
