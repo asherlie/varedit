@@ -17,7 +17,6 @@
 #define LOW_MEM false
 
 void free_mem_map(struct mem_map* mmap, bool integers){
-      if(mmap->size == 0)return;
       if(integers)free(mmap->mmap);
       else{
             for(unsigned long i = 0; i < mmap->size; ++i){
@@ -372,7 +371,7 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
                   }
             }
       }
-      // to make sure not to try to reallocate empty mmap
+      // to make sure not to try to reallocate empty mmap with resize
       if(mem->size == 0){
             free_mem_map(mem, false);
             return;
