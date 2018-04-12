@@ -53,8 +53,8 @@ void print_mmap(const struct mem_map* mem, const char* contains, bool integers, 
             }
             else{
                   if(strcmp(contains, "") == 0 || is_substr(contains, mem->cp_mmap[i].value)){
-                        if(show_rgns)printf("%p (%s) : %s\n", mem->cp_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->cp_mmap[i].addr), mem->cp_mmap[i].value);
-                        else printf("%p: %s\n", mem->cp_mmap[i].addr, mem->cp_mmap[i].value);
+                        if(show_rgns)printf("%p (%s) : \"%s\"\n", mem->cp_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->cp_mmap[i].addr), mem->cp_mmap[i].value);
+                        else printf("%p: \"%s\"\n", mem->cp_mmap[i].addr, mem->cp_mmap[i].value);
                   }
             }
       }
@@ -93,7 +93,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       struct lock_container child_pid[30];
       pid_t temp_pid;
       int num_locks = 0;
-      short tmp_strlen = 0;
+      unsigned short tmp_strlen = 0;
       while(1){
             Find:
             printf("enter current variable value to search");
@@ -151,7 +151,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, write);
                               else write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, tmp_str+3);
                         }
-                        printf("wrote %s to %li memory locations\n", tmp_str+3, vmem->size);
+                        printf("wrote \"%s\" to %li memory locations\n", tmp_str+3, vmem->size);
                         goto Find;
                   }
             }
@@ -162,6 +162,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   char tmp_num[20], v_loc_s[10], to_w[4096];
                   int tmp_num_p = 0;
                   int v_loc[2]; // v_loc stores start and end of a range
+                  unsigned short to_w_len = 0;
                   while(1){
                         Write:
                         if(first){
@@ -220,6 +221,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               printf("enter a valid integer to write\n");
                               goto Write;
                         }
+                        to_w_len = strlen(to_w);
                         vl_c = 0;
                         memset(tmp_num, '\0', sizeof(char)*20);
                         tmp_num_p = 0;
@@ -282,6 +284,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                                 }
                                                 else{
                                                       if(same)strcpy(to_w, vmem_str_subset[i].value);
+                                                      // TODO: make it possible to write strings containing \0
                                                       write_str_to_pid_mem(vmem->pid, vmem_str_subset[i].addr, to_w);
                                                 }
                                           }
@@ -315,19 +318,23 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, to_w_b);
                               }
                               else{
-                                    if(strlen(to_w) > strlen(vmem->cp_mmap[i].value)){
+                                    if(to_w_len > strlen(vmem->cp_mmap[i].value)){
                                           printf("WARNING (%i: %p): writing a string that is larger than the original string in its memory location causes undefined behavior\n", vmem->pid, vmem->cp_mmap[i].addr);
                                           free(vmem->cp_mmap[i].value);
                                           // allocating enough space for updated string in mmap and 
                                           // hoping that writing it doesn't infringe on other strings
-                                          vmem->cp_mmap[i].value = malloc(sizeof(char)*strlen(to_w)+1);
+                                          vmem->cp_mmap[i].value = malloc(sizeof(char)*to_w_len+1);
                                           // this string can contain anything as long as its length == strlen(to_w)
                                           // it's about to be overwritten by update_mem_map
-                                          memset(vmem->cp_mmap[i].value, '1', strlen(to_w));
+                                          memset(vmem->cp_mmap[i].value, '1', to_w_len);
 
                                     }
-                                    // TODO: add option to fill up destination string with NUL \0 if to_w.size() < vmem->cp_mmap[i].value.size()
+                                    // TODO: add option to zero entire string
                                     write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, to_w);
+                                    if(to_w[to_w_len-2] == '\\' && to_w[to_w_len-1] == '0'){
+                                          // write terminated string if \0 found
+                                          write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+to_w_len-2), (BYTE*)"");
+                                    }
                               }
                         }
                         update_mem_map(vmem, integers); // to make sure accurate values are printed
