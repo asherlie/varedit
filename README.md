@@ -28,6 +28,7 @@ vmem_access is a library created to make programs like varedit easier to write
 
 vmem_access.h contains the following functions for reading and writing to virtual memory
 * BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e) // BYTE* is unsigned char
+* bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e)
 * int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm)
 * char* read_str_from_mem_block(pid_t pid, void* mb_start, int len)
 * char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end)
@@ -51,6 +52,21 @@ int main(int argc, char* argv[]){
     memcpy(&value, bytes, 4);
     printf("value: %i\n", value);
     free(bytes);
+}
+```
+
+this can also be done using read_bytes_from_pid_mem_dir
+
+```c
+#include <stdio.h>
+#include "vmem_access.h"
+
+int main(int argc, char* argv[]){
+      pid_t pid = atoi(argv[1]);
+      void* mem_addr = (void*)strtoul(argv[2], 0, 16);
+      int value = 0;
+      bool bytes = read_bytes_from_pid_mem_dir(&value, pid, 4, mem_addr, NULL);
+      printf("value: %i\n", value);
 }
 ```
 ##### some examples of pid_memcpy usage are below
