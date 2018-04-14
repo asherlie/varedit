@@ -26,6 +26,21 @@ void free_mem_map(struct mem_map* mmap, bool integers){
       }
 }
 
+bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e){
+      int sz_rgn;
+      if(vm_e == NULL)sz_rgn = bytes;
+      else sz_rgn = (char*)vm_e-(char*)vm_s;
+      struct iovec Local;
+      struct iovec Remote;
+      Local.iov_base = dest;
+      Local.iov_len = sz_rgn;
+      Remote.iov_base = vm_s;
+      Remote.iov_len = sz_rgn;
+      ssize_t nread;
+      nread = process_vm_readv(pid, &Local, 1, &Remote, 1, 0);
+      return nread == sz_rgn;
+}
+
 BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e){
       int sz_rgn;
       if(vm_e == NULL)sz_rgn = bytes;
@@ -108,6 +123,7 @@ char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end){
       return ret;
 }
 
+// TODO update this to use read_bytes_from_pid_mem_dir
 bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_bytes){
       bool ret = true;
       BYTE* bytes;
@@ -203,7 +219,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             if(use_additional_rgns){
                   for(int i = 0; i < mmap->mapped_rgn.n_remaining; ++i){
                         BYTE* ints_in_adtnl = read_bytes_from_pid_mem(pid, bytes, mmap->mapped_rgn.remaining_addr[i].start,
-                                                                             mmap->mapped_rgn.remaining_addr[i].end);
+                                                                                  mmap->mapped_rgn.remaining_addr[i].end);
                         buf_s = 0;
                         for(void* vm_l = mmap->mapped_rgn.remaining_addr[i].start;
                                   vm_l != mmap->mapped_rgn.remaining_addr[i].end;
