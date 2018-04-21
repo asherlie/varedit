@@ -129,13 +129,12 @@ bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_byte
       bool ret = true;
       BYTE* bytes;
       // don't use read_bytes_from_pid_mem to read from current process
-      // TODO: test the behavior of pid_memcpy when src_pid == getpid()
-      if(src_pid == getpid())bytes = malloc(n_bytes);
+      if(src_pid == getpid())bytes = (BYTE*)src;
       else bytes = read_bytes_from_pid_mem(src_pid, n_bytes, src, NULL);
       // don't use write_bytes_to_pid_mem to write to current process
       if(dest_pid == getpid())memcpy(dest, bytes, n_bytes);
       else ret = write_bytes_to_pid_mem(dest_pid, n_bytes, dest, bytes);
-      free(bytes);
+      if(src_pid != getpid())free(bytes);
       return ret;
 }
 
@@ -232,6 +231,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             }
       }
       else{ // !integers
+            // TODO: try to populate directly from BYTE* with pointers
             // m_size may be too small
             int len;
             if(d_rgn == STACK || d_rgn == BOTH){
