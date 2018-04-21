@@ -13,7 +13,8 @@
 #else 
 #define IM __IOV_MAX
 #endif
-#define RELOAD_CUTOFF 100*IM
+// with less than 1000000 values, it is faster to do individual reads for integers when updating mem_map
+#define RELOAD_CUTOFF 1000000
 #define LOW_MEM false
 
 void free_mem_map(struct mem_map* mmap, bool integers){
@@ -128,10 +129,8 @@ bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_byte
       bool ret = true;
       BYTE* bytes;
       // don't use read_bytes_from_pid_mem to read from current process
-      if(src_pid == getpid()){
-            bytes = malloc(n_bytes);
-            memcpy(bytes, src, n_bytes);
-      }
+      // TODO: test the behavior of pid_memcpy when src_pid == getpid()
+      if(src_pid == getpid())bytes = malloc(n_bytes);
       else bytes = read_bytes_from_pid_mem(src_pid, n_bytes, src, NULL);
       // don't use write_bytes_to_pid_mem to write to current process
       if(dest_pid == getpid())memcpy(dest, bytes, n_bytes);
