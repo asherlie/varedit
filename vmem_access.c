@@ -31,14 +31,14 @@ bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, v
       int sz_rgn;
       if(vm_e == NULL)sz_rgn = bytes;
       else sz_rgn = (char*)vm_e-(char*)vm_s;
-      struct iovec Local;
-      struct iovec Remote;
-      Local.iov_base = dest;
-      Local.iov_len = sz_rgn;
-      Remote.iov_base = vm_s;
-      Remote.iov_len = sz_rgn;
+      struct iovec local;
+      struct iovec remote;
+      local.iov_base = dest;
+      local.iov_len = sz_rgn;
+      remote.iov_base = vm_s;
+      remote.iov_len = sz_rgn;
       ssize_t nread;
-      nread = process_vm_readv(pid, &Local, 1, &Remote, 1, 0);
+      nread = process_vm_readv(pid, &local, 1, &remote, 1, 0);
       return nread == sz_rgn;
 }
 
