@@ -156,12 +156,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   }
             }
             if(strcmp(tmp_str, "w") == 0){
-                  int vl_c;
                   // to_w needs to be large enough to store any write string
                   // TODO: make to_w char* and use getline()
-                  char tmp_num[20], v_loc_s[10], to_w[4096];
-                  int tmp_num_p = 0;
-                  int v_loc[2]; // v_loc stores start and end of a range
+                  char v_loc_s[10], to_w[4096];
+                  int v_loc[2]; // v_loc stores start and end of range
                   unsigned short to_w_len = 0;
                   while(1){
                         Write:
@@ -222,34 +220,24 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               goto Write;
                         }
                         to_w_len = strlen(to_w);
-                        vl_c = 0;
-                        memset(tmp_num, '\0', sizeof(char)*20);
-                        tmp_num_p = 0;
-                        bool found_d = false;
-                        for(unsigned int i = 0; i < strlen(v_loc_s); ++i){
-                              if(v_loc_s[i] == '-'){
-                                    found_d = true;
-                                    // checking first int of range
-                                    // TODO: check that tmp_num <= vmem->size-1
-                                    if(!valid_int(tmp_num)){
-                                          puts("enter a valid integer or range of integers");
-                                          goto Write;
-                                    }
-                                    v_loc[vl_c++] = atoi(tmp_num);
-                                    memset(tmp_num, '\0', sizeof(char)*20);
-                              }
+                        { // scope to limit e_r's lifetime
+                              char* e_r;
+                              e_r = strchr(v_loc_s, '-');
+                              if(e_r != NULL)*(e_r++) = '\0';
+                              // setting both indices in case not range
+                              if(valid_int(v_loc_s))v_loc[1] = v_loc[0] = atoi(v_loc_s);
                               else{
-                                    if(found_d)strcpy(tmp_num, v_loc_s+i);
-                                    else tmp_num[tmp_num_p++] = v_loc_s[i];
+                                    Int_err:
+                                    puts("enter a valid integer or range of integers");
+                                    goto Write;
                               }
+                              if(e_r != NULL){
+                                    if(!valid_int(e_r))goto Int_err;
+                                    v_loc[1] = atoi(e_r);
+                              }
+                              // TODO: switch mem_map.size to uint, ulong is overkill
+                              if(v_loc[0] >= (int)vmem->size || v_loc[1] > (int)vmem->size)goto Int_err;
                         }
-                        // checking second int of range
-                        // TODO: and again here
-                        if(!valid_int(tmp_num)){
-                              puts("enter a valid integer or range of integers");
-                              goto Write;
-                        }
-                        v_loc[vl_c] = atoi(tmp_num);
                         if(lock_mode){
                               temp_pid = fork();
                               if(temp_pid == 0){ // TODO: kill this if overwriting the same mem location
@@ -258,11 +246,11 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     if(strcmp(to_w, "_") == 0)same = true;
                                     else if(integers)to_w_i = atoi(to_w);
                                     // creating pair arrays to store relevant addresses and values so i can free up memory
-                                    struct addr_int_pair vmem_int_subset [v_loc[vl_c]-v_loc[0]+1];
-                                    struct addr_str_pair vmem_str_subset[v_loc[vl_c]-v_loc[0]+1];
+                                    struct addr_int_pair vmem_int_subset [v_loc[1]-v_loc[0]+1];
+                                    struct addr_str_pair vmem_str_subset[v_loc[1]-v_loc[0]+1];
                                     { // creating a scope to limit c's lifetime
                                           int c = 0;
-                                          for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
+                                          for(int i = v_loc[0]; i <= v_loc[1]; ++i){
                                                 if(integers)vmem_int_subset[c++] = vmem->mmap[i];
                                                 else vmem_str_subset[c++] = vmem->cp_mmap[i];
                                           }
@@ -274,7 +262,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     while(1){ // child process will forever repeat this
                                           // sleeping to limit cpu usage
                                           usleep(1000);
-                                          for(int i = 0; i <= v_loc[vl_c]-v_loc[0]; ++i){
+                                          for(int i = 0; i <= v_loc[1]-v_loc[0]; ++i){
                                                 if(integers){
                                                       if(same){
                                                             to_w_i = vmem_int_subset[i].value;
@@ -311,7 +299,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         BYTE to_w_b[int_mode_bytes];
                         int tmp_i;
-                        for(int i = v_loc[0]; i <= v_loc[vl_c]; ++i){
+                        for(int i = v_loc[0]; i <= v_loc[1]; ++i){
                               if(integers){
                                     tmp_i = atoi(to_w);
                                     memcpy(to_w_b, &tmp_i, int_mode_bytes);
