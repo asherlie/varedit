@@ -27,7 +27,7 @@ struct mem_map{
       // both are included in this struct to simplify code
       pid_t pid;
       int d_rgn;
-      unsigned long size;
+      unsigned int size;
       int int_mode_bytes;
       bool use_addtnl;
 };
