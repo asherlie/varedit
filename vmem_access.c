@@ -212,7 +212,6 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                         buf_s += bytes;
                   }
                   free(ints_in_heap);
-
             }
             if(use_additional_rgns){
                   for(int i = 0; i < mmap->mapped_rgn.n_remaining; ++i){

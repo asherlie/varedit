@@ -42,17 +42,18 @@ int remove_volatile_values(struct mem_map* vmem){
 }
 
 void print_mmap(const struct mem_map* mem, const char* contains, bool integers, bool show_rgns){
-      char tmp_num[20];
+      bool cont = contains != NULL;
+      int i_cont = 0;
+      if(integers && cont && valid_int(contains))i_cont = atoi(contains);
       for(unsigned int i = 0; i < mem->size; ++i){
             if(integers){
-                  sprintf(tmp_num, "%d", mem->mmap[i].value);
-                  if(strcmp(contains, "") == 0 || strcmp(tmp_num, contains) == 0){
+                  if(!cont || mem->mmap[i].value == i_cont){
                         if(show_rgns)printf("%p (%s) : %i\n", mem->mmap[i].addr, which_rgn(mem->mapped_rgn, mem->mmap[i].addr), mem->mmap[i].value);
                         else printf("%p: %i\n", mem->mmap[i].addr, mem->mmap[i].value);
                   }
             }
             else{
-                  if(strcmp(contains, "") == 0 || is_substr(contains, mem->cp_mmap[i].value)){
+                  if(!cont || is_substr(contains, mem->cp_mmap[i].value)){
                         if(show_rgns)printf("%p (%s) : \"%s\"\n", mem->cp_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->cp_mmap[i].addr), mem->cp_mmap[i].value);
                         else printf("%p: \"%s\"\n", mem->cp_mmap[i].addr, mem->cp_mmap[i].value);
                   }
@@ -147,7 +148,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               tmp_val = atoi(tmp_str+3);
                               memcpy(write, &tmp_val, int_mode_bytes);
                         }
-
                         for(unsigned int i = 0; i < vmem->size; ++i){
                               if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, write);
                               // TODO allow writing \0 in wa mode
@@ -317,7 +317,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                           // this string can contain anything as long as its length == strlen(to_w)
                                           // it's about to be overwritten by update_mem_map
                                           memset(vmem->cp_mmap[i].value, '1', to_w_len);
-
                                     }
                                     // TODO: add option to zero entire string
                                     write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, to_w);
