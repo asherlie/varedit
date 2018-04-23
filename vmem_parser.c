@@ -1,6 +1,5 @@
 #include "vmem_parser.h"
 #include <string.h>
-#include <stdlib.h>
 
 void free_mem_rgn(struct mem_rgn* mr){
       free(mr->p_name);

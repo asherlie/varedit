@@ -42,7 +42,7 @@ int remove_volatile_values(struct mem_map* vmem){
 }
 
 void print_mmap(const struct mem_map* mem, const char* contains, bool integers, bool show_rgns){
-      bool cont = contains != NULL;
+      bool cont = strlen(contains) != 0;
       int i_cont = 0;
       if(integers && cont && valid_int(contains))i_cont = atoi(contains);
       for(unsigned int i = 0; i < mem->size; ++i){
