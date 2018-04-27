@@ -53,7 +53,7 @@ void print_mmap(const struct mem_map* mem, const char* contains, bool integers, 
                   }
             }
             else{
-                  if(!cont || is_substr(contains, mem->cp_mmap[i].value)){
+                  if(!cont || strstr(mem->cp_mmap[i].value, contains)){
                         if(show_rgns)printf("%p (%s) : \"%s\"\n", mem->cp_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->cp_mmap[i].addr), mem->cp_mmap[i].value);
                         else printf("%p: \"%s\"\n", mem->cp_mmap[i].addr, mem->cp_mmap[i].value);
                   }

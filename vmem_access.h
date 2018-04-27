@@ -32,7 +32,6 @@ struct mem_map{
       bool use_addtnl;
 };
 
-bool is_substr(const char* substr, const char* str);
 void free_mem_map(struct mem_map* mmap, bool integers);
 bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e);
 BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e);

@@ -377,7 +377,7 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
                   }
             }
             else{
-                  if(mem->cp_mmap[i].addr == 0 || !is_substr(match, mem->cp_mmap[i].value)){
+                  if(mem->cp_mmap[i].addr == 0 || !strstr(mem->cp_mmap[i].value, match)){
                         free(mem->cp_mmap[i].value);
                         --mem->size;
                         if(mem->size == 0)break;
