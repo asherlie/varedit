@@ -30,8 +30,8 @@ vmem_access.h contains the following functions for reading and writing to virtua
 * BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e) // BYTE* is unsigned char
 * bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e)
 * int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm)
-* char* read_str_from_mem_block(pid_t pid, void* mb_start, int len)
-* char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end)
+* char* read_str_from_mem_range(pid_t pid, void* mb_start, int len)
+* char* read_str_from_mem_range_slow(pid_t pid, void* mb_start, void* mb_end)
 * bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_bytes)
 * bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, int value)
 * bool write_int_to_pid_mem(pid_t pid, void* vm, int value)

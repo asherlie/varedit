@@ -275,9 +275,7 @@ void update_mem_map(struct mem_map* mem, bool integers){
                   int len;
                   for(unsigned long i = 0; i < mem->size; ++i){
                         len = strlen(mem->cp_mmap[i].value);
-                        free(mem->cp_mmap[i].value);
-                        mem->cp_mmap[i].value = read_str_from_mem_range(mem->pid, mem->cp_mmap[i].addr, len);
-                        /*read_bytes_from_pid_mem_dir(mem->cp_mmap[i].value, mem->pid, 1, mem->cp_mmap[i].addr, (void*)((char*)mem->cp_mmap[i].addr+len));*/
+                        read_bytes_from_pid_mem_dir(mem->cp_mmap[i].value, mem->pid, 1, mem->cp_mmap[i].addr, (void*)((char*)mem->cp_mmap[i].addr+len));
                   }
             }
       }
