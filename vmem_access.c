@@ -46,45 +46,9 @@ BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e){
       int sz_rgn;
       if(vm_e == NULL)sz_rgn = bytes;
       else sz_rgn = (char*)vm_e-(char*)vm_s;
-      // using calloc to zero memory
-      struct iovec* local = calloc(sizeof(struct iovec), sz_rgn);
-      struct iovec remote[1];
-      BYTE* buf = calloc(1, sz_rgn+1);
-      int byte_c = 0;
-      local->iov_base = buf;
-      local->iov_len = sz_rgn;
-      int n_iovl = IM;
-      bool rn = false;
-      for(int i = 0; i < sz_rgn; ++i){
-            local[i].iov_base = &(buf[byte_c]);
-            local[i].iov_len = n_iovl;
-            byte_c += IM;
-            if(rn)break;
-            if(byte_c > sz_rgn){
-                  byte_c = sz_rgn - (byte_c-IM);
-                  n_iovl = sz_rgn-byte_c;
-                  rn = true;
-            }
-      }
-      remote[0].iov_base = vm_s;
-      remote[0].iov_len = sz_rgn;
-      int c = 0;
-      if(sz_rgn < IM){
-            process_vm_readv(pid, local, sz_rgn, remote, 1, 0);
-      }
-      else{
-            for(int i = 0; i < (sz_rgn/IM); ++i){
-                  process_vm_readv(pid, local+c, IM, remote, 1, 0);
-                  remote[0].iov_base = (void*)(((char*)remote[0].iov_base)+IM);
-                  remote[0].iov_len = IM;
-                  c+=IM;
-            }
-            // still need to do one last read
-            remote->iov_len = sz_rgn-c;
-            process_vm_readv(pid, local+c, remote->iov_len, remote, 1, 0);
-      }
-      free(local);
-      return buf;
+      BYTE* ret = malloc(sz_rgn);
+      read_bytes_from_pid_mem_dir(ret, pid, bytes, vm_s, vm_e);
+      return ret;
 }
 
 int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm){
