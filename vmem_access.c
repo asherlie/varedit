@@ -8,11 +8,6 @@
 #define HEAP 1
 #define BOTH 2
 
-#ifdef IOV_MAX
-#define IM IOV_MAX
-#else 
-#define IM __IOV_MAX
-#endif
 // with less than 1000000 values, it is faster to do individual reads for integers when updating mem_map
 #define RELOAD_CUTOFF 1000000
 #define LOW_MEM false
@@ -63,12 +58,12 @@ int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm){
       return ret;
 }
 
-char* read_str_from_mem_block(pid_t pid, void* mb_start, int len){
+char* read_str_from_mem_range(pid_t pid, void* mb_start, int len){
       return (char*)read_bytes_from_pid_mem(pid, 1, mb_start, (void*)((char*)mb_start+len));
 }
 
 // this function should only be used when string size is unknown
-char* read_str_from_mem_block_slow(pid_t pid, void* mb_start, void* mb_end){
+char* read_str_from_mem_range_slow(pid_t pid, void* mb_start, void* mb_end){
       char tmp;
       int str_sz = 1;
       char* ret = malloc(sizeof(char)*str_sz+1); int ret_p = 0;
@@ -281,7 +276,8 @@ void update_mem_map(struct mem_map* mem, bool integers){
                   for(unsigned long i = 0; i < mem->size; ++i){
                         len = strlen(mem->cp_mmap[i].value);
                         free(mem->cp_mmap[i].value);
-                        mem->cp_mmap[i].value = read_str_from_mem_block(mem->pid, mem->cp_mmap[i].addr, len);
+                        mem->cp_mmap[i].value = read_str_from_mem_range(mem->pid, mem->cp_mmap[i].addr, len);
+                        /*read_bytes_from_pid_mem_dir(mem->cp_mmap[i].value, mem->pid, 1, mem->cp_mmap[i].addr, (void*)((char*)mem->cp_mmap[i].addr+len));*/
                   }
             }
       }

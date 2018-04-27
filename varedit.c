@@ -410,6 +410,8 @@ int main(int argc, char* argv[]){
             }
             if(strcmp(argv[i], "-b") == 0){
                   n_bytes = atoi(argv[i+1]);
+                  // atoi returns 0 if not valid int
+                  if(n_bytes == 0)n_bytes = 4;
             }
             if(strcmp(argv[i], "-v") == 0){
                   verbose = true;
@@ -434,8 +436,8 @@ int main(int argc, char* argv[]){
             // -r and -w can be used without slowly loading a complete mem_map
             if(strcmp(argv[2], "-r") == 0){
                   if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], 0, 16)));
-                  // read_str_from_mem_block_slow must be used because string size is unknown
-                  else printf("%s\n", read_str_from_mem_block_slow(pid, (void*)strtoul(argv[3], 0, 16), NULL));
+                  // read_str_from_mem_range_slow must be used because string size is unknown
+                  else printf("%s\n", read_str_from_mem_range_slow(pid, (void*)strtoul(argv[3], 0, 16), NULL));
                   return 0;
             }
             if(strcmp(argv[2], "-w") == 0){
