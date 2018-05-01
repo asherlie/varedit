@@ -113,12 +113,20 @@ bool write_str_to_pid_mem(pid_t pid, void* vm, const char* str){
       return write_bytes_to_pid_mem(pid, strlen(str), vm, (BYTE*)str);
 }
 
+void resize_str_mmap(struct mem_map* c_mm, unsigned int* m_size, int factor){
+      printf("resizing\n");
+      *m_size *= factor;
+      struct addr_str_pair* tmp = malloc(sizeof(struct addr_str_pair)*(*m_size));
+      memcpy(tmp, c_mm->cp_mmap, sizeof(struct addr_str_pair)*c_mm->size);
+      c_mm->cp_mmap = tmp;
+}
+
 // bytes parameter only affects integer mode
 void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_additional_rgns, bool integers, int bytes){
       mmap->int_mode_bytes = bytes;
       mmap->d_rgn = d_rgn;
       mmap->use_addtnl = use_additional_rgns;
-      unsigned long m_size = 0;
+      unsigned int m_size = 0;
       void* vm_l_stack; void* vm_l_heap;
       if(d_rgn == STACK || d_rgn == BOTH){
             vm_l_stack = mmap->mapped_rgn.stack_start_addr;
@@ -168,17 +176,17 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             }
             if(use_additional_rgns){
                   for(int i = 0; i < mmap->mapped_rgn.n_remaining; ++i){
-                        BYTE* ints_in_adtnl = read_bytes_from_pid_mem(pid, bytes, mmap->mapped_rgn.remaining_addr[i].start,
+                        BYTE* ints_in_addtnl = read_bytes_from_pid_mem(pid, bytes, mmap->mapped_rgn.remaining_addr[i].start,
                                                                                   mmap->mapped_rgn.remaining_addr[i].end);
                         buf_s = 0;
                         for(void* vm_l = mmap->mapped_rgn.remaining_addr[i].start;
                                   vm_l != mmap->mapped_rgn.remaining_addr[i].end;
                                   vm_l = (void*)(((char*)vm_l)+bytes)){
                               mmap->mmap[mmap->size].addr = vm_l; mmap->mmap[mmap->size].value = 0;  
-                              memcpy(&(mmap->mmap[mmap->size++].value), &(ints_in_adtnl[buf_s]), bytes);
+                              memcpy(&(mmap->mmap[mmap->size++].value), &(ints_in_addtnl[buf_s]), bytes);
                               buf_s += bytes;
                         }
-                        free(ints_in_adtnl);
+                        free(ints_in_addtnl);
                   }
             }
       }
@@ -194,6 +202,8 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   len = 0;
                   for(int i = 0; i < n_items; ++i){
                         if(chars_in_stack[i] > 0 && chars_in_stack[i] < 127){
+                              // resize by a factor of 2 - this is repeated in heap and additional region sections
+                              if(mmap->size == m_size)resize_str_mmap(mmap, &m_size, 2);
                               len = strlen(chars_in_stack+i);
                               mmap->cp_mmap[mmap->size].addr = current_addr;
                               mmap->cp_mmap[mmap->size].value = malloc(sizeof(char)*(len+1));
@@ -213,6 +223,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   len = 0;
                   for(int i = 0; i < n_items; ++i){
                         if(chars_in_heap[i] > 0 && chars_in_heap[i] < 127){
+                              if(mmap->size == m_size)resize_str_mmap(mmap, &m_size, 2);
                               len = strlen(chars_in_heap+i);
                               mmap->cp_mmap[mmap->size].addr = current_addr;
                               mmap->cp_mmap[mmap->size].value = malloc(sizeof(char)*(len+1));
@@ -236,6 +247,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                         n_items = (char*)mmap->mapped_rgn.remaining_addr[i].end-(char*)mmap->mapped_rgn.remaining_addr[i].start;
                         for(int j = 0; j < n_items; ++j){
                               if(chars_in_addtnl[j] > 0 && chars_in_addtnl[j] < 127){
+                                    if(mmap->size == m_size)resize_str_mmap(mmap, &m_size, 2);
                                     len = strlen(chars_in_addtnl+j);
                                     mmap->cp_mmap[mmap->size].addr = current_addr;
                                     mmap->cp_mmap[mmap->size].value = malloc(sizeof(char)*(len+1));
