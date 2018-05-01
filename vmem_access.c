@@ -10,6 +10,7 @@
 
 // with less than 1000000 values, it is faster to do individual reads for integers when updating mem_map
 #define RELOAD_CUTOFF 1000000
+// if(LOW_MEM) update_mem_map optimizations for integers are turned off
 #define LOW_MEM false
 
 void free_mem_map(struct mem_map* mmap, bool integers){
@@ -48,13 +49,7 @@ BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e){
 
 int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm){
       int ret = 0;
-      struct iovec local[1];
-      struct iovec remote[1];
-      local->iov_base = &ret;
-      local->iov_len = bytes;
-      remote->iov_base = vm;
-      remote->iov_len = bytes;
-      process_vm_readv(pid, local, 1, remote, 1, 0);
+      read_bytes_from_pid_mem_dir(&ret, pid, bytes, vm, NULL);
       return ret;
 }
 
@@ -73,7 +68,7 @@ char* read_str_from_mem_range_slow(pid_t pid, void* mb_start, void* mb_end){
             if(ret_p == str_sz){
                   str_sz += 10;
                   char* tmp_ret = malloc(sizeof(char)*str_sz+1);
-                  memset(tmp_ret, '\0', str_sz);
+                  memset(tmp_ret+ret_p, '\0', str_sz-ret_p);
                   strcpy(tmp_ret, ret);
                   free(ret);
                   ret = tmp_ret;
