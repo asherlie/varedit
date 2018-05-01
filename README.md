@@ -27,8 +27,8 @@
 vmem_access is a library created to make programs like varedit easier to write
 
 vmem_access.h contains the following functions for reading and writing to virtual memory
-* BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e) // BYTE* is unsigned char
 * bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e)
+* BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e) // BYTE* is unsigned char
 * int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm)
 * char* read_str_from_mem_range(pid_t pid, void* mb_start, int len)
 * char* read_str_from_mem_range_slow(pid_t pid, void* mb_start, void* mb_end)
@@ -47,11 +47,16 @@ int main(int argc, char* argv[]){
     // memory addresses must be cast to void* to work with read_bytes_from_pid_mem
     void* mem_addr = (void*)strtoul(argv[2], 0, 16);
     // the final parameter of read_bytes_from_pid_mem is NULL when reading a single value
-    BYTE* bytes = read_bytes_from_pid_mem(pid, 4, mem_addr, NULL);
-    int value;
-    memcpy(&value, bytes, 4);
+    // read_bytes_from_pid_mem returns the pointer to a BYTE array obtained with malloc()
+    // this memory should be freed using free()
+    BYTE* bytes = read_bytes_from_pid_mem(pid, sizeof(int), mem_addr, NULL);
+    int value = *((int*)bytes);
+    // the below would also work
+    // memcpy(&value, bytes, 4);
     printf("value: %i\n", value);
+    // memory allocated by read_bytes_from_pid_mem should be freed
     free(bytes);
+    return 0;
 }
 ```
 
@@ -65,10 +70,27 @@ int main(int argc, char* argv[]){
       pid_t pid = atoi(argv[1]);
       void* mem_addr = (void*)strtoul(argv[2], 0, 16);
       int value = 0;
-      bool bytes = read_bytes_from_pid_mem_dir(&value, pid, 4, mem_addr, NULL);
+      read_bytes_from_pid_mem_dir(&value, pid, sizeof(int), mem_addr, NULL);
       printf("value: %i\n", value);
+      return 0;
 }
 ```
+
+or with read_single_val_from_pid_mem
+
+```c
+#include <stdio.h>
+#include "vmem_access.h"
+
+int main(int argc, char* argv[]){
+      pid_t pid = atoi(argv[1]);
+      void* mem_addr = (void*)strtoul(argv[2], 0, 16);
+      int value = read_single_val_from_pid_mem(pid, sizeof(int), mem_addr);
+      printf("value: %i\n", value);
+      return 0;
+}
+```
+
 ##### some examples of pid_memcpy usage are below
 ```c
 // assuming pid_t src_pid = some valid process id
