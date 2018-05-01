@@ -78,7 +78,6 @@ char* read_str_from_mem_range_slow(pid_t pid, void* mb_start, void* mb_end){
       return ret;
 }
 
-// TODO update this to use read_bytes_from_pid_mem_dir
 bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_bytes){
       bool ret = true;
       BYTE* bytes;
@@ -93,13 +92,13 @@ bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_byte
 }
 
 bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, BYTE* value){
-      struct iovec local[1];
-      struct iovec remote[1];
-      local->iov_base = value;
-      local->iov_len = bytes;
-      remote->iov_base = vm;
-      remote->iov_len = bytes;
-      return (bytes == process_vm_writev(pid, local, 1, remote, 1, 0));
+      struct iovec local;
+      struct iovec remote;
+      local.iov_base = value;
+      local.iov_len = bytes;
+      remote.iov_base = vm;
+      remote.iov_len = bytes;
+      return (bytes == process_vm_writev(pid, &local, 1, &remote, 1, 0));
 }
 
 // TODO: maybe allow this function to take in nbytes as in how much of the int do we wanna write
