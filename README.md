@@ -25,6 +25,7 @@
 # vmem_access
 
 vmem_access is a library created to make programs like varedit easier to write
+all code using this library must be compiled with the flag -D_GNU_SOURCE
 
 vmem_access.h contains the following functions for reading and writing to virtual memory
 * bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e)

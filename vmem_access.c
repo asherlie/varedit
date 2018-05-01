@@ -114,7 +114,6 @@ bool write_str_to_pid_mem(pid_t pid, void* vm, const char* str){
 }
 
 void resize_str_mmap(struct mem_map* c_mm, unsigned int* m_size, int factor){
-      printf("resizing\n");
       *m_size *= factor;
       struct addr_str_pair* tmp = malloc(sizeof(struct addr_str_pair)*(*m_size));
       memcpy(tmp, c_mm->cp_mmap, sizeof(struct addr_str_pair)*c_mm->size);
