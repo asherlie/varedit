@@ -147,8 +147,6 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
       }
       else {
             m_size /= 10;
-            // can safely assume that not every memory location stores its own string
-            // TODO: dynamically reallocate this
             mmap->cp_mmap = malloc(sizeof(struct addr_str_pair)*m_size);
       }
       //TODO: initialize small and resize dynamically
@@ -191,7 +189,6 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
       }
       else{ // !integers
             // TODO: try to populate directly from BYTE* with pointers
-            // m_size may be too small
             int len;
             if(d_rgn == STACK || d_rgn == BOTH){
                   // TODO: check for emptiness in strings before adding them

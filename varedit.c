@@ -150,8 +150,11 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         for(unsigned int i = 0; i < vmem->size; ++i){
                               if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, write);
-                              // TODO allow writing \0 in wa mode
-                              else write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, tmp_str+3);
+                              else{
+                                    write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, tmp_str+3);
+                                    if(tmp_str[tmp_strlen-3] == '\\' && tmp_str[tmp_strlen-2] == '0')
+                                    write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+tmp_strlen-3-3), (BYTE*)"");
+                              }
                         }
                         printf("wrote \"%s\" to %i memory locations\n", tmp_str+3, vmem->size);
                         goto Find;
