@@ -349,28 +349,25 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   goto Find;
             }
             if(first)populate_mem_map(vmem, vmem->pid, d_rgn, additional, integers, int_mode_bytes);
-            if(strcmp(tmp_str, "\\w") == 0 || strcmp(tmp_str, "\\u") == 0 || strcmp(tmp_str, "\\q") == 0 || strcmp(tmp_str, "\\r") == 0 || strcmp(tmp_str, "\\?") == 0){
-                  // allow searching for 'w' or 'u' with \w or \u
-                  tmp_str[0] = tmp_str[1]; tmp_str[1] = '\0';
-            }
-            if(strcmp(tmp_str, "\\rv") == 0 || strcmp(tmp_str, "\\rl") == 0){
-                  tmp_str[0] = tmp_str[1]; tmp_str[1] = tmp_str[2]; tmp_str[2] = '\0';
-            }
+            // tmp_str_ptr makes it easier to handle escaped searches of reserved varedit strings because it can be incremented
+            char* tmp_str_ptr = tmp_str;
+            // to deal with escaped \w, \u, \q, \r, \?, \rv, \rl
+            if(tmp_str[0] == '\\')++tmp_str_ptr;
             if(!first)update_mem_map(vmem, integers);
             if(integers){
-                  tmp_val = atoi(tmp_str);
+                  tmp_val = atoi(tmp_str_ptr);
                   narrow_mem_map_int(vmem, tmp_val);
             }
-            else narrow_mem_map_str(vmem, tmp_str, false);
+            else narrow_mem_map_str(vmem, tmp_str_ptr, false);
             if(vmem->size == 0){
-                  printf("nothing matches your search of: %s\nresetting mem map\n", tmp_str);
+                  printf("nothing matches your search of: %s\nresetting mem map\n", tmp_str_ptr);
                   // setting first to true to imitate behavior of first search and load, reducing space complexity by waiting to repopulate mem_map
                   first = true;
                   goto Find;
             }
             else{
                   if(!verbose && vmem->size > result_print_limit){
-                        printf("your search of %s has %i results\nresult_print_limit is set at %i. refusing to print\n", tmp_str, vmem->size, result_print_limit);
+                        printf("your search of %s has %i results\nresult_print_limit is set at %i. refusing to print\n", tmp_str_ptr, vmem->size, result_print_limit);
                   }
                   else{
                         puts("matches are now:");
