@@ -164,6 +164,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         // for int mode
                         BYTE write[int_mode_bytes];
                         if(integers){
+                              if(!valid_int(tmp_str+3)){
+                                    printf("\"%s\" is not a valid integer\n", tmp_str+3);
+                                    goto Find;
+                              }
                               tmp_val = atoi(tmp_str+3);
                               memcpy(write, &tmp_val, int_mode_bytes);
                         }
@@ -247,7 +251,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         to_w_len = strlen(to_w);
                         { // scope to limit e_r's lifetime
                               char* e_r;
-                              /*strsep*/
+                              // TODO: this should take advantage of strsep
                               e_r = strchr(v_loc_s, '-');
                               if(e_r != NULL)*(e_r++) = '\0';
                               // setting both indices in case not range

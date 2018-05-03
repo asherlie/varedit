@@ -25,8 +25,6 @@ char* get_proc_name(pid_t pid){
       if(fp == NULL)return line;
       size_t sz = 0;
       getline(&line, &sz, fp);
-      // maybe replace with getdelim()
-      // because the original one did and used '\0' 
       fclose(fp);
       return line;
 }                 
@@ -37,8 +35,6 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
       char map_path[100];
       sprintf(map_path, "/proc/%d/maps", pid);
       FILE* fp = fopen(map_path, "r");
-      bool found_desc;
-      unsigned int i;
       struct mem_rgn vmem;
       vmem.p_name = get_proc_name(pid);
       vmem.stack_start_addr = NULL;
@@ -52,70 +48,49 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
       size_t sz = 0;
       bool first_unmarked = true;
       while(getline(&tmp, &sz, fp) != -1){
-            char start_add[20]; int sa_p = 0;
-            char end_add[20]; int ea_p = 0;
-            memset(start_add, '\0', 20);
-            memset(end_add, '\0', 20);
-            found_desc = true;
-            i = 0;
-            while(tmp[i] != '-'){
-                  start_add[sa_p++] = tmp[i];
-                  ++i;
-            }
-            ++i;
+            char* start_add = tmp;
+            char* end_add = strchr(tmp, '-');
+            char* space = strchr(end_add, ' ');
+            *(space++) = '\0';
+            *(end_add++) = '\0';
             unsigned long* l_start_add = (unsigned long*)strtoul(start_add, 0, 16);
-            while(tmp[i] != ' '){
-                  end_add[ea_p++] = tmp[i];
-                  ++i;
-            }
             unsigned long* l_end_add = (unsigned long*)strtoul(end_add, 0, 16);
-            if(i == strlen(tmp)){
-                  found_desc = false;
-                  break;
-            }
-            // TODO: fix criteria for unmarked additional mem rgns
-            while(tmp[i-1] != '/' && tmp[i-1] != '[' && i < strlen(tmp)){
-                  if(tmp[i] == '/' || i >= strlen(tmp)-1){
-                        if(strstr(tmp, vmem.p_name) || (unmarked_additional && p_end != l_start_add && i >= strlen(tmp)-1)){
-                              struct m_addr_pair tmp_pair;
-                              tmp_pair.start = (void*)l_start_add;
-                              tmp_pair.end = (void*)l_end_add;
-                              if(vmem.n_remaining == rem_alloc_sz){
-                                    ++rem_alloc_sz;
-                                    if(first_unmarked){
-                                          first_unmarked = false;
-                                          vmem.remaining_addr = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
-                                    }
-                                    else {
-                                          struct m_addr_pair* tmp_realloc = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
-                                          memcpy(tmp_realloc, vmem.remaining_addr, sizeof(struct m_addr_pair)*(rem_alloc_sz-1));
-                                          free(vmem.remaining_addr);
-                                          vmem.remaining_addr = tmp_realloc;
-                                    }
+            char* sl = strchr(space, '/');
+            if(sl){
+                  if(p_end != l_start_add && (strstr(sl, vmem.p_name) || unmarked_additional)){
+                        struct m_addr_pair tmp_pair;
+                        tmp_pair.start = (void*)l_start_add;
+                        tmp_pair.end = (void*)l_end_add;
+                        if(vmem.n_remaining == rem_alloc_sz){
+                              ++rem_alloc_sz;
+                              if(first_unmarked){
+                                    first_unmarked = false;
+                                    vmem.remaining_addr = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
                               }
-                              vmem.remaining_addr[vmem.n_remaining++] = tmp_pair;
+                              else {
+                                    struct m_addr_pair* tmp_realloc = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
+                                    memcpy(tmp_realloc, vmem.remaining_addr, sizeof(struct m_addr_pair)*(rem_alloc_sz-1));
+                                    free(vmem.remaining_addr);
+                                    vmem.remaining_addr = tmp_realloc;
+                              }
                         }
-                        found_desc = false;
+                        vmem.remaining_addr[vmem.n_remaining++] = tmp_pair;
                   }
-                  ++i;
             }
-            p_end = l_end_add;
-            --i;
-            if(found_desc){
-                  char desc[20]; int de_p = 0;
-                  while(tmp[i-1] != ']'){
-                        desc[de_p++] = tmp[i];
-                        ++i;
-                  }
-                  if(strcmp(desc, "[heap]") == 0){
+            char* desc = strchr(space, '[');
+            if(desc){
+                  *strchr(desc, ']') = '\0';
+                  ++desc;
+                  if(strcmp(desc, "heap") == 0){
                         vmem.heap_start_addr = (void*)l_start_add;
                         vmem.heap_end_addr = (void*)l_end_add;
                   }
-                  if(strcmp(desc, "[stack]") == 0){
+                  if(strcmp(desc, "stack") == 0){
                         vmem.stack_start_addr = (void*)l_start_add;
                         vmem.stack_end_addr = (void*)l_end_add;
                   }
             }
+            p_end = l_end_add;
       }
       // free memory allocated by getline
       free(tmp);
