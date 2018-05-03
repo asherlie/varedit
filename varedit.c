@@ -68,6 +68,25 @@ void logic_swap(const struct mem_map* mem){
       }
 }
 
+// this was added to fix a bug that occured when strings are cut short with a \0 and the literal '\' and '0' were 
+// also written, which was apparent when the null byte was later overwritten, exposing the rest of the string
+bool null_char_parse(char* str){
+      char* null_char = str;
+      while((null_char = strstr(null_char, "\\0"))){
+            if(null_char > str && *(null_char-1) == '\\'){
+                  unsigned int j;
+                  --null_char;
+                  for(j = 0; j < strlen(null_char)-1; ++j)null_char[j] = null_char[j+1];
+                  null_char[j] = '\0';
+                  null_char += 3;
+                  continue;
+            }
+            memset(null_char, '\0', strlen(null_char)-1);
+            return true;
+      }
+      return false;
+}
+
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
       char search_mode_help[600];
       strcpy(search_mode_help, "search mode options:\n    'r' : reset mem map\n    \"wa\" <value> : write single value to all current results\n    ");
@@ -151,9 +170,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         for(unsigned int i = 0; i < vmem->size; ++i){
                               if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, write);
                               else{
+                                    int nul = null_char_parse(tmp_str+3);
+                                    // writing adjusted tmp_str with corrected length
                                     write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, tmp_str+3);
-                                    if(tmp_str[tmp_strlen-3] == '\\' && tmp_str[tmp_strlen-2] == '0')
-                                    write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+tmp_strlen-3-3), (BYTE*)"");
+                                    if(nul)write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+strlen(tmp_str+3)), (BYTE*)"");
                               }
                         }
                         printf("wrote \"%s\" to %i memory locations\n", tmp_str+3, vmem->size);
@@ -227,6 +247,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         to_w_len = strlen(to_w);
                         { // scope to limit e_r's lifetime
                               char* e_r;
+                              /*strsep*/
                               e_r = strchr(v_loc_s, '-');
                               if(e_r != NULL)*(e_r++) = '\0';
                               // setting both indices in case not range
@@ -322,11 +343,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                           memset(vmem->cp_mmap[i].value, '1', to_w_len);
                                     }
                                     // TODO: add option to zero entire string
+                                    int nul = null_char_parse(to_w);
                                     write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, to_w);
-                                    if(to_w[to_w_len-2] == '\\' && to_w[to_w_len-1] == '0'){
-                                          // write terminated string if \0 found
-                                          write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+to_w_len-2), (BYTE*)"");
-                                    }
+                                    // write terminated string if \0 found
+                                    if(nul)write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+strlen(to_w)), (BYTE*)"");
                               }
                         }
                         update_mem_map(vmem, integers); // to make sure accurate values are printed
