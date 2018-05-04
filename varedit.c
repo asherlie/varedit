@@ -15,14 +15,14 @@ bool valid_int(const char* str){
 bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional){
       bool no_ad = (mem.n_remaining == 0 && additional);
       bool stack = true;
-      if(no_ad)puts("WARNING: no valid unmarked memory regions were found");
+      if(no_ad)fputs("WARNING: no valid unmarked memory regions were found\n", stderr);
       if((d_rgn == STACK || d_rgn == BOTH) && (mem.stack_start_addr == NULL || mem.stack_end_addr == NULL)){
-            puts("WARNING: no valid stack memory region was found");
+            fputs("WARNING: no valid stack memory region was found\n", stderr);
             if(d_rgn == STACK && (no_ad || !additional))return false;
             stack = false;
       }
       if((d_rgn == HEAP || d_rgn == BOTH) && (mem.heap_start_addr == NULL || mem.heap_end_addr == NULL)){
-            puts("WARNING: no valid heap memory region was found");
+            fputs("WARNING: no valid heap memory region was found\n", stderr);
             if((d_rgn == HEAP || (d_rgn == BOTH && !stack)) && (no_ad || !additional))return false;
       }
       return true;
@@ -217,7 +217,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         if(strcmp(v_loc_s, "q") == 0)return !first;
                         if(strcmp(v_loc_s, "?") == 0){
-                              printf("%s", write_mode_help);
+                              puts(write_mode_help);
                               fseek(stdin, 0, SEEK_END);
                               goto Write;
                         }
