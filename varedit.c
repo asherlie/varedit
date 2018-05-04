@@ -161,6 +161,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             // wa mode
             if(tmp_strlen > 3){
                   if(tmp_str[0] == 'w' && tmp_str[1] == 'a' && tmp_str[2] == ' '){
+                        // TODO: mem_map should be updated after wa
                         // for int mode
                         BYTE write[int_mode_bytes];
                         if(integers){
@@ -279,14 +280,22 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     { // creating a scope to limit c's lifetime
                                           int c = 0;
                                           for(int i = v_loc[0]; i <= v_loc[1]; ++i){
+                                                // setting vmem subsets regardless of same
+                                                // if !same, these are just used for addr
                                                 if(integers)vmem_int_subset[c++] = vmem->mmap[i];
-                                                else vmem_str_subset[c++] = vmem->cp_mmap[i];
+                                                else{
+                                                      vmem_str_subset[c] = vmem->cp_mmap[i];
+                                                      // need to copy string to new char* to avoid it being freed by free_mem_map
+                                                      vmem_str_subset[c].value = strdup(vmem_str_subset[c].value);
+                                                      ++c;
+                                                }
                                           }
                                     }
                                     // this will run for a long time so we might as well free up whatever memory we can
                                     free_mem_map(vmem, integers);
                                     BYTE to_w_b[int_mode_bytes];
                                     if(integers)memcpy(to_w_b, &to_w_i, int_mode_bytes);
+                                    char* w = to_w;
                                     while(1){ // child process will forever repeat this
                                           // sleeping to limit cpu usage
                                           usleep(1000);
@@ -299,9 +308,9 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                                       write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem_int_subset[i].addr, to_w_b);
                                                 }
                                                 else{
-                                                      if(same)strcpy(to_w, vmem_str_subset[i].value);
+                                                      if(same)w = vmem_str_subset[i].value;
                                                       // TODO: make it possible to write strings containing \0
-                                                      write_str_to_pid_mem(vmem->pid, vmem_str_subset[i].addr, to_w);
+                                                      write_str_to_pid_mem(vmem->pid, vmem_str_subset[i].addr, w);
                                                 }
                                           }
                                     }
