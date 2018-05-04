@@ -209,7 +209,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         printf("enter a number from [0-%i] or a range with a '-', followed by a value to write OR 's' to continue searching\n", vmem->size-1);
                         // width is 1 less than length of length of v_loc_s to avoid overwriting '\0'
                         // ignore leading whitespace
-                        scanf(" %9[^ \t.\n]%*c", v_loc_s);
+                        scanf(" %9[^ \t\n]%*c", v_loc_s);
                         if(strcmp(v_loc_s, "s") == 0){
                               fseek(stdin, 0, SEEK_END);
                               print_mmap(vmem, "", integers, print_rgns);
@@ -241,9 +241,9 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         lock_mode = false;
                         if(strcmp(v_loc_s, "l") == 0){
                               lock_mode = true;
-                              scanf(" %9[^ \t.\n]%*c", v_loc_s);
+                              scanf(" %9[^ \t\n]%*c", v_loc_s);
                         }
-                        scanf("%4095[^\t.\n]%*c", to_w);
+                        scanf("%4095[^\t\n]%*c", to_w);
                         if(integers && !valid_int(to_w) && !(lock_mode && strcmp(to_w, "_") == 0)){
                               puts("enter a valid integer to write");
                               goto Write;
@@ -486,6 +486,7 @@ int main(int argc, char* argv[]){
             }
             if(strcmp(argv[2], "-p") == 0){
                   populate_mem_map(&vmem, pid, d_rgn, additional, integers, n_bytes);
+                  // TODO: allow escaped '-' in search string
                   if(argc > 3 && argv[3][0] != '-'){
                         print_mmap(&vmem, argv[3], integers, print_rgns);
                   }
