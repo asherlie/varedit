@@ -92,7 +92,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       strcpy(search_mode_help, "search mode options:\n    'r' : reset mem map\n    \"wa\" <value> : write single value to all current results\n    ");
       if(integers)strcpy(search_mode_help+110, "<integer> : enter an integer to narrow results\n    \"rv\" : remove volatile variables\n    ");
       else strcpy(search_mode_help+110, "<string> : enter a string to narrow results - use delimeter '\\' to search for '?', 'q', 'u', 'r', \"rl\", 'w'\n    ");
-      strcpy(search_mode_help+strlen(search_mode_help), "'u' : update visible values\n    \"rl\" : remove most recently applied lock\n    '?' : show this\n    'q' : quit");
+      strcat(search_mode_help, "'u' : update visible values\n    \"rl\" : remove most recently applied lock\n    '?' : show this\n    'q' : quit");
       char write_mode_help[] = "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)\n    \"rl\" : remove most recently applied lock\n    '?' : show this\n    'q' : quit";
       printf("in interactive mode on process %i (%s)\nusing ", vmem->pid, vmem->mapped_rgn.p_name);
       if(d_rgn == STACK)printf("stack");
@@ -104,8 +104,9 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       else puts("strings");
       puts("enter 'u' at any time to update visible values, 'q' to exit or '?' for help");
       // tmp_str needs to be large enough for any search string
-      // TODO: read in chunks to assure large enough string/not to overuse memory or use getline
+      // TODO: read in chunks/use getline to assure large enough string/not to overuse memory
       char tmp_str[4096];
+      unsigned short tmp_strlen = 0;
       int tmp_val;
       bool first = true;
       bool lock_mode;
@@ -113,7 +114,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       struct lock_container child_pid[30];
       pid_t temp_pid;
       int num_locks = 0;
-      unsigned short tmp_strlen = 0;
       while(1){
             Find:
             printf("enter current variable value to search");
@@ -250,9 +250,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         to_w_len = strlen(to_w);
                         { // scope to limit e_r's lifetime
-                              char* e_r;
-                              // TODO: this should take advantage of strsep
-                              e_r = strchr(v_loc_s, '-');
+                              char* e_r = strchr(v_loc_s, '-');
                               if(e_r != NULL)*(e_r++) = '\0';
                               // setting both indices in case not range
                               if(valid_int(v_loc_s))v_loc[1] = v_loc[0] = atoi(v_loc_s);
