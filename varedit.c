@@ -161,7 +161,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             // wa mode
             if(tmp_strlen > 3){
                   if(tmp_str[0] == 'w' && tmp_str[1] == 'a' && tmp_str[2] == ' '){
-                        // TODO: mem_map should be updated after wa
                         // for int mode
                         BYTE write[int_mode_bytes];
                         if(integers){
@@ -268,6 +267,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               if(v_loc[0] >= (int)vmem->size || v_loc[1] > (int)vmem->size)goto Int_err;
                         }
                         if(lock_mode){
+                              // TODO: kill all locks on exit of program
                               temp_pid = fork();
                               if(temp_pid == 0){ // TODO: kill this if overwriting the same mem location
                                     bool same = false;
