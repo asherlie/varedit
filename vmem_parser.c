@@ -53,8 +53,8 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
             char* space = strchr(end_add, ' ');
             *(space++) = '\0';
             *(end_add++) = '\0';
-            unsigned long* l_start_add = (unsigned long*)strtoul(start_add, 0, 16);
-            unsigned long* l_end_add = (unsigned long*)strtoul(end_add, 0, 16);
+            unsigned long* l_start_add = (unsigned long*)strtoul(start_add, NULL, 16);
+            unsigned long* l_end_add = (unsigned long*)strtoul(end_add, NULL, 16);
             char* sl = strchr(space, '/');
             if(sl){
                   if(p_end != l_start_add && (strstr(sl, vmem.p_name) || unmarked_additional)){

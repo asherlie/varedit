@@ -266,8 +266,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               char* e_r = strchr(v_loc_s, '-');
                               if(e_r != NULL)*(e_r++) = '\0';
                               // setting both indices in case not range
-                              // TODO: v_loc is unsigned int* DO NOT USE atoi!! - switch to strtoul
-                              if(valid_int(v_loc_s))v_loc[1] = v_loc[0] = atoi(v_loc_s);
+                              if(valid_int(v_loc_s))v_loc[1] = v_loc[0] = (unsigned int)strtoul(v_loc_s, NULL, 10);
                               else{
                                     Int_err:
                                     puts("enter a valid integer or range of integers");
@@ -275,8 +274,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               }
                               if(e_r != NULL){
                                     if(!valid_int(e_r))goto Int_err;
-                                    // TODO: v_loc is unsigned int* DO NOT USE atoi!! - switch to strtoul
-                                    v_loc[1] = atoi(e_r);
+                                    v_loc[1] = (unsigned int)strtoul(e_r, NULL, 10);
                               }
                               if(v_loc[0] >= vmem->size || v_loc[1] > vmem->size)goto Int_err;
                         }
@@ -480,9 +478,9 @@ int main(int argc, char* argv[]){
       if(argc > 2){
             // -r and -w can be used without slowly loading a complete mem_map
             if(strcmp(argv[2], "-r") == 0){
-                  if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], 0, 16)));
+                  if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], NULL, 16)));
                   // read_str_from_mem_range_slow must be used because string size is unknown
-                  else printf("%s\n", read_str_from_mem_range_slow(pid, (void*)strtoul(argv[3], 0, 16), NULL));
+                  else printf("%s\n", read_str_from_mem_range_slow(pid, (void*)strtoul(argv[3], NULL, 16), NULL));
                   return 0;
             }
             if(strcmp(argv[2], "-w") == 0){
@@ -490,9 +488,9 @@ int main(int argc, char* argv[]){
                         int tmp_i = atoi(argv[4]);
                         BYTE to_w[n_bytes];
                         memcpy(to_w, &tmp_i, n_bytes);
-                        write_bytes_to_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], 0, 16), to_w);
+                        write_bytes_to_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], NULL, 16), to_w);
                   }
-                  else write_str_to_pid_mem(pid, (void*)strtoul(argv[3], 0, 16), argv[4]);
+                  else write_str_to_pid_mem(pid, (void*)strtoul(argv[3], NULL, 16), argv[4]);
                   return 0;
             }
             if(strcmp(argv[2], "-f") == 0){
