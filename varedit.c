@@ -195,7 +195,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   // to_w needs to be large enough to store any write string
                   // TODO: make to_w char* and use getline()
                   char v_loc_s[10], to_w[4096];
-                  int v_loc[2]; // v_loc stores start and end of range
+                  unsigned int v_loc[2]; // v_loc stores start and end of range
                   unsigned short to_w_len = 0;
                   while(1){
                         Write:
@@ -266,6 +266,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               char* e_r = strchr(v_loc_s, '-');
                               if(e_r != NULL)*(e_r++) = '\0';
                               // setting both indices in case not range
+                              // TODO: v_loc is unsigned int* DO NOT USE atoi!! - switch to strtoul
                               if(valid_int(v_loc_s))v_loc[1] = v_loc[0] = atoi(v_loc_s);
                               else{
                                     Int_err:
@@ -274,13 +275,12 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               }
                               if(e_r != NULL){
                                     if(!valid_int(e_r))goto Int_err;
+                                    // TODO: v_loc is unsigned int* DO NOT USE atoi!! - switch to strtoul
                                     v_loc[1] = atoi(e_r);
                               }
-                              // TODO: switch mem_map.size to uint, ulong is overkill
-                              if(v_loc[0] >= (int)vmem->size || v_loc[1] > (int)vmem->size)goto Int_err;
+                              if(v_loc[0] >= vmem->size || v_loc[1] > vmem->size)goto Int_err;
                         }
                         if(lock_mode){
-                              // TODO: kill all locks on exit of program
                               temp_pid = fork();
                               if(temp_pid == 0){ // TODO: kill this if overwriting the same mem location
                                     bool same = false;
@@ -292,7 +292,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     struct addr_str_pair vmem_str_subset[v_loc[1]-v_loc[0]+1];
                                     { // creating a scope to limit c's lifetime
                                           int c = 0;
-                                          for(int i = v_loc[0]; i <= v_loc[1]; ++i){
+                                          for(unsigned int i = v_loc[0]; i <= v_loc[1]; ++i){
                                                 // setting vmem subsets regardless of same
                                                 // if !same, these are just used for addr
                                                 if(integers)vmem_int_subset[c++] = vmem->mmap[i];
@@ -312,7 +312,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     while(1){ // child process will forever repeat this
                                           // sleeping to limit cpu usage
                                           usleep(1000);
-                                          for(int i = 0; i <= v_loc[1]-v_loc[0]; ++i){
+                                          for(unsigned int i = 0; i <= v_loc[1]-v_loc[0]; ++i){
                                                 if(integers){
                                                       if(same){
                                                             to_w_i = vmem_int_subset[i].value;
@@ -349,7 +349,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         BYTE to_w_b[int_mode_bytes];
                         int tmp_i;
-                        for(int i = v_loc[0]; i <= v_loc[1]; ++i){
+                        for(unsigned int i = v_loc[0]; i <= v_loc[1]; ++i){
                               if(integers){
                                     tmp_i = atoi(to_w);
                                     memcpy(to_w_b, &tmp_i, int_mode_bytes);
@@ -454,6 +454,7 @@ int main(int argc, char* argv[]){
             }
             if(strcmp(argv[i], "-b") == 0){
                   n_bytes = atoi(argv[i+1]);
+                  // TODO: i shouldn't depend on atoi of non int being 0 - this is undefined behavior
                   // atoi returns 0 if not valid int
                   if(n_bytes == 0)n_bytes = 4;
             }
