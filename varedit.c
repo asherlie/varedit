@@ -111,9 +111,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       bool first = true;
       bool lock_mode;
       // the three variables below are used to keep track of var locks
+      // TODO: dynamically alloc child_pid
       struct lock_container child_pid[30];
       pid_t temp_pid;
-      int num_locks = 0;
+      unsigned char num_locks = 0;
       while(1){
             Find:
             printf("enter current variable value to search");
@@ -122,7 +123,13 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             fgets(tmp_str, 4096, stdin);
             tmp_strlen = strlen(tmp_str);
             tmp_str[tmp_strlen-1]='\0';
-            if(strcmp(tmp_str, "q") == 0)return !first;
+            if(strcmp(tmp_str, "q") == 0){
+                  for(unsigned char i = 0; i < num_locks; ++i){
+                        kill(child_pid[i].pid, SIGKILL);
+                        wait(NULL);
+                  }
+                  return !first;
+            }
             if(strcmp(tmp_str, "?") == 0){
                   printf("%s\n", search_mode_help);
                   goto Find;
@@ -146,7 +153,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             // TODO: decide if i want to allow removal of locks in search mode
             if(strcmp(tmp_str, "rl") == 0){
                   if(num_locks == 0)puts("no locks are currently in place");
-                  else {
+                  else{
                         printf("killing %i\n", child_pid[num_locks-1].pid);
                         kill(child_pid[--num_locks].pid, SIGKILL);
                         // TODO possibly let user know that we're using freeze/same mode
@@ -215,7 +222,13 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               print_mmap(vmem, "", integers, print_rgns);
                               goto Find;
                         }
-                        if(strcmp(v_loc_s, "q") == 0)return !first;
+                        if(strcmp(v_loc_s, "q") == 0){
+                              for(unsigned char i = 0; i < num_locks; ++i){
+                                    kill(child_pid[i].pid, SIGKILL);
+                                    wait(NULL);
+                              }
+                              return !first;
+                        }
                         if(strcmp(v_loc_s, "?") == 0){
                               puts(write_mode_help);
                               fseek(stdin, 0, SEEK_END);
@@ -229,7 +242,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         // TODO: add interactive way to remove locks when there are multiple in place
                         if(strcmp(v_loc_s, "rl") == 0){
                               if(num_locks == 0)puts("no locks are currently in place");
-                              else {
+                              else{
                                     kill(child_pid[--num_locks].pid, SIGKILL);
                                     if(integers)printf("lock with value %i removed (%p)\n", child_pid[num_locks].i_value, child_pid[num_locks].m_addr);
                                     else printf("lock with value \"%s\" removed (%p)\n", child_pid[num_locks].s_value, child_pid[num_locks].m_addr);
