@@ -130,6 +130,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   }
                   return !first;
             }
+            // TODO: add ability to rescan memory regions and update vmem->mapped_rgn
             if(strcmp(tmp_str, "?") == 0){
                   printf("%s\n", search_mode_help);
                   goto Find;
@@ -150,7 +151,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   fseek(stdin, 0, SEEK_END);
                   goto Find;
             }
-            // TODO: decide if i want to allow removal of locks in search mode
             if(strcmp(tmp_str, "rl") == 0){
                   if(num_locks == 0)puts("no locks are currently in place");
                   else{
@@ -266,6 +266,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               char* e_r = strchr(v_loc_s, '-');
                               if(e_r != NULL)*(e_r++) = '\0';
                               // setting both indices in case not range
+                              // using strtoul instead of atoi to avoid truncating an unsigned int
                               if(valid_int(v_loc_s))v_loc[1] = v_loc[0] = (unsigned int)strtoul(v_loc_s, NULL, 10);
                               else{
                                     Int_err:
@@ -342,7 +343,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               else child_pid[num_locks-1].m_addr = vmem->cp_mmap[v_loc[0]].addr;
                               puts("variable(s) locked");
                               update_mem_map(vmem, integers);
-                              //goto Find; // TODO: decide what behavior should be after vars have been locked
                               continue;
                         }
                         BYTE to_w_b[int_mode_bytes];
@@ -355,7 +355,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               }
                               else{
                                     if(to_w_len > strlen(vmem->cp_mmap[i].value)){
-                                          printf("WARNING (%i: %p): writing a string that is larger than the original string in its memory location causes undefined behavior\n", vmem->pid, vmem->cp_mmap[i].addr);
+                                          fprintf(stderr, "WARNING (%i: %p): writing a string that is larger than the original string in its memory location causes undefined behavior\n", vmem->pid, vmem->cp_mmap[i].addr);
                                           free(vmem->cp_mmap[i].value);
                                           // allocating enough space for updated string in mmap and 
                                           // hoping that writing it doesn't infringe on other strings

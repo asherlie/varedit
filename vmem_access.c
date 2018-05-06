@@ -2,7 +2,6 @@
 
 #include <string.h>
 #include <sys/uio.h>
-#include <limits.h> // for IOV_MAX
 
 #define STACK 0
 #define HEAP 1
