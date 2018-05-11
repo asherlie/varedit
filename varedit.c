@@ -170,6 +170,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   if(tmp_str[0] == 'w' && tmp_str[1] == 'a' && tmp_str[2] == ' '){
                         // for int mode
                         BYTE write[int_mode_bytes];
+                        bool nul;
                         if(integers){
                               if(!valid_int(tmp_str+3)){
                                     printf("\"%s\" is not a valid integer\n", tmp_str+3);
@@ -178,10 +179,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               tmp_val = atoi(tmp_str+3);
                               memcpy(write, &tmp_val, int_mode_bytes);
                         }
+                        else nul = null_char_parse(tmp_str+3);
                         for(unsigned int i = 0; i < vmem->size; ++i){
                               if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, write);
                               else{
-                                    bool nul = null_char_parse(tmp_str+3);
                                     // if our write string is larger than destination string, resize destination string
                                     if(tmp_strlen-3 > (int)strlen(vmem->cp_mmap[i].value)){
                                           if(vmem->blk.in_place){

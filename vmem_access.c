@@ -126,8 +126,6 @@ bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, BYTE* value){
       return (bytes == process_vm_writev(pid, &local, 1, &remote, 1, 0));
 }
 
-// TODO: maybe allow this function to take in nbytes as in how much of the int do we wanna write
-// this would avoid the need to memcpy ints to BYTE*s in varedit
 bool write_int_to_pid_mem(pid_t pid, void* vm, int value){
       BYTE byte_int[4];
       memcpy(byte_int, &value, 4);
@@ -192,7 +190,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             if(use_additional_rgns){
                   for(int i = 0; i < mmap->mapped_rgn.n_remaining; ++i){
                         BYTE* ints_in_addtnl = read_bytes_from_pid_mem(pid, bytes, mmap->mapped_rgn.remaining_addr[i].start,
-                                                                                  mmap->mapped_rgn.remaining_addr[i].end);
+                                                                                   mmap->mapped_rgn.remaining_addr[i].end);
                         buf_s = 0;
                         for(void* ap = mmap->mapped_rgn.remaining_addr[i].start;
                                   ap != mmap->mapped_rgn.remaining_addr[i].end; ap += bytes){
@@ -291,7 +289,6 @@ void update_mem_map(struct mem_map* mem, bool integers){
                         len = strlen(mem->cp_mmap[i].value);
                         // this method works for both str in_place mode and individually alloc'd strings
                         read_bytes_from_pid_mem_dir(mem->cp_mmap[i].value, mem->pid, 1, mem->cp_mmap[i].addr, (void*)((char*)mem->cp_mmap[i].addr+len));
-                        /*read_str_from_mem_range_slow_dir(mem->cp_mmap[i].value, mem->pid, mem->cp_mmap[i].addr, len, NULL);*/
                   }
             }
       }
@@ -366,9 +363,11 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
       }
       if(mem->size < initial){
             struct addr_str_pair* tmp_cp_mmap = malloc(sizeof(struct addr_str_pair)*mem->size);
-            // if we have low memory, or have narrowed sufficiently, it's worthwhile to indiviually allocate strings
-            // TODO: optimize FORCE_BLOCK_STR mode, free blocks when no values from their range are in use
-            // if we have very few values, it's likely that they are not from a diverse group of regions
+           /* if we have low memory, or have narrowed sufficiently, it's worthwhile to indiviually allocate strings
+            * this is trivial because we are realloc'ing anyway and need to copy entries
+            * TODO: optimize FORCE_BLOCK_STR mode, free blocks when no values from their range are in use
+            * if we have very few values, it's likely that they are not from a diverse group of regions
+           */
             if(!FORCE_BLOCK_STR && mem->blk.in_place && (LOW_MEM || mem->size < (initial/1000))){
                   for(unsigned int i = 0; i < mem->size; ++i){
                         tmp_cp_mmap[i].addr = mem->cp_mmap[i].addr;
