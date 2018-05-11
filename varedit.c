@@ -356,13 +356,24 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               else{
                                     if(to_w_len > strlen(vmem->cp_mmap[i].value)){
                                           fprintf(stderr, "WARNING (%i: %p): writing a string that is larger than the original string in its memory location causes undefined behavior\n", vmem->pid, vmem->cp_mmap[i].addr);
-                                          free(vmem->cp_mmap[i].value);
-                                          // allocating enough space for updated string in mmap and 
-                                          // hoping that writing it doesn't infringe on other strings
-                                          vmem->cp_mmap[i].value = malloc(sizeof(char)*to_w_len+1);
-                                          // this string can contain anything as long as its length == strlen(to_w)
-                                          // it's about to be overwritten by update_mem_map
-                                          memset(vmem->cp_mmap[i].value, '1', to_w_len);
+                                          if(vmem->blk.in_place){
+                                               /* TODO: add bounds checking to make sure not to write past BYTE*
+                                                * filling bytes immediately after to_w[to_w_len] to make room for a longer string
+                                                * this comes in handy when overwriting a null byte at the beginning of a string
+                                                */
+                                                memset(vmem->cp_mmap[i].value, 1, to_w_len);
+                                                for(char* p = vmem->cp_mmap[i].value+to_w_len; *p <= 0 || *p >= 127; ++p)*p = 1;
+                                          }
+                                          else{
+                                               /* allocating enough space for updated string in mmap and 
+                                                * this string can contain anything as long as its length == strlen(to_w)
+                                                * it's about to be overwritten by update_mem_map, which will
+                                                * ensure our individually malloc'd string has enough space for to_w
+                                                */
+                                                free(vmem->cp_mmap[i].value);
+                                                vmem->cp_mmap[i].value = malloc(sizeof(char)*to_w_len+5+1);
+                                                memset(vmem->cp_mmap[i].value, 1, to_w_len+5+1);
+                                          }
                                     }
                                     // TODO: add option to zero entire string
                                     int nul = null_char_parse(to_w);
@@ -480,6 +491,7 @@ int main(int argc, char* argv[]){
             if(strcmp(argv[2], "-r") == 0){
                   if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], NULL, 16)));
                   // read_str_from_mem_range_slow must be used because string size is unknown
+                  // TODO: fix memory leak
                   else printf("%s\n", read_str_from_mem_range_slow(pid, (void*)strtoul(argv[3], NULL, 16), NULL));
                   return 0;
             }

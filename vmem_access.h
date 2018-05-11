@@ -19,10 +19,18 @@ struct addr_str_pair{
       char* value;
 };
 
+struct str_blk{
+      bool in_place;
+      char** d;
+      unsigned char n_d;
+      unsigned char cap;
+};
+
 struct mem_map{
       struct mem_rgn mapped_rgn;
       struct addr_int_pair* mmap;
       struct addr_str_pair* cp_mmap;
+      struct str_blk blk;
       // only one will be initialized at any given moment
       // both are included in this struct to simplify code
       pid_t pid;
@@ -37,6 +45,7 @@ bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, v
 BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e);
 int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm);
 char* read_str_from_mem_range(pid_t pid, void* mb_start, int len);
+char* read_str_from_mem_range_slow_dir(char* dest, pid_t pid, void* mb_start, int min_strlen, void* last_avail);
 char* read_str_from_mem_range_slow(pid_t pid, void* mb_start, void* mb_end);
 bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_bytes);
 bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, BYTE* value);
