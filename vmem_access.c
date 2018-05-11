@@ -151,19 +151,11 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
       mmap->d_rgn = d_rgn;
       mmap->use_addtnl = use_additional_rgns;
       unsigned int m_size = 0;
-      void* vm_l_stack; void* vm_l_heap;
-      if(d_rgn == STACK || d_rgn == BOTH){
-            vm_l_stack = mmap->mapped_rgn.stack_start_addr;
-            m_size = (char*)mmap->mapped_rgn.stack_end_addr-(char*)vm_l_stack;
-      }
-      if(d_rgn == HEAP || d_rgn == BOTH){
-            vm_l_heap = mmap->mapped_rgn.heap_start_addr;
-            m_size += ((char*)mmap->mapped_rgn.heap_end_addr-(char*)vm_l_heap);
-      }
+      if(d_rgn == STACK || d_rgn == BOTH)m_size = (char*)mmap->mapped_rgn.stack_end_addr-(char*)mmap->mapped_rgn.stack_start_addr;
+      if(d_rgn == HEAP || d_rgn == BOTH)m_size += (char*)mmap->mapped_rgn.heap_end_addr-(char*)mmap->mapped_rgn.heap_start_addr;
       if(use_additional_rgns){
-            for(int i = 0; i < mmap->mapped_rgn.n_remaining; ++i){
+            for(int i = 0; i < mmap->mapped_rgn.n_remaining; ++i)
                   m_size += (char*)mmap->mapped_rgn.remaining_addr[i].end-(char*)mmap->mapped_rgn.remaining_addr[i].start;
-            }
       }
       mmap->size = 0;
       if(integers){
@@ -178,9 +170,9 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
       long buf_s = 0;
       if(integers){
             if(d_rgn == STACK || d_rgn == BOTH){
-                  BYTE* ints_in_stack = read_bytes_from_pid_mem(pid, bytes, vm_l_stack, mmap->mapped_rgn.stack_end_addr);
-                  for(; vm_l_stack != mmap->mapped_rgn.stack_end_addr; vm_l_stack = (void*)(((char*)vm_l_stack)+bytes)){
-                        mmap->mmap[mmap->size].addr = vm_l_stack; mmap->mmap[mmap->size].value = 0;
+                  BYTE* ints_in_stack = read_bytes_from_pid_mem(pid, bytes, mmap->mapped_rgn.stack_start_addr, mmap->mapped_rgn.stack_end_addr);
+                  for(void* sp = mmap->mapped_rgn.stack_start_addr; sp != mmap->mapped_rgn.stack_end_addr; sp += bytes){
+                        mmap->mmap[mmap->size].addr = sp; mmap->mmap[mmap->size].value = 0;
                         memcpy(&(mmap->mmap[mmap->size++].value), &(ints_in_stack[buf_s]), bytes);
                         buf_s += bytes;
                   }
@@ -188,9 +180,9 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
                   buf_s = 0;
-                  BYTE* ints_in_heap = read_bytes_from_pid_mem(pid, bytes, vm_l_heap, mmap->mapped_rgn.heap_end_addr);
-                  for(; vm_l_heap != mmap->mapped_rgn.heap_end_addr; vm_l_heap = (void*)(((char*)vm_l_heap)+bytes)){
-                        mmap->mmap[mmap->size].addr = vm_l_heap; mmap->mmap[mmap->size].value = 0;
+                  BYTE* ints_in_heap = read_bytes_from_pid_mem(pid, bytes, mmap->mapped_rgn.heap_start_addr, mmap->mapped_rgn.heap_end_addr);
+                  for(void* hp = mmap->mapped_rgn.heap_start_addr; hp != mmap->mapped_rgn.heap_end_addr; hp += bytes){
+                        mmap->mmap[mmap->size].addr = hp; mmap->mmap[mmap->size].value = 0;
                         memcpy(&(mmap->mmap[mmap->size++].value), &(ints_in_heap[buf_s]), bytes);
                         buf_s += bytes;
                   }
@@ -201,10 +193,9 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                         BYTE* ints_in_addtnl = read_bytes_from_pid_mem(pid, bytes, mmap->mapped_rgn.remaining_addr[i].start,
                                                                                   mmap->mapped_rgn.remaining_addr[i].end);
                         buf_s = 0;
-                        for(void* vm_l = mmap->mapped_rgn.remaining_addr[i].start;
-                                  vm_l != mmap->mapped_rgn.remaining_addr[i].end;
-                                  vm_l = (void*)(((char*)vm_l)+bytes)){
-                              mmap->mmap[mmap->size].addr = vm_l; mmap->mmap[mmap->size].value = 0;  
+                        for(void* ap = mmap->mapped_rgn.remaining_addr[i].start;
+                                  ap != mmap->mapped_rgn.remaining_addr[i].end; ap += bytes){
+                              mmap->mmap[mmap->size].addr = ap; mmap->mmap[mmap->size].value = 0;  
                               memcpy(&(mmap->mmap[mmap->size++].value), &(ints_in_addtnl[buf_s]), bytes);
                               buf_s += bytes;
                         }
@@ -213,39 +204,38 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             }
       }
       else{ // !integers
-            // populate_mem_map will always result in in place strs
+            // populate_mem_map will always result in in_place strs
+            // even in case of FORCE_BLOCK_STR, strings are malloc'd in narrow_mem_map_str
             mmap->blk.in_place = true;
             mmap->blk.n_d = 0;
             mmap->blk.cap = 5;
             mmap->blk.d = malloc(sizeof(char*)*mmap->blk.cap);
             int len;
             if(d_rgn == STACK || d_rgn == BOTH){
-                  // TODO: check for emptiness in strings before adding them
-                  char* chars_in_stack = (char*)read_bytes_from_pid_mem(pid, 1, vm_l_stack, mmap->mapped_rgn.stack_end_addr);
+                  char* chars_in_stack = (char*)read_bytes_from_pid_mem(pid, 1, mmap->mapped_rgn.stack_start_addr, mmap->mapped_rgn.stack_end_addr);
                   mmap->blk.d[mmap->blk.n_d++] = chars_in_stack;
-                  /*void* current_addr = vm_l_stack;*/
-                  int n_addr = (char*)mmap->mapped_rgn.stack_end_addr-(char*)vm_l_stack;
+                  int n_addr = (char*)mmap->mapped_rgn.stack_end_addr-(char*)mmap->mapped_rgn.stack_start_addr;
                   for(char* cis_p = chars_in_stack; cis_p != chars_in_stack+n_addr; ++cis_p){
                         if(*cis_p > 0 && *cis_p < 127){
                               // resize by a factor of 2 - this is repeated in heap and additional region sections
                               if(mmap->size == m_size)resize_str_mmap(mmap, &m_size, 2);
                               len = strlen(cis_p);
-                              mmap->cp_mmap[mmap->size].addr = vm_l_stack+(cis_p-chars_in_stack);
+                              mmap->cp_mmap[mmap->size].addr = mmap->mapped_rgn.stack_start_addr+(cis_p-chars_in_stack);
                               mmap->cp_mmap[mmap->size++].value = cis_p;
                               cis_p += len;
                         }
                   }
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
-                  char* chars_in_heap = (char*)read_bytes_from_pid_mem(pid, 1, vm_l_heap, mmap->mapped_rgn.heap_end_addr);
+                  char* chars_in_heap = (char*)read_bytes_from_pid_mem(pid, 1, mmap->mapped_rgn.heap_start_addr, mmap->mapped_rgn.heap_end_addr);
                   mmap->blk.d[mmap->blk.n_d++] = chars_in_heap;
-                  int n_addr = (char*)mmap->mapped_rgn.heap_end_addr-(char*)vm_l_heap;
+                  int n_addr = (char*)mmap->mapped_rgn.heap_end_addr-(char*)mmap->mapped_rgn.heap_start_addr;
                   len = 0;
                   for(char* cih_p = chars_in_heap; cih_p != chars_in_heap+n_addr; ++cih_p){
                         if(*cih_p > 0 && *cih_p < 127){
                               if(mmap->size == m_size)resize_str_mmap(mmap, &m_size, 2);
                               len = strlen(cih_p);
-                              mmap->cp_mmap[mmap->size].addr = vm_l_heap+(cih_p-chars_in_heap);
+                              mmap->cp_mmap[mmap->size].addr = mmap->mapped_rgn.heap_start_addr+(cih_p-chars_in_heap);
                               mmap->cp_mmap[mmap->size++].value = cih_p;
                               cih_p += len;
                         }

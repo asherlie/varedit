@@ -482,6 +482,7 @@ int main(int argc, char* argv[]){
       pid_t pid = (pid_t)atoi(argv[1]);
       // initializing here extends scope to default behavior to avoid rescanning memory
       struct mem_map vmem;
+      // TODO remove this, vmem.size is set to 0 in populate_mem_map
       vmem.size = 0;
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.cpp
       vmem.mapped_rgn = get_vmem_locations(pid, false); // disabling unmarked additional rgns until criteria for unmarked additional mem rgns are fixed
