@@ -181,7 +181,19 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         for(unsigned int i = 0; i < vmem->size; ++i){
                               if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, write);
                               else{
-                                    int nul = null_char_parse(tmp_str+3);
+                                    bool nul = null_char_parse(tmp_str+3);
+                                    // if our write string is larger than destination string, resize destination string
+                                    if(tmp_strlen-3 > (int)strlen(vmem->cp_mmap[i].value)){
+                                          if(vmem->blk.in_place){
+                                                memset(vmem->cp_mmap[i].value, 1, tmp_strlen-3);
+                                                for(char* p = vmem->cp_mmap[i].value+tmp_strlen-3; *p <= 0 || *p >= 127; ++p)*p = 1;
+                                          }
+                                          else{
+                                                free(vmem->cp_mmap[i].value);
+                                                vmem->cp_mmap[i].value = malloc(sizeof(char)*tmp_strlen-3+5+1);
+                                                memset(vmem->cp_mmap[i].value, 1, tmp_strlen+5+1);
+                                          }
+                                    }
                                     // writing adjusted tmp_str with corrected length
                                     write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, tmp_str+3);
                                     if(nul)write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+strlen(tmp_str+3)), (BYTE*)"");
@@ -357,7 +369,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     if(to_w_len > strlen(vmem->cp_mmap[i].value)){
                                           fprintf(stderr, "WARNING (%i: %p): writing a string that is larger than the original string in its memory location causes undefined behavior\n", vmem->pid, vmem->cp_mmap[i].addr);
                                           if(vmem->blk.in_place){
-                                               /* TODO: add bounds checking to make sure not to write past BYTE*
+                                               /* TODO: add bounds checking to make sure we're not writing past BYTE*
                                                 * filling bytes immediately after to_w[to_w_len] to make room for a longer string
                                                 * this comes in handy when overwriting a null byte at the beginning of a string
                                                 */
@@ -376,7 +388,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                           }
                                     }
                                     // TODO: add option to zero entire string
-                                    int nul = null_char_parse(to_w);
+                                    bool nul = null_char_parse(to_w);
                                     write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, to_w);
                                     // write terminated string if \0 found
                                     if(nul)write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+strlen(to_w)), (BYTE*)"");

@@ -14,6 +14,7 @@
  *    update_mem_map optimizations for integers are turned off
  *    strings in cp_mmap are individually allocated as early as possible to save memory
  */
+// TODO: document these macros in readme
 #define LOW_MEM false
 #define FORCE_BLOCK_STR true
 /*
