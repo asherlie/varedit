@@ -26,7 +26,7 @@ void free_mem_map(struct mem_map* mmap, bool integers){
       if(integers)free(mmap->mmap);
       else{
             if(!mmap->blk.in_place){
-                  for(unsigned long i = 0; i < mmap->size; ++i){
+                  for(unsigned int i = 0; i < mmap->size; ++i){
                         free(mmap->cp_mmap[i].value);
                   }
             }
@@ -274,13 +274,13 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
 void update_mem_map(struct mem_map* mem, bool integers){
       if(!integers || LOW_MEM || mem->size < RELOAD_CUTOFF){
             if(integers){
-                  for(unsigned long i = 0; i < mem->size; ++i){
+                  for(unsigned int i = 0; i < mem->size; ++i){
                         mem->mmap[i].value = read_single_val_from_pid_mem(mem->pid, mem->int_mode_bytes, mem->mmap[i].addr);
                   }
             }
             else{
                   int len;
-                  for(unsigned long i = 0; i < mem->size; ++i){
+                  for(unsigned int i = 0; i < mem->size; ++i){
                         len = strlen(mem->cp_mmap[i].value);
                         // this method works for both str in_place mode and individually alloc'd strings
                         read_bytes_from_pid_mem_dir(mem->cp_mmap[i].value, mem->pid, 1, mem->cp_mmap[i].addr, (void*)((char*)mem->cp_mmap[i].addr+len));
@@ -293,7 +293,7 @@ void update_mem_map(struct mem_map* mem, bool integers){
             tmp_mm.mapped_rgn = mem->mapped_rgn;
             populate_mem_map(&tmp_mm, mem->pid, mem->d_rgn, mem->use_addtnl, integers, mem->int_mode_bytes);
             int cc = 0;
-            for(unsigned long i = 0; i < mem->size; ++i){
+            for(unsigned int i = 0; i < mem->size; ++i){
                   if(mem->mmap[i].addr == tmp_mm.mmap[i].addr){
                         mem->mmap[i].value = tmp_mm.mmap[i].value;
                   }
@@ -308,8 +308,8 @@ void update_mem_map(struct mem_map* mem, bool integers){
 }
 
 void narrow_mem_map_int(struct mem_map* mem, int match){
-      unsigned long initial = mem->size;
-      for(unsigned long i = 0; i < mem->size; ++i){
+      unsigned int initial = mem->size;
+      for(unsigned int i = 0; i < mem->size; ++i){
             if(mem->mmap[i].value != match){
                   mem->mmap[i--] = mem->mmap[--mem->size];
                   /*
@@ -360,7 +360,8 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
             struct addr_str_pair* tmp_cp_mmap = malloc(sizeof(struct addr_str_pair)*mem->size);
             // if we have low memory, or have narrowed sufficiently, it's worthwhile to indiviually allocate strings
             // this is trivial because we are realloc'ing anyway and need to copy entries
-            if(mem->blk.in_place && (LOW_MEM || mem->size < (initial/1000))){
+            // TODO: test usage of RELOAD_CUTOFF for this condition
+            if(mem->blk.in_place && (LOW_MEM || mem->size < (initial/1000) || mem->size < 1000)){
                   // if we have very few values, it's likely that they are not from a diverse group of regions
                   // we'll try to free any unnecessary region blocks
                   if(FORCE_BLOCK_STR){
