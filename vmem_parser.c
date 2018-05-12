@@ -6,12 +6,21 @@ void free_mem_rgn(struct mem_rgn* mr){
       if(mr->n_remaining > 0)free(mr->remaining_addr);
 }
 
-const char* which_rgn(struct mem_rgn rgn, void* addr){
+const char* which_rgn(struct mem_rgn rgn, void* addr, int* res){
       char* addr_c = (char*)addr;
-      if(addr_c >= (char*)rgn.stack_start_addr && addr_c <= (char*)rgn.stack_end_addr)return "stack";
-      if(addr_c >= (char*)rgn.heap_start_addr && addr_c <= (char*)rgn.heap_end_addr)return "heap";
+      if(addr_c >= (char*)rgn.stack_start_addr && addr_c <= (char*)rgn.stack_end_addr){
+            if(res)*res = STACK;
+            return "stack";
+      }
+      if(addr_c >= (char*)rgn.heap_start_addr && addr_c <= (char*)rgn.heap_end_addr){
+            if(res)*res = HEAP;
+            return "heap";
+      }
       for(int i = 0; i < rgn.n_remaining; ++i){
-            if(addr_c >= (char*)rgn.remaining_addr[i].start && addr_c <= (char*)rgn.remaining_addr[i].end)return "unmarked region";
+            if(addr_c >= (char*)rgn.remaining_addr[i].start && addr_c <= (char*)rgn.remaining_addr[i].end){
+                  if(res)*res = 2 + i;
+                  return "unmarked region";
+            }
       }
       return "";
 }

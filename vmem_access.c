@@ -31,10 +31,13 @@ void free_mem_map(struct mem_map* mmap, bool integers){
                   }
             }
             else{
-                  for(unsigned char i = 0; i < mmap->blk.n_d; ++i)free(mmap->blk.d[i]);
-                  free(mmap->blk.d);
+                  if(mmap->blk.stack)free(mmap->blk.stack);
+                  if(mmap->blk.heap)free(mmap->blk.heap);
+                  for(unsigned char i = 0; i < mmap->blk.n_ad; ++i)if(mmap->blk.addtnl[i])free(mmap->blk.addtnl[i]);
+                  free(mmap->blk.addtnl);
             }
             free(mmap->cp_mmap); 
+            mmap->cp_mmap = NULL;
       }
 }
 
@@ -165,7 +168,6 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             m_size /= 10;
             mmap->cp_mmap = malloc(sizeof(struct addr_str_pair)*m_size);
       }
-      //TODO: initialize small and resize dynamically
       long buf_s = 0;
       if(integers){
             if(d_rgn == STACK || d_rgn == BOTH){
@@ -206,13 +208,12 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             // populate_mem_map will always result in in_place strs
             // even in case of FORCE_BLOCK_STR, strings are malloc'd in narrow_mem_map_str
             mmap->blk.in_place = true;
-            mmap->blk.n_d = 0;
-            mmap->blk.cap = 5;
-            mmap->blk.d = malloc(sizeof(char*)*mmap->blk.cap);
+            mmap->blk.stack = mmap->blk.heap = NULL;
+            mmap->blk.n_ad = 0;
             int len;
             if(d_rgn == STACK || d_rgn == BOTH){
                   char* chars_in_stack = (char*)read_bytes_from_pid_mem(pid, 1, mmap->mapped_rgn.stack_start_addr, mmap->mapped_rgn.stack_end_addr);
-                  mmap->blk.d[mmap->blk.n_d++] = chars_in_stack;
+                  mmap->blk.stack = chars_in_stack;
                   int n_addr = (char*)mmap->mapped_rgn.stack_end_addr-(char*)mmap->mapped_rgn.stack_start_addr;
                   for(char* cis_p = chars_in_stack; cis_p != chars_in_stack+n_addr; ++cis_p){
                         if(*cis_p > 0 && *cis_p < 127){
@@ -227,7 +228,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
                   char* chars_in_heap = (char*)read_bytes_from_pid_mem(pid, 1, mmap->mapped_rgn.heap_start_addr, mmap->mapped_rgn.heap_end_addr);
-                  mmap->blk.d[mmap->blk.n_d++] = chars_in_heap;
+                  mmap->blk.heap = chars_in_heap;
                   int n_addr = (char*)mmap->mapped_rgn.heap_end_addr-(char*)mmap->mapped_rgn.heap_start_addr;
                   len = 0;
                   for(char* cih_p = chars_in_heap; cih_p != chars_in_heap+n_addr; ++cih_p){
@@ -243,18 +244,12 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             if(use_additional_rgns){
                   int n_addr;
                   char* chars_in_addtnl;
+                  mmap->blk.n_ad = mmap->mapped_rgn.n_remaining;
+                  mmap->blk.addtnl = malloc(sizeof(char*)*mmap->blk.n_ad);
                   len = 0;
                   for(int i = 0; i < mmap->mapped_rgn.n_remaining; ++i){
                         chars_in_addtnl = (char*)read_bytes_from_pid_mem(pid, 1, mmap->mapped_rgn.remaining_addr[i].start, mmap->mapped_rgn.remaining_addr[i].end);
-                        // we only need to check capacity for additional
-                        if(mmap->blk.n_d == mmap->blk.cap){
-                              mmap->blk.cap *= 2;
-                              char** tmp = malloc(sizeof(char*)*mmap->blk.cap);
-                              memcpy(tmp, mmap->blk.d, sizeof(char*)*mmap->blk.n_d);
-                              free(mmap->blk.d);
-                              mmap->blk.d = tmp;
-                        }
-                        mmap->blk.d[mmap->blk.n_d++] = chars_in_addtnl;
+                        mmap->blk.addtnl[i] = chars_in_addtnl;
                         n_addr = (char*)mmap->mapped_rgn.remaining_addr[i].end-(char*)mmap->mapped_rgn.remaining_addr[i].start;
                         for(char* cia_p = chars_in_addtnl; cia_p != chars_in_addtnl+n_addr; ++cia_p){
                               if(*cia_p > 0 && *cia_p < 127){
@@ -363,24 +358,50 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
       }
       if(mem->size < initial){
             struct addr_str_pair* tmp_cp_mmap = malloc(sizeof(struct addr_str_pair)*mem->size);
-           /* if we have low memory, or have narrowed sufficiently, it's worthwhile to indiviually allocate strings
-            * this is trivial because we are realloc'ing anyway and need to copy entries
-            * TODO: optimize FORCE_BLOCK_STR mode, free blocks when no values from their range are in use
-            * if we have very few values, it's likely that they are not from a diverse group of regions
-           */
-            if(!FORCE_BLOCK_STR && mem->blk.in_place && (LOW_MEM || mem->size < (initial/1000))){
-                  for(unsigned int i = 0; i < mem->size; ++i){
-                        tmp_cp_mmap[i].addr = mem->cp_mmap[i].addr;
-                        tmp_cp_mmap[i].value = strdup(mem->cp_mmap[i].value);
+            // if we have low memory, or have narrowed sufficiently, it's worthwhile to indiviually allocate strings
+            // this is trivial because we are realloc'ing anyway and need to copy entries
+            if(mem->blk.in_place && (LOW_MEM || mem->size < (initial/1000))){
+                  // if we have very few values, it's likely that they are not from a diverse group of regions
+                  // we'll try to free any unnecessary region blocks
+                  if(FORCE_BLOCK_STR){
+                        int rgn;
+                        bool s = false, h = false;
+                        bool a[mem->mapped_rgn.n_remaining];
+                        memset(&a, 0, mem->mapped_rgn.n_remaining);
+                        for(unsigned int i = 0; i < mem->size; ++i){
+                              which_rgn(mem->mapped_rgn, mem->cp_mmap[i].addr, &rgn);
+                              switch(rgn){
+                                    case STACK: s = true; break;
+                                    case HEAP:  h = true; break;
+                                    default:    a[rgn-2] = true;
+                              }
+                              tmp_cp_mmap[i] = mem->cp_mmap[i];
+                        }
+                        if(!s && mem->blk.stack){
+                              free(mem->blk.stack); mem->blk.stack = NULL;
+                        }
+                        if(!h && mem->blk.heap){
+                              free(mem->blk.heap); mem->blk.heap = NULL;
+                        }
+                        for(int i = 0; i < mem->mapped_rgn.n_remaining; ++i){
+                              if(!a[i] && mem->blk.addtnl[i]){
+                                    free(mem->blk.addtnl[i]); mem->blk.addtnl[i] = NULL;
+                              }
+                        }
                   }
-                  for(unsigned char i = 0; i < mem->blk.n_d; ++i)free(mem->blk.d[i]);
-                  free(mem->blk.d);
-                  mem->blk.in_place = false;
+                  else{
+                        for(unsigned int i = 0; i < mem->size; ++i){
+                              tmp_cp_mmap[i].addr = mem->cp_mmap[i].addr;
+                              tmp_cp_mmap[i].value = strdup(mem->cp_mmap[i].value);
+                        }
+                        free_mem_map(mem, false);
+                        mem->blk.in_place = false;
+                  }
             }
             else{
                   memcpy(tmp_cp_mmap, mem->cp_mmap, sizeof(struct addr_str_pair)*mem->size);
             }
-            free(mem->cp_mmap);
+            if(mem->cp_mmap)free(mem->cp_mmap);
             mem->cp_mmap = tmp_cp_mmap;
       }
 }

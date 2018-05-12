@@ -48,13 +48,13 @@ void print_mmap(const struct mem_map* mem, const char* contains, bool integers, 
       for(unsigned int i = 0; i < mem->size; ++i){
             if(integers){
                   if(!cont || mem->mmap[i].value == i_cont){
-                        if(show_rgns)printf("%p (%s) : %i\n", mem->mmap[i].addr, which_rgn(mem->mapped_rgn, mem->mmap[i].addr), mem->mmap[i].value);
+                        if(show_rgns)printf("%p (%s) : %i\n", mem->mmap[i].addr, which_rgn(mem->mapped_rgn, mem->mmap[i].addr, NULL), mem->mmap[i].value);
                         else printf("%p: %i\n", mem->mmap[i].addr, mem->mmap[i].value);
                   }
             }
             else{
                   if(!cont || strstr(mem->cp_mmap[i].value, contains)){
-                        if(show_rgns)printf("%p (%s) : \"%s\"\n", mem->cp_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->cp_mmap[i].addr), mem->cp_mmap[i].value);
+                        if(show_rgns)printf("%p (%s) : \"%s\"\n", mem->cp_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->cp_mmap[i].addr, NULL), mem->cp_mmap[i].value);
                         else printf("%p: \"%s\"\n", mem->cp_mmap[i].addr, mem->cp_mmap[i].value);
                   }
             }

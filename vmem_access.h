@@ -21,9 +21,10 @@ struct addr_str_pair{
 
 struct str_blk{
       bool in_place;
-      char** d;
-      unsigned char n_d;
-      unsigned char cap;
+      char* stack;
+      char* heap;
+      char** addtnl;
+      unsigned char n_ad;
 };
 
 struct mem_map{
