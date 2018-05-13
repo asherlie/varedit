@@ -7,17 +7,16 @@ void free_mem_rgn(struct mem_rgn* mr){
 }
 
 const char* which_rgn(struct mem_rgn rgn, void* addr, int* res){
-      char* addr_c = (char*)addr;
-      if(addr_c >= (char*)rgn.stack_start_addr && addr_c <= (char*)rgn.stack_end_addr){
+      if(addr >= rgn.stack_start_addr && addr <= rgn.stack_end_addr){
             if(res)*res = STACK;
             return "stack";
       }
-      if(addr_c >= (char*)rgn.heap_start_addr && addr_c <= (char*)rgn.heap_end_addr){
+      if(addr >= rgn.heap_start_addr && addr <= rgn.heap_end_addr){
             if(res)*res = HEAP;
             return "heap";
       }
       for(int i = 0; i < rgn.n_remaining; ++i){
-            if(addr_c >= (char*)rgn.remaining_addr[i].start && addr_c <= (char*)rgn.remaining_addr[i].end){
+            if(addr >= rgn.remaining_addr[i].end){
                   if(res)*res = 2 + i;
                   return "unmarked region";
             }
@@ -62,14 +61,14 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
             char* space = strchr(end_add, ' ');
             *(space++) = '\0';
             *(end_add++) = '\0';
-            unsigned long* l_start_add = (unsigned long*)strtoul(start_add, NULL, 16);
-            unsigned long* l_end_add = (unsigned long*)strtoul(end_add, NULL, 16);
+            void* l_start_add = (void*)strtoul(start_add, NULL, 16);
+            void* l_end_add = (void*)strtoul(end_add, NULL, 16);
             char* sl = strchr(space, '/');
             if(sl){
                   if(p_end != l_start_add && (strstr(sl, vmem.p_name) || unmarked_additional)){
                         struct m_addr_pair tmp_pair;
-                        tmp_pair.start = (void*)l_start_add;
-                        tmp_pair.end = (void*)l_end_add;
+                        tmp_pair.start = l_start_add;
+                        tmp_pair.end = l_end_add;
                         if(vmem.n_remaining == rem_alloc_sz){
                               ++rem_alloc_sz;
                               if(first_unmarked){
@@ -91,12 +90,12 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
                   *strchr(desc, ']') = '\0';
                   ++desc;
                   if(strcmp(desc, "heap") == 0){
-                        vmem.heap_start_addr = (void*)l_start_add;
-                        vmem.heap_end_addr = (void*)l_end_add;
+                        vmem.heap_start_addr = l_start_add;
+                        vmem.heap_end_addr = l_end_add;
                   }
                   if(strcmp(desc, "stack") == 0){
-                        vmem.stack_start_addr = (void*)l_start_add;
-                        vmem.stack_end_addr = (void*)l_end_add;
+                        vmem.stack_start_addr = l_start_add;
+                        vmem.stack_end_addr = l_end_add;
                   }
             }
             p_end = l_end_add;

@@ -41,6 +41,7 @@ int remove_volatile_values(struct mem_map* vmem){
       return n;
 }
 
+// TODO: possibly merge this with update_mem_map and give update_mem_map a param bool print_mmap
 void print_mmap(const struct mem_map* mem, const char* contains, bool integers, bool show_rgns){
       bool cont = strlen(contains) != 0;
       int i_cont = 0;
@@ -216,6 +217,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               puts("no memory locations available for writing. returning to search");
                               goto Find;
                         }
+                        // TODO: possibly update_mem_map here to print accurate values in write mode
+                        // update_mem_map(vmem, integers);
                         if(integers){
                               for(unsigned int i = 0; i < vmem->size; ++i){
                                     printf("%i: (%p: %i)\n", i, vmem->mmap[i].addr, vmem->mmap[i].value);
@@ -334,7 +337,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                                 }
                                                 else{
                                                       if(same)w = vmem_str_subset[i].value;
-                                                      // TODO: make it possible to write strings containing \0
+                                                      // TODO: make it possible to lock strings containing \0
                                                       write_str_to_pid_mem(vmem->pid, vmem_str_subset[i].addr, w);
                                                 }
                                           }

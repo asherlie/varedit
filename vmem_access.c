@@ -33,7 +33,9 @@ void free_mem_map(struct mem_map* mmap, bool integers){
             else{
                   if(mmap->blk.stack)free(mmap->blk.stack);
                   if(mmap->blk.heap)free(mmap->blk.heap);
-                  for(unsigned char i = 0; i < mmap->blk.n_ad; ++i)if(mmap->blk.addtnl[i])free(mmap->blk.addtnl[i]);
+                  for(unsigned char i = 0; i < mmap->blk.n_ad; ++i){
+                        if(mmap->blk.addtnl[i])free(mmap->blk.addtnl[i]);
+                  }
                   free(mmap->blk.addtnl);
             }
             free(mmap->cp_mmap); 
@@ -279,11 +281,9 @@ void update_mem_map(struct mem_map* mem, bool integers){
                   }
             }
             else{
-                  int len;
                   for(unsigned int i = 0; i < mem->size; ++i){
-                        len = strlen(mem->cp_mmap[i].value);
                         // this method works for both str in_place mode and individually alloc'd strings
-                        read_bytes_from_pid_mem_dir(mem->cp_mmap[i].value, mem->pid, 1, mem->cp_mmap[i].addr, (void*)((char*)mem->cp_mmap[i].addr+len));
+                        read_bytes_from_pid_mem_dir(mem->cp_mmap[i].value, mem->pid, strlen(mem->cp_mmap[i].value), mem->cp_mmap[i].addr, NULL);
                   }
             }
       }
