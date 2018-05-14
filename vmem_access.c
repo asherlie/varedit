@@ -36,7 +36,7 @@ void free_mem_map(struct mem_map* mmap, bool integers){
                   for(unsigned char i = 0; i < mmap->blk.n_ad; ++i){
                         if(mmap->blk.addtnl[i])free(mmap->blk.addtnl[i]);
                   }
-                  free(mmap->blk.addtnl);
+                  if(mmap->blk.addtnl)free(mmap->blk.addtnl);
             }
             free(mmap->cp_mmap); 
             mmap->cp_mmap = NULL;
@@ -209,8 +209,10 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
       else{ // !integers
             // populate_mem_map will always result in in_place strs
             // even in case of FORCE_BLOCK_STR, strings are malloc'd in narrow_mem_map_str
-            mmap->blk.in_place = true;
+            // these must be initialized to NULL to avoid free errors in free_mem_map
             mmap->blk.stack = mmap->blk.heap = NULL;
+            mmap->blk.addtnl = NULL;
+            mmap->blk.in_place = true;
             mmap->blk.n_ad = 0;
             int len;
             if(d_rgn == STACK || d_rgn == BOTH){
