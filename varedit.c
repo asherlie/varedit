@@ -62,13 +62,6 @@ void print_mmap(const struct mem_map* mem, const char* contains, bool integers, 
       }
 }
 
-void logic_swap(const struct mem_map* mem){
-      for(unsigned int i = 0; i < mem->size; ++i){
-            if(mem->mmap[i].value == 0 || mem->mmap[i].value == 1)
-            write_bytes_to_pid_mem(mem->pid, 1, mem->mmap[i].addr, (unsigned char*)&mem->mmap[i].value);
-      }
-}
-
 // this was added to fix a bug that occured when strings are cut short with a \0 and the literal '\' and '0' were 
 // also written, which was apparent when the null byte was later overwritten, exposing the rest of the string
 bool null_char_parse(char* str){
@@ -450,7 +443,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char help_str[] = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory address> <value>] [-i] [-f] [-S] [-H] [-B] [-A] [-E] [-C] [-b <integer>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -i  : inverts all 1s and 0s in specified memory region\n    -f  : interactive mode (default)\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose mode (enables print region mode)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
+      char help_str[] = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory address> <value>] [-f] [-S] [-H] [-B] [-A] [-E] [-C] [-b <integer>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -f  : interactive mode (default)\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose mode (enables print region mode)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
 
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             puts(help_str);
@@ -541,19 +534,6 @@ int main(int argc, char* argv[]){
                         print_mmap(&vmem, argv[3], integers, print_rgns);
                   }
                   else print_mmap(&vmem, "", integers, print_rgns);
-                  free_mem_map(&vmem, integers);
-                  free_mem_rgn(&vmem.mapped_rgn);
-                  return 0;
-            }
-            if(strcmp(argv[2], "-i") == 0){
-                  if(!integers){
-                        puts("cannot invert string/char*");
-                        free_mem_map(&vmem, false);
-                        free_mem_rgn(&vmem.mapped_rgn);
-                        return -1;
-                  }
-                  populate_mem_map(&vmem, pid, d_rgn, additional, integers, 1);
-                  logic_swap(&vmem);
                   free_mem_map(&vmem, integers);
                   free_mem_rgn(&vmem.mapped_rgn);
                   return 0;

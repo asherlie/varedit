@@ -16,9 +16,9 @@ const char* which_rgn(struct mem_rgn rgn, void* addr, int* res){
             return "heap";
       }
       for(int i = 0; i < rgn.n_remaining; ++i){
-            if(addr >= rgn.remaining_addr[i].end){
+            if(addr >= rgn.remaining_addr[i].start && addr <= rgn.remaining_addr[i].end){
                   if(res)*res = 2 + i;
-                  return "unmarked region";
+                  return "unmarked";
             }
       }
       return "";

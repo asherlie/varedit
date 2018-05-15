@@ -367,10 +367,11 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
                   // if we have very few values, it's likely that they are not from a diverse group of regions
                   // we'll try to free any unnecessary region blocks
                   if(FORCE_BLOCK_STR){
-                        int rgn;
+                        // if rgn evaluates to false initially, it will not be set
+                        int rgn = 1;
                         bool s = false, h = false;
                         bool a[mem->mapped_rgn.n_remaining];
-                        memset(&a, 0, mem->mapped_rgn.n_remaining);
+                        memset(a, 0, mem->mapped_rgn.n_remaining);
                         for(unsigned int i = 0; i < mem->size; ++i){
                               which_rgn(mem->mapped_rgn, mem->cp_mmap[i].addr, &rgn);
                               switch(rgn){
