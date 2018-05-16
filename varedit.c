@@ -1,15 +1,16 @@
 #include <string.h>
-#include <unistd.h> // fork
+#include <unistd.h> // fork()
 
 #include <signal.h> // kill()
 #include <sys/wait.h> // wait()
 
 #include "vmem_access.h"
 
-bool valid_int(const char* str){
+bool strtoi(const char* str, int* i){
       char* res;
-      strtol(str, &res, 10);
-      return *res == 0;
+      if(i)*i = (int)strtol(str, &res, 10);
+      else strtol(str, &res, 10);
+      return !*res;
 }
 
 bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional){
@@ -45,7 +46,7 @@ int remove_volatile_values(struct mem_map* vmem){
 void print_mmap(const struct mem_map* mem, const char* contains, bool integers, bool show_rgns){
       bool cont = strlen(contains) != 0;
       int i_cont = 0;
-      if(integers && cont && valid_int(contains))i_cont = atoi(contains);
+      if(integers && cont)strtoi(contains, &i_cont);
       for(unsigned int i = 0; i < mem->size; ++i){
             if(integers){
                   if(!cont || mem->mmap[i].value == i_cont){
@@ -166,11 +167,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         BYTE write[int_mode_bytes];
                         bool nul;
                         if(integers){
-                              if(!valid_int(tmp_str+3)){
+                              if(!strtoi(tmp_str+3, &tmp_val)){
                                     printf("\"%s\" is not a valid integer\n", tmp_str+3);
                                     goto Find;
                               }
-                              tmp_val = atoi(tmp_str+3);
                               memcpy(write, &tmp_val, int_mode_bytes);
                         }
                         else nul = null_char_parse(tmp_str+3);
@@ -266,39 +266,41 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               scanf(" %9[^ \t\n]%*c", v_loc_s);
                         }
                         scanf("%4095[^\t\n]%*c", to_w);
-                        if(integers && !valid_int(to_w) && !(lock_mode && strcmp(to_w, "_") == 0)){
+                        int to_w_i;
+                        if(integers && !strtoi(to_w, &to_w_i) && !(lock_mode && strcmp(to_w, "_") == 0)){
                               puts("enter a valid integer to write");
                               goto Write;
                         }
                         to_w_len = strlen(to_w);
-                        { // scope to limit e_r's lifetime
+                       { // scope to limit e_r's lifetime
                               char* e_r = strchr(v_loc_s, '-');
                               if(e_r != NULL)*(e_r++) = '\0';
+                             { // to limit scope of res, tmp_s
                               // setting both indices in case not range
-                              // using strtoul instead of atoi to avoid truncating unsigned ints
-                              if(valid_int(v_loc_s))v_loc[1] = v_loc[0] = (unsigned int)strtoul(v_loc_s, NULL, 10);
+                              // using strtoul instead of strtoi to avoid truncating unsigned ints
+                              char* res;
+                              unsigned int tmp_s = strtoul(v_loc_s, &res, 10);
+                              if(!*res)v_loc[1] = v_loc[0] = tmp_s;
                               else{
                                     Int_err:
                                     puts("enter a valid integer or range of integers");
                                     goto Write;
                               }
-                              if(e_r != NULL){
-                                    if(!valid_int(e_r))goto Int_err;
-                                    v_loc[1] = (unsigned int)strtoul(e_r, NULL, 10);
-                              }
+                              if(e_r != NULL)tmp_s = strtoul(e_r, &res, 10);
+                              if(!*res)v_loc[1] = tmp_s;
+                              else goto Int_err;
+                             }
                               if(v_loc[0] >= vmem->size || v_loc[1] >= vmem->size)goto Int_err;
-                        }
+                       }
                         if(lock_mode){
                               temp_pid = fork();
                               if(temp_pid == 0){ // TODO: kill this if overwriting the same mem location
                                     bool same = false;
-                                    int to_w_i;
                                     if(strcmp(to_w, "_") == 0)same = true;
-                                    else if(integers)to_w_i = atoi(to_w);
                                     // creating pair arrays to store relevant addresses and values so i can free up memory
                                     struct addr_int_pair vmem_int_subset [v_loc[1]-v_loc[0]+1];
                                     struct addr_str_pair vmem_str_subset[v_loc[1]-v_loc[0]+1];
-                                    { // creating a scope to limit c's lifetime
+                                   { // creating a scope to limit c's lifetime
                                           int c = 0;
                                           for(unsigned int i = v_loc[0]; i <= v_loc[1]; ++i){
                                                 // setting vmem subsets regardless of same
@@ -311,7 +313,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                                       ++c;
                                                 }
                                           }
-                                    }
+                                   }
                                     // this will run for a long time so we might as well free up whatever memory we can
                                     free_mem_map(vmem, integers);
                                     BYTE to_w_b[int_mode_bytes];
@@ -357,13 +359,11 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               continue;
                         }
                         BYTE to_w_b[int_mode_bytes];
-                        int tmp_i;
                         bool nul;
                         if(!integers)nul = null_char_parse(to_w);
                         for(unsigned int i = v_loc[0]; i <= v_loc[1]; ++i){
                               if(integers){
-                                    tmp_i = atoi(to_w);
-                                    memcpy(to_w_b, &tmp_i, int_mode_bytes);
+                                    memcpy(to_w_b, &to_w_i, int_mode_bytes);
                                     write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, to_w_b);
                               }
                               else{
@@ -405,7 +405,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   }
             }
             // checking if input is valid integer before populating mem_map
-            if((strcmp(tmp_str, "") == 0 || !valid_int(tmp_str)) && integers){
+            if((strcmp(tmp_str, "") == 0 || (integers && !strtoi(tmp_str, NULL)))){
                   puts("enter a valid integer to search");
                   goto Find;
             }
@@ -515,6 +515,7 @@ int main(int argc, char* argv[]){
             }
             if(strcmp(argv[2], "-w") == 0){
                   if(integers){
+                        // TODO: use strtoi
                         int tmp_i = atoi(argv[4]);
                         BYTE to_w[n_bytes];
                         memcpy(to_w, &tmp_i, n_bytes);
