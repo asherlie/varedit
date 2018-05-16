@@ -370,7 +370,8 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
                         // if rgn evaluates to false initially, it will not be set
                         int rgn = 1;
                         bool s = false, h = false;
-                        bool a[mem->mapped_rgn.n_remaining];
+                        // +1 in case of n_ad == 0
+                        bool a[mem->blk.n_ad+1];
                         memset(a, 0, mem->mapped_rgn.n_remaining);
                         for(unsigned int i = 0; i < mem->size; ++i){
                               which_rgn(mem->mapped_rgn, mem->cp_mmap[i].addr, &rgn);
@@ -387,7 +388,7 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
                         if(!h && mem->blk.heap){
                               free(mem->blk.heap); mem->blk.heap = NULL;
                         }
-                        for(int i = 0; i < mem->mapped_rgn.n_remaining; ++i){
+                        for(unsigned char i = 0; i < mem->blk.n_ad; ++i){
                               if(!a[i] && mem->blk.addtnl[i]){
                                     free(mem->blk.addtnl[i]); mem->blk.addtnl[i] = NULL;
                               }
