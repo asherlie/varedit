@@ -443,7 +443,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char help_str[] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] -f [-S] [-H] [-B] [-A] [-E] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -f  : interactive mode (default)\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose mode (enables print region mode)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
+      char help_str[] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] -f [-S] [-H] [-B] [-A] [-E] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -f  : interactive mode (default)\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose (enables print region and ignores result_print_limit)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
 
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             fputs("usage: ", stdout);
@@ -476,7 +476,7 @@ int main(int argc, char* argv[]){
             }
             if(strcmp(argv[i], "-b") == 0){
                   n_bytes = atoi(argv[i+1]);
-                  // TODO: i shouldn't depend on atoi of non int being 0 - this is undefined behavior
+                  // TODO: i shouldn't depend on atoi of non int being 0 - this is undefined behavior - use strtol
                   // atoi returns 0 if not valid int
                   if(n_bytes == 0)n_bytes = 4;
             }
@@ -495,7 +495,7 @@ int main(int argc, char* argv[]){
       pid_t pid = (pid_t)atoi(argv[1]);
       // initializing here extends scope to default behavior to avoid rescanning memory
       struct mem_map vmem;
-      // TODO remove this, vmem.size is set to 0 in populate_mem_map
+      // vmem.size should be accurate
       vmem.size = 0;
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.cpp
       vmem.mapped_rgn = get_vmem_locations(pid, false); // disabling unmarked additional rgns until criteria for unmarked additional mem rgns are fixed
