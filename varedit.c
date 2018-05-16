@@ -275,7 +275,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               char* e_r = strchr(v_loc_s, '-');
                               if(e_r != NULL)*(e_r++) = '\0';
                               // setting both indices in case not range
-                              // using strtoul instead of atoi to avoid truncating an unsigned int
+                              // using strtoul instead of atoi to avoid truncating unsigned ints
                               if(valid_int(v_loc_s))v_loc[1] = v_loc[0] = (unsigned int)strtoul(v_loc_s, NULL, 10);
                               else{
                                     Int_err:
@@ -286,7 +286,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     if(!valid_int(e_r))goto Int_err;
                                     v_loc[1] = (unsigned int)strtoul(e_r, NULL, 10);
                               }
-                              if(v_loc[0] >= vmem->size || v_loc[1] > vmem->size)goto Int_err;
+                              if(v_loc[0] >= vmem->size || v_loc[1] >= vmem->size)goto Int_err;
                         }
                         if(lock_mode){
                               temp_pid = fork();
@@ -358,6 +358,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         BYTE to_w_b[int_mode_bytes];
                         int tmp_i;
+                        bool nul;
+                        if(!integers)nul = null_char_parse(to_w);
                         for(unsigned int i = v_loc[0]; i <= v_loc[1]; ++i){
                               if(integers){
                                     tmp_i = atoi(to_w);
@@ -387,7 +389,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                           }
                                     }
                                     // TODO: add option to zero entire string
-                                    bool nul = null_char_parse(to_w);
                                     write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, to_w);
                                     // write terminated string if \0 found
                                     if(nul)write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+strlen(to_w)), (BYTE*)"");
