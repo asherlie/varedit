@@ -367,8 +367,7 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
                   // if we have very few values, it's likely that they are not from a diverse group of regions
                   // we'll try to free any unnecessary region blocks
                   if(FORCE_BLOCK_STR){
-                        // if rgn evaluates to false initially, it will not be set
-                        int rgn = 1;
+                        int rgn;
                         bool s = false, h = false;
                         // +1 in case of n_ad == 0
                         bool a[mem->blk.n_ad+1];

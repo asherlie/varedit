@@ -6,6 +6,13 @@ void free_mem_rgn(struct mem_rgn* mr){
       if(mr->n_remaining > 0)free(mr->remaining_addr);
 }
 
+/*
+ * if which_rgn's int* res param is not NULL, it is set 
+ * to one of three possible values:
+ * STACK, HEAP, or other
+ * if (res > HEAP) or (res >= 2), the value of res refers to
+ * additional region[res-2]
+ */
 const char* which_rgn(struct mem_rgn rgn, void* addr, int* res){
       if(addr >= rgn.stack_start_addr && addr <= rgn.stack_end_addr){
             if(res)*res = STACK;
