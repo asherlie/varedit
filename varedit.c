@@ -443,9 +443,11 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char help_str[] = "NOTE: this program will not work without root privileges\n<pid> {[-p [filter]] [-r <virtual memory address>] [-w <virtual memory address> <value>] [-f] [-S] [-H] [-B] [-A] [-E] [-C] [-b <integer>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -f  : interactive mode (default)\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose mode (enables print region mode)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
+      char help_str[] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] -f [-S] [-H] [-B] [-A] [-E] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -f  : interactive mode (default)\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose mode (enables print region mode)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
 
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
+            fputs("usage: ", stdout);
+            fputs(argv[0], stdout);
             puts(help_str);
             return -1;
       }
@@ -497,7 +499,10 @@ int main(int argc, char* argv[]){
       vmem.size = 0;
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.cpp
       vmem.mapped_rgn = get_vmem_locations(pid, false); // disabling unmarked additional rgns until criteria for unmarked additional mem rgns are fixed
-      if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional))return -1;
+      if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional)){
+            puts("you DO have root privileges, don't you");
+            return -1;
+      }
       if(argc > 2){
             // -r and -w can be used without slowly loading a complete mem_map
             if(strcmp(argv[2], "-r") == 0){
