@@ -28,7 +28,8 @@ const char* which_rgn(struct mem_rgn rgn, void* addr, int* res){
                   return "unmarked";
             }
       }
-      return "";
+      *res = -1;
+      return NULL;
 }
 
 char* get_proc_name(pid_t pid){        

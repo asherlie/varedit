@@ -510,7 +510,12 @@ int main(int argc, char* argv[]){
                   if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], NULL, 16)));
                   // read_str_from_mem_range_slow must be used because string size is unknown
                   // TODO: fix memory leak
-                  else printf("%s\n", read_str_from_mem_range_slow(pid, (void*)strtoul(argv[3], NULL, 16), NULL));
+                  else{
+                        char* str = read_str_from_mem_range_slow(pid, (void*)strtoul(argv[3], NULL, 16), NULL);
+                        printf("%s\n", str);
+                        free(str);
+                        free_mem_rgn(&vmem.mapped_rgn);
+                  }
                   return 0;
             }
             if(strcmp(argv[2], "-w") == 0){
@@ -522,6 +527,7 @@ int main(int argc, char* argv[]){
                         write_bytes_to_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], NULL, 16), to_w);
                   }
                   else write_str_to_pid_mem(pid, (void*)strtoul(argv[3], NULL, 16), argv[4]);
+                  free_mem_rgn(&vmem.mapped_rgn);
                   return 0;
             }
             if(strcmp(argv[2], "-f") == 0){

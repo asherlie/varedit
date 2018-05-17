@@ -377,7 +377,7 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
                               switch(rgn){
                                     case STACK: s = true; break;
                                     case HEAP:  h = true; break;
-                                    default:    a[rgn-2] = true;
+                                    default:    if(rgn >= 2)a[rgn-2] = true;
                               }
                               tmp_cp_mmap[i] = mem->cp_mmap[i];
                         }
