@@ -82,6 +82,30 @@ bool null_char_parse(char* str){
       return false;
 }
 
+void print_locks(struct lock_container* locks, unsigned char num_locks, unsigned char l_removed, bool integers){
+      if(num_locks-l_removed == 0){
+            puts("no locks are currently in place");
+            return;
+      }
+      for(unsigned char i = 0; i < num_locks; ++i){
+            if(locks[i].m_addr == NULL)continue;
+            if(integers)printf("(%i) %p: %i\n", i, locks[i].m_addr, locks[i].i_value);
+            else printf("(%i) %p: \"%s\"\n",i , locks[i].m_addr, locks[i].s_value);
+      }
+}
+
+/*
+ *void remove_lock(struct lock_container* locks, int index){
+ *      0  1  2   3   4
+ *      ---------------
+ *      12 39 491 112 2
+ *      rm 1
+ *      0  x  1   2   3
+ *      12 xx 491 112 2
+ *      i in n_l: 
+ *}
+ */
+
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
       char search_mode_help[600];
       strcpy(search_mode_help, "search mode options:\n    'r' : reset mem map\n    \"wa\" <value> : write single value to all current results\n    ");
@@ -105,11 +129,12 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       int tmp_val;
       bool first = true;
       bool lock_mode;
-      // the three variables below are used to keep track of var locks
-      // TODO: dynamically alloc child_pid
-      struct lock_container child_pid[30];
-      pid_t temp_pid;
+      // the five variables below are used to keep track of var locks
+      unsigned char lock_cap = 1;
       unsigned char num_locks = 0;
+      unsigned char l_removed = 0;
+      struct lock_container* lock_pids = malloc(sizeof(struct lock_container)*lock_cap);
+      pid_t temp_pid;
       while(1){
             Find:
             printf("enter current variable value to search");
@@ -120,9 +145,11 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             tmp_str[tmp_strlen-1]='\0';
             if(strcmp(tmp_str, "q") == 0){
                   for(unsigned char i = 0; i < num_locks; ++i){
-                        kill(child_pid[i].pid, SIGKILL);
+                        if(lock_pids[i].m_addr == NULL)continue;
+                        kill(lock_pids[i].pid, SIGKILL);
                         wait(NULL);
                   }
+                  free(lock_pids);
                   return !first;
             }
             // TODO: add ability to rescan memory regions and update vmem->mapped_rgn
@@ -146,20 +173,21 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   fseek(stdin, 0, SEEK_END);
                   goto Find;
             }
-            if(strcmp(tmp_str, "rl") == 0){
-                  if(num_locks == 0)puts("no locks are currently in place");
-                  else{
-                        printf("killing %i\n", child_pid[num_locks-1].pid);
-                        kill(child_pid[--num_locks].pid, SIGKILL);
-                        // TODO possibly let user know that we're using freeze/same mode
-                        // TODO possibly let user know that we're printing the first of a range
-                        if(integers)printf("lock with value %i removed (%p)\n", child_pid[num_locks].i_value, child_pid[num_locks].m_addr);
-                        else printf("lock with value \"%s\" removed (%p)\n", child_pid[num_locks].s_value, child_pid[num_locks].m_addr);
-                        wait(NULL);
-                  }
-                  fseek(stdin, 0, SEEK_END);
-                  goto Find;
-            }
+            /*
+             *if(strcmp(tmp_str, "rl") == 0){
+             *      if(num_locks == 0)puts("no locks are currently in place");
+             *      else{
+             *            kill(lock_pids[--num_locks].pid, SIGKILL);
+             *            // TODO possibly let user know that we're using freeze/same mode
+             *            // TODO possibly let user know that we're printing the first of a range
+             *            if(integers)printf("lock with value %i removed (%p)\n", lock_pids[num_locks].i_value, lock_pids[num_locks].m_addr);
+             *            else printf("lock with value \"%s\" removed (%p)\n", lock_pids[num_locks].s_value, lock_pids[num_locks].m_addr);
+             *            wait(NULL);
+             *      }
+             *      fseek(stdin, 0, SEEK_END);
+             *      goto Find;
+             *}
+             */
             // wa mode
             if(tmp_strlen > 3){
                   if(tmp_str[0] == 'w' && tmp_str[1] == 'a' && tmp_str[2] == ' '){
@@ -233,9 +261,11 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         if(strcmp(v_loc_s, "q") == 0){
                               for(unsigned char i = 0; i < num_locks; ++i){
-                                    kill(child_pid[i].pid, SIGKILL);
+                                    if(lock_pids[i].m_addr == NULL)continue;
+                                    kill(lock_pids[i].pid, SIGKILL);
                                     wait(NULL);
                               }
+                              free(lock_pids);
                               return !first;
                         }
                         if(strcmp(v_loc_s, "?") == 0){
@@ -248,14 +278,43 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               fseek(stdin, 0, SEEK_END);
                               goto Write;
                         }
-                        // TODO: add interactive way to remove locks when there are multiple in place
+                        if(strcmp(v_loc_s, "pl") == 0){
+                              print_locks(lock_pids, num_locks, l_removed, integers);
+                              fseek(stdin, 0, SEEK_END);
+                              goto Write;
+                        }
+                        // TODO: update lock section of help '?' screen
                         if(strcmp(v_loc_s, "rl") == 0){
-                              if(num_locks == 0)puts("no locks are currently in place");
+                              // TODO: abstract this to a function so it can be easily used in find mode
+                              // TODO: possibly add built in lock functionality to vmem_access with updated lock struct that contains l_removed, num_locks, etc.
+                              fgets(v_loc_s, 10, stdin);
+                              if(v_loc_s[strlen(v_loc_s)-1] == '\n')v_loc_s[strlen(v_loc_s)-1] = '\0';
+                              // TODO: address inaccurate num_locks
+                              // num_locks may be inaccurate if locks have been removed
+                              if(num_locks-l_removed == 0)puts("no locks are currently in place");
                               else{
-                                    kill(child_pid[--num_locks].pid, SIGKILL);
-                                    if(integers)printf("lock with value %i removed (%p)\n", child_pid[num_locks].i_value, child_pid[num_locks].m_addr);
-                                    else printf("lock with value \"%s\" removed (%p)\n", child_pid[num_locks].s_value, child_pid[num_locks].m_addr);
-                                    wait(NULL);
+                                    print_locks(lock_pids, num_locks, l_removed, integers);
+                                    int rm_s;
+                                    if(!strtoi(v_loc_s, &rm_s) || rm_s >= num_locks-l_removed || rm_s < 0){
+                                          puts("enter a valid integer");
+                                          goto Write;
+                                    }
+                                    printf("valid detected: %i\n", rm_s);
+                                    int r_i = 0;
+                                    for(int i = 0; i < num_locks; ++i){
+                                          if(lock_pids[i].m_addr == NULL)continue;
+                                          // r_i real index, rm_s pseudo spot
+                                          if(r_i == rm_s){
+                                                kill(lock_pids[r_i].pid, SIGKILL);
+                                                wait(NULL);
+                                                ++l_removed;
+                                                if(integers)printf("lock with value %i removed (%p)\n", lock_pids[r_i].i_value, lock_pids[r_i].m_addr);
+                                                else printf("lock with value \"%s\" removed (%p)\n", lock_pids[r_i].s_value, lock_pids[r_i].m_addr);
+                                                // setting to null as to not print it
+                                                lock_pids[r_i].m_addr = NULL;
+                                          }
+                                          ++r_i;
+                                    }
                               }
                               fseek(stdin, 0, SEEK_END);
                               goto Write;
@@ -341,19 +400,24 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     }
                               }
                               // TODO: add show/print lock mode
-                              // writing raw string to child_pid regardless of string/int mode - this avoids the need to handle strings separately from ints
-                              ++num_locks;
-                              child_pid[num_locks-1].s_value = to_w;
-                              child_pid[num_locks-1].pid = temp_pid;
-                              if(integers){
-                                    child_pid[num_locks-1].m_addr = vmem->mmap[v_loc[0]].addr;
-                                    // if we're locking values using "_" notation don't try atoi
-                                    if(strcmp(to_w, "_") != 0){
-                                          child_pid[num_locks-1].i_value = atoi(to_w);
-                                    }
-                                    else child_pid[num_locks-1].i_value = vmem->mmap[v_loc[0]].value;
+                              // writing raw string to lock_pids regardless of string/int mode - this avoids the need to handle strings separately from ints
+                              if(num_locks == lock_cap){
+                                    lock_cap *= 2;
+                                    struct lock_container* tmp_lock = malloc(sizeof(struct lock_container)*lock_cap);
+                                    memcpy(tmp_lock, lock_pids, sizeof(struct lock_container)*num_locks);
+                                    free(lock_pids);
+                                    lock_pids = tmp_lock;
                               }
-                              else child_pid[num_locks-1].m_addr = vmem->cp_mmap[v_loc[0]].addr;
+                              ++num_locks;
+                              lock_pids[num_locks-1].s_value = to_w;
+                              lock_pids[num_locks-1].pid = temp_pid;
+                              if(integers){
+                                    lock_pids[num_locks-1].m_addr = vmem->mmap[v_loc[0]].addr;
+                                    // if we're locking values using "_" notation don't try to convert to int
+                                    if(strcmp(to_w, "_") != 0)lock_pids[num_locks-1].i_value = to_w_i;
+                                    else lock_pids[num_locks-1].i_value = vmem->mmap[v_loc[0]].value;
+                              }
+                              else lock_pids[num_locks-1].m_addr = vmem->cp_mmap[v_loc[0]].addr;
                               puts("variable(s) locked");
                               update_mem_map(vmem, integers);
                               continue;
@@ -509,7 +573,6 @@ int main(int argc, char* argv[]){
             if(strcmp(argv[2], "-r") == 0){
                   if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], NULL, 16)));
                   // read_str_from_mem_range_slow must be used because string size is unknown
-                  // TODO: fix memory leak
                   else{
                         char* str = read_str_from_mem_range_slow(pid, (void*)strtoul(argv[3], NULL, 16), NULL);
                         printf("%s\n", str);
