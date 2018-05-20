@@ -282,13 +282,13 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     for(int i = 0; i < num_locks; ++i){
                                           if(lock_pids[i].m_addr == NULL)continue;
                                           if(r_i == rm_s){
-                                                kill(lock_pids[r_i].pid, SIGKILL);
+                                                kill(lock_pids[i].pid, SIGKILL);
                                                 wait(NULL);
                                                 ++l_removed;
-                                                if(integers)printf("lock with value %i removed (%p)\n", lock_pids[r_i].i_value, lock_pids[r_i].m_addr);
-                                                else printf("lock with value \"%s\" removed (%p)\n", lock_pids[r_i].s_value, lock_pids[r_i].m_addr);
+                                                if(integers)printf("lock with value %i removed (%p)\n", lock_pids[i].i_value, lock_pids[i].m_addr);
+                                                else printf("lock with value \"%s\" removed (%p)\n", lock_pids[i].s_value, lock_pids[i].m_addr);
                                                 // setting to null as to not print it
-                                                lock_pids[r_i].m_addr = NULL;
+                                                lock_pids[i].m_addr = NULL;
                                           }
                                           ++r_i;
                                     }
