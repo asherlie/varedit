@@ -87,10 +87,12 @@ void print_locks(struct lock_container* locks, unsigned char num_locks, unsigned
             puts("no locks are currently in place");
             return;
       }
+      int r_i = 0;
       for(unsigned char i = 0; i < num_locks; ++i){
             if(locks[i].m_addr == NULL)continue;
-            if(integers)printf("(%i) %p: %i\n", i, locks[i].m_addr, locks[i].i_value);
-            else printf("(%i) %p: \"%s\"\n",i , locks[i].m_addr, locks[i].s_value);
+            if(integers)printf("(%i) %p: %i\n", r_i, locks[i].m_addr, locks[i].i_value);
+            else printf("(%i) %p: \"%s\"\n", r_i, locks[i].m_addr, locks[i].s_value);
+            ++r_i;
       }
 }
 
