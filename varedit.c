@@ -94,15 +94,8 @@ void print_locks(struct lock_container* locks, unsigned char num_locks, unsigned
       }
 }
 
-/*
+/* TODO: implement this
  *void remove_lock(struct lock_container* locks, int index){
- *      0  1  2   3   4
- *      ---------------
- *      12 39 491 112 2
- *      rm 1
- *      0  x  1   2   3
- *      12 xx 491 112 2
- *      i in n_l: 
  *}
  */
 
@@ -110,6 +103,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       char search_mode_help[600];
       strcpy(search_mode_help, "search mode options:\n    'r' : reset mem map\n    \"wa\" <value> : write single value to all current results\n    ");
       if(integers)strcpy(search_mode_help+110, "<integer> : enter an integer to narrow results\n    \"rv\" : remove volatile variables\n    ");
+      // TODO: remove lock info from search mode help
       else strcpy(search_mode_help+110, "<string> : enter a string to narrow results - use delimeter '\\' to search for '?', 'q', 'u', 'r', \"rl\", 'w'\n    ");
       strcat(search_mode_help, "'u' : update visible values\n    \"rl\" : remove most recently applied lock\n    '?' : show this\n    'q' : quit");
       char write_mode_help[] = "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)\n    \"rl\" : remove most recently applied lock\n    '?' : show this\n    'q' : quit";
@@ -173,21 +167,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   fseek(stdin, 0, SEEK_END);
                   goto Find;
             }
-            /*
-             *if(strcmp(tmp_str, "rl") == 0){
-             *      if(num_locks == 0)puts("no locks are currently in place");
-             *      else{
-             *            kill(lock_pids[--num_locks].pid, SIGKILL);
-             *            // TODO possibly let user know that we're using freeze/same mode
-             *            // TODO possibly let user know that we're printing the first of a range
-             *            if(integers)printf("lock with value %i removed (%p)\n", lock_pids[num_locks].i_value, lock_pids[num_locks].m_addr);
-             *            else printf("lock with value \"%s\" removed (%p)\n", lock_pids[num_locks].s_value, lock_pids[num_locks].m_addr);
-             *            wait(NULL);
-             *      }
-             *      fseek(stdin, 0, SEEK_END);
-             *      goto Find;
-             *}
-             */
             // wa mode
             if(tmp_strlen > 3){
                   if(tmp_str[0] == 'w' && tmp_str[1] == 'a' && tmp_str[2] == ' '){
@@ -285,25 +264,21 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         // TODO: update lock section of help '?' screen
                         if(strcmp(v_loc_s, "rl") == 0){
-                              // TODO: abstract this to a function so it can be easily used in find mode
-                              // TODO: possibly add built in lock functionality to vmem_access with updated lock struct that contains l_removed, num_locks, etc.
-                              fgets(v_loc_s, 10, stdin);
-                              if(v_loc_s[strlen(v_loc_s)-1] == '\n')v_loc_s[strlen(v_loc_s)-1] = '\0';
-                              // TODO: address inaccurate num_locks
-                              // num_locks may be inaccurate if locks have been removed
                               if(num_locks-l_removed == 0)puts("no locks are currently in place");
                               else{
                                     print_locks(lock_pids, num_locks, l_removed, integers);
+                                    // TODO: abstract this to a function so it can be easily used in find mode
+                                    // TODO: possibly add built in lock functionality to vmem_access with updated lock struct that contains l_removed, num_locks, etc.
+                                    fgets(v_loc_s, 10, stdin);
+                                    if(v_loc_s[strlen(v_loc_s)-1] == '\n')v_loc_s[strlen(v_loc_s)-1] = '\0';
                                     int rm_s;
                                     if(!strtoi(v_loc_s, &rm_s) || rm_s >= num_locks-l_removed || rm_s < 0){
                                           puts("enter a valid integer");
                                           goto Write;
                                     }
-                                    printf("valid detected: %i\n", rm_s);
                                     int r_i = 0;
                                     for(int i = 0; i < num_locks; ++i){
                                           if(lock_pids[i].m_addr == NULL)continue;
-                                          // r_i real index, rm_s pseudo spot
                                           if(r_i == rm_s){
                                                 kill(lock_pids[r_i].pid, SIGKILL);
                                                 wait(NULL);
