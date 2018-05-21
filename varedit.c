@@ -559,11 +559,13 @@ int main(int argc, char* argv[]){
             }
             if(strcmp(argv[2], "-w") == 0){
                   if(integers){
-                        // TODO: use strtoi
-                        int tmp_i = atoi(argv[4]);
-                        BYTE to_w[n_bytes];
-                        memcpy(to_w, &tmp_i, n_bytes);
-                        write_bytes_to_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], NULL, 16), to_w);
+                        int tmp_i;
+                        if(!strtoi(argv[4], &tmp_i))puts("enter a valid integer");
+                        else{
+                              BYTE to_w[n_bytes];
+                              memcpy(to_w, &tmp_i, n_bytes);
+                              write_bytes_to_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], NULL, 16), to_w);
+                        }
                   }
                   else write_str_to_pid_mem(pid, (void*)strtoul(argv[3], NULL, 16), argv[4]);
                   free_mem_rgn(&vmem.mapped_rgn);
