@@ -4,6 +4,7 @@ typedef unsigned char BYTE;
 
 struct lock_container{
       pid_t pid;
+      bool rng;
       void* m_addr;
       int i_value;
       char* s_value;

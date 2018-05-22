@@ -90,16 +90,12 @@ void print_locks(struct lock_container* locks, unsigned char num_locks, unsigned
       int r_i = 0;
       for(unsigned char i = 0; i < num_locks; ++i){
             if(locks[i].m_addr == NULL)continue;
-            if(integers)printf("(%i) %p: %i\n", r_i, locks[i].m_addr, locks[i].i_value);
-            else printf("(%i) %p: \"%s\"\n", r_i, locks[i].m_addr, locks[i].s_value);
+            if(integers)printf("(%i) %p: %i", r_i, locks[i].m_addr, locks[i].i_value);
+            else printf("(%i) %p: \"%s\"", r_i, locks[i].m_addr, locks[i].s_value);
+            if(locks[i].rng)puts(" (multiple locks)"); else puts("");
             ++r_i;
       }
 }
-
-/* TODO: implement this
- *void remove_lock(struct lock_container* locks, int index){
- *}
- */
 
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
       char search_mode_help[600];
@@ -267,7 +263,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               if(num_locks-l_removed == 0)puts("no locks are currently in place");
                               else{
                                     print_locks(lock_pids, num_locks, l_removed, integers);
-                                    // TODO: abstract this to a function so it can be easily used in find mode
+                                    // TODO: abstract lock removal to a function so it can be easily used in find mode
                                     // TODO: possibly add built in lock functionality to vmem_access with updated lock struct that contains l_removed, num_locks, etc.
                                     fgets(v_loc_s, 10, stdin);
                                     if(v_loc_s[strlen(v_loc_s)-1] == '\n')v_loc_s[strlen(v_loc_s)-1] = '\0';
@@ -389,6 +385,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               // although it might add complexity for no reason
                               lock_pids[num_locks-1].s_value = to_w;
                               lock_pids[num_locks-1].pid = temp_pid;
+                              lock_pids[num_locks-1].rng = !(v_loc[0] == v_loc[1]);
                               if(integers){
                                     lock_pids[num_locks-1].m_addr = vmem->mmap[v_loc[0]].addr;
                                     // if we're locking values using "_" notation don't try to convert to int

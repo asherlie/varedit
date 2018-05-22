@@ -35,7 +35,7 @@ const char* which_rgn(struct mem_rgn rgn, void* addr, int* res){
 char* get_proc_name(pid_t pid){        
       char path[100];
       strcpy(path, "/proc/");
-      sprintf(path, "/proc/%d/cmdline", pid);
+      sprintf(path, "/proc/%i/cmdline", pid);
       char* line = NULL;
       FILE* fp = fopen(path, "r");
       if(fp == NULL)return line;
@@ -49,7 +49,7 @@ char* get_proc_name(pid_t pid){
 struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
       char* tmp = NULL;
       char map_path[100];
-      sprintf(map_path, "/proc/%d/maps", pid);
+      sprintf(map_path, "/proc/%i/maps", pid);
       FILE* fp = fopen(map_path, "r");
       struct mem_rgn vmem;
       vmem.p_name = get_proc_name(pid);
