@@ -263,7 +263,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               fseek(stdin, 0, SEEK_END);
                               goto Write;
                         }
-                        // TODO: update lock section of help '?' screen
                         if(strcmp(v_loc_s, "rl") == 0){
                               if(num_locks-l_removed == 0)puts("no locks are currently in place");
                               else{
@@ -329,7 +328,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                        }
                         if(lock_mode){
                               temp_pid = fork();
-                              if(temp_pid == 0){ // TODO: kill this if overwriting the same mem location
+                              if(temp_pid == 0){
                                     bool same = false;
                                     if(strcmp(to_w, "_") == 0)same = true;
                                     // creating pair arrays to store relevant addresses and values so i can free up memory
@@ -385,6 +384,9 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     lock_pids = tmp_lock;
                               }
                               ++num_locks;
+                              // TODO: remove locks already in vmem->mmap[v_loc[0]].addr
+                              // TODO: possibly make lock_pids->m_addr a *, with every mem loc in it
+                              // although it might add complexity for no reason
                               lock_pids[num_locks-1].s_value = to_w;
                               lock_pids[num_locks-1].pid = temp_pid;
                               if(integers){
