@@ -98,10 +98,10 @@ void print_locks(struct lock_container* locks, unsigned char num_locks, unsigned
 }
 
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
-      char search_mode_help[600];
+      char search_mode_help[650];
       strcpy(search_mode_help, "search mode options:\n    r : reset mem map\n    wa <value> : write single value to all current results\n    ");
-      if(integers)strcpy(search_mode_help+110, "<integer> : enter an integer to narrow results\n    rv : remove volatile variables\n    ");
-      else strcpy(search_mode_help+110, "<string> : enter a string to narrow results - use delimeter '\\' to search for '?', 'q', 'u', 'r', 'w'\n    ");
+      if(integers)strcpy(search_mode_help+106, "<integer> : enter an integer to narrow results\n    rv : remove volatile variables\n    ");
+      else strcpy(search_mode_help+106, "<string> : enter a string to narrow results - end string with \"\\0\" to search for exact strings or use delimeter '\\' to search for '?', 'q', 'u', 'r', 'w'\n    ");
       strcat(search_mode_help, "u : update visible values\n    ? : show this\n    q : quit");
       char write_mode_help[] = "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)\n    rl <lock number> : remove specified lock\n    ? : show this\n    q : quit";
       printf("in interactive mode on process %i (%s)\nusing ", vmem->pid, vmem->mapped_rgn.p_name);
@@ -462,7 +462,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   tmp_val = atoi(tmp_str_ptr);
                   narrow_mem_map_int(vmem, tmp_val);
             }
-            else narrow_mem_map_str(vmem, tmp_str_ptr, false);
+            else{
+                  bool exact = null_char_parse(tmp_str_ptr);
+                  narrow_mem_map_str(vmem, tmp_str_ptr, exact);
+            }
             if(vmem->size == 0){
                   printf("nothing matches your search of: %s\nresetting mem map\n", tmp_str_ptr);
                   // setting first to true to imitate behavior of first search and load, reducing space complexity by waiting to repopulate mem_map
