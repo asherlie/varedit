@@ -32,7 +32,7 @@ struct mem_map{
       struct mem_rgn mapped_rgn;
       struct addr_int_pair* mmap;
       struct addr_str_pair* cp_mmap;
-      struct str_blk blk;
+      struct str_blk* blk;
       // only one will be initialized at any given moment
       // both are included in this struct to simplify code
       pid_t pid;

@@ -183,7 +183,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               else{
                                     // if our write string is larger than destination string, resize destination string
                                     if(tmp_strlen-3 > (int)strlen(vmem->cp_mmap[i].value)){
-                                          if(vmem->blk.in_place){
+                                          if(vmem->blk->in_place){
                                                 memset(vmem->cp_mmap[i].value, 1, tmp_strlen-3);
                                                 for(char* p = vmem->cp_mmap[i].value+tmp_strlen-3; *p <= 0 || *p >= 127; ++p)*p = 1;
                                           }
@@ -408,7 +408,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               else{
                                     if(to_w_len > strlen(vmem->cp_mmap[i].value)){
                                           fprintf(stderr, "WARNING (%i: %p): writing a string that is larger than the original string in its memory location causes undefined behavior\n", vmem->pid, vmem->cp_mmap[i].addr);
-                                          if(vmem->blk.in_place){
+                                          if(vmem->blk->in_place){
                                                /* TODO: add bounds checking to make sure we're not writing past BYTE*
                                                 * filling bytes immediately after to_w[to_w_len] to make room for a longer string
                                                 * this comes in handy when overwriting a null byte at the beginning of a string
