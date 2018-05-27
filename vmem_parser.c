@@ -14,11 +14,11 @@ void free_mem_rgn(struct mem_rgn* mr){
  * additional region[res-2]
  */
 const char* which_rgn(struct mem_rgn rgn, void* addr, int* res){
-      if(addr >= rgn.stack_start_addr && addr <= rgn.stack_end_addr){
+      if(addr >= rgn.stack.start && addr <= rgn.stack.end){
             if(res)*res = STACK;
             return "stack";
       }
-      if(addr >= rgn.heap_start_addr && addr <= rgn.heap_end_addr){
+      if(addr >= rgn.heap.start && addr <= rgn.heap.end){
             if(res)*res = HEAP;
             return "heap";
       }
@@ -53,10 +53,10 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
       FILE* fp = fopen(map_path, "r");
       struct mem_rgn vmem;
       vmem.p_name = get_proc_name(pid);
-      vmem.stack_start_addr = NULL;
-      vmem.stack_end_addr = NULL;
-      vmem.heap_start_addr = NULL;
-      vmem.heap_end_addr = NULL;
+      vmem.stack.start = NULL;
+      vmem.stack.end = NULL;
+      vmem.heap.start = NULL;
+      vmem.heap.end = NULL;
       vmem.n_remaining = 0;
       if(fp == NULL)return vmem;
       int rem_alloc_sz = 0;
@@ -98,12 +98,12 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
                   *strchr(desc, ']') = '\0';
                   ++desc;
                   if(strcmp(desc, "heap") == 0){
-                        vmem.heap_start_addr = l_start_add;
-                        vmem.heap_end_addr = l_end_add;
+                        vmem.heap.start = l_start_add;
+                        vmem.heap.end = l_end_add;
                   }
                   if(strcmp(desc, "stack") == 0){
-                        vmem.stack_start_addr = l_start_add;
-                        vmem.stack_end_addr = l_end_add;
+                        vmem.stack.start = l_start_add;
+                        vmem.stack.end = l_end_add;
                   }
             }
             p_end = l_end_add;

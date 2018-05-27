@@ -17,12 +17,12 @@ bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional){
       bool no_ad = (mem.n_remaining == 0 && additional);
       bool stack = true;
       if(no_ad)fputs("WARNING: no valid unmarked memory regions were found\n", stderr);
-      if((d_rgn == STACK || d_rgn == BOTH) && (mem.stack_start_addr == NULL || mem.stack_end_addr == NULL)){
+      if((d_rgn == STACK || d_rgn == BOTH) && (mem.stack.start == NULL || mem.stack.end == NULL)){
             fputs("WARNING: no valid stack memory region was found\n", stderr);
             if(d_rgn == STACK && (no_ad || !additional))return false;
             stack = false;
       }
-      if((d_rgn == HEAP || d_rgn == BOTH) && (mem.heap_start_addr == NULL || mem.heap_end_addr == NULL)){
+      if((d_rgn == HEAP || d_rgn == BOTH) && (mem.heap.start == NULL || mem.heap.end == NULL)){
             fputs("WARNING: no valid heap memory region was found\n", stderr);
             if((d_rgn == HEAP || (d_rgn == BOTH && !stack)) && (no_ad || !additional))return false;
       }
