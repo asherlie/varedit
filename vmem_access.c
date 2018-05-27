@@ -280,7 +280,9 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
 }
 
 void update_mem_map(struct mem_map* mem, bool integers){
-      if(!integers || LOW_MEM || mem->size < RELOAD_CUTOFF){
+      if(mem->size == 0)return;
+      // TODO: should string update optimization always be used? it's much faster
+      if((!integers && !mem->blk->in_place && mem->size < RELOAD_CUTOFF/100)|| LOW_MEM || (integers && mem->size < RELOAD_CUTOFF)){
             if(integers){
                   for(unsigned int i = 0; i < mem->size; ++i)
                         mem->mmap[i].value = read_single_val_from_pid_mem(mem->pid, mem->int_mode_bytes, mem->mmap[i].addr);
@@ -291,27 +293,34 @@ void update_mem_map(struct mem_map* mem, bool integers){
                         read_bytes_from_pid_mem_dir(mem->cp_mmap[i].value, mem->pid, strlen(mem->cp_mmap[i].value), mem->cp_mmap[i].addr, NULL);
             }
       }
-      // TODO: implement similar optimization for strings, possibly create a separate parse_strings_from_bytes(BYTE* bytes) function with the code from populate_mem_map for strings to make this simpler
-      // when writing string optimizations, make sure to account for multiple blockstrings
       else{
-            /*
-             *if(!integers){
-             *      for(unsigned int i = 0; i < mem->size; ++i){
-             *      }
-             *}
-             */
-            // load individually read_dir
-            struct mem_map tmp_mm;
-            tmp_mm.mapped_rgn = mem->mapped_rgn;
-            populate_mem_map(&tmp_mm, mem->pid, mem->d_rgn, mem->use_addtnl, integers, mem->int_mode_bytes);
-            for(unsigned int i = 0; i < mem->size; ++i){
-                  if(mem->mmap[i].addr == tmp_mm.mmap[i].addr)mem->mmap[i].value = tmp_mm.mmap[i].value;
-                  else{
-                        mem->mmap[i].value = read_single_val_from_pid_mem(mem->pid, mem->int_mode_bytes, mem->mmap[i].addr);
-                        ++i;
+            if(!integers){
+                  if(mem->blk->in_place){
+                        puts("using blk string optimizations");
+                        if(mem->blk->stack)
+                              read_bytes_from_pid_mem_dir(mem->blk->stack, mem->pid, 1, mem->mapped_rgn.stack.start, mem->mapped_rgn.stack.end);
+                        if(mem->blk->heap)
+                              read_bytes_from_pid_mem_dir(mem->blk->heap, mem->pid, 1, mem->mapped_rgn.heap.start, mem->mapped_rgn.heap.end);
+                        for(unsigned char i = 0; i < mem->blk->n_ad; ++i){
+                              if(mem->blk->addtnl[i])
+                              read_bytes_from_pid_mem_dir(mem->blk->addtnl[i], mem->pid, 1, mem->mapped_rgn.remaining_addr[i].start, mem->mapped_rgn.remaining_addr[i].end);
+                        }
                   }
             }
-            free_mem_map(&tmp_mm, integers);
+            else{
+                  // load individually read_dir
+                  struct mem_map tmp_mm;
+                  tmp_mm.mapped_rgn = mem->mapped_rgn;
+                  populate_mem_map(&tmp_mm, mem->pid, mem->d_rgn, mem->use_addtnl, integers, mem->int_mode_bytes);
+                  for(unsigned int i = 0; i < mem->size; ++i){
+                        if(mem->mmap[i].addr == tmp_mm.mmap[i].addr)mem->mmap[i].value = tmp_mm.mmap[i].value;
+                        else{
+                              mem->mmap[i].value = read_single_val_from_pid_mem(mem->pid, mem->int_mode_bytes, mem->mmap[i].addr);
+                              ++i;
+                        }
+                  }
+                  free_mem_map(&tmp_mm, integers);
+            }
       }
 }
 
