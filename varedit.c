@@ -63,8 +63,8 @@ void print_mmap(const struct mem_map* mem, const char* contains, bool integers, 
       }
 }
 
-// this was added to fix a bug that occured when strings are cut short with a \0 and the literal '\' and '0' were 
-// also written, which was apparent when the null byte was later overwritten, exposing the rest of the string
+/* this was added to fix a bug that occured when strings are cut short with a \0 and the literal '\' and '0' were 
+ * also written, which was apparent when the null byte was later overwritten, exposing the rest of the string */
 bool null_char_parse(char* str){
       char* null_char = str;
       while((null_char = strstr(null_char, "\\0"))){
