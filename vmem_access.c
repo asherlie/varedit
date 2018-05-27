@@ -210,8 +210,8 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             }
       }
       else{ // !integers
-            // populate_mem_map will always result in in_place strs
-            // even in case of FORCE_BLOCK_STR, strings are malloc'd in narrow_mem_map_str
+            /* populate_mem_map will always result in in_place strs
+             * even in case of LOW_MEM, strings are malloc'd in narrow_mem_map_str */
             // these must be initialized to NULL to avoid free errors in free_mem_map
             mmap->blk = malloc(sizeof(struct str_blk));
             mmap->blk->stack = mmap->blk->heap = NULL;
@@ -282,7 +282,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
 void update_mem_map(struct mem_map* mem, bool integers){
       if(mem->size == 0)return;
       // TODO: should string update optimization always be used? it's much faster
-      if(LOW_MEM || (!integers && (!mem->blk->in_place || mem->size < RELOAD_CUTOFF/1000)) || (integers && mem->size < RELOAD_CUTOFF)){
+      if(LOW_MEM || (!integers && (!mem->blk->in_place || mem->size < RELOAD_CUTOFF/10000)) || (integers && mem->size < RELOAD_CUTOFF)){
             if(integers){
                   for(unsigned int i = 0; i < mem->size; ++i)
                         mem->mmap[i].value = read_single_val_from_pid_mem(mem->pid, mem->int_mode_bytes, mem->mmap[i].addr);
@@ -308,7 +308,6 @@ void update_mem_map(struct mem_map* mem, bool integers){
                   free_mem_map(&tmp_mm, integers);
             }
             else{
-                  // if we've gotten here, we're definitely in blockstr mode
                   if(mem->blk->stack)
                         read_bytes_from_pid_mem_dir(mem->blk->stack, mem->pid, 1, mem->mapped_rgn.stack.start, mem->mapped_rgn.stack.end);
                   if(mem->blk->heap)
