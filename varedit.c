@@ -198,7 +198,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     if(nul)write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+strlen(tmp_str+3)), (BYTE*)"");
                               }
                         }
-                        printf("wrote \"%s\" to %i memory locations\n", tmp_str+3, vmem->size);
+                        if(integers)printf("wrote %s to %i memory locations\n", tmp_str+3, vmem->size);
+                        else printf("wrote \"%s\" to %i memory locations\n", tmp_str+3, vmem->size);
                         goto Find;
                   }
             }
@@ -380,7 +381,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     lock_pids = tmp_lock;
                               }
                               ++num_locks;
-                              // TODO: remove locks already in vmem->mmap[v_loc[0]].addr
+                              // TODO: possibly remove locks already in vmem->mmap[v_loc[0]].addr
                               // TODO: possibly make lock_pids->m_addr a *, with every mem loc in it
                               // although it might add complexity for no reason
                               lock_pids[num_locks-1].s_value = to_w;

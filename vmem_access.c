@@ -26,9 +26,8 @@ void free_blkstr(struct str_blk* blk){
       if(!blk->in_place)return;
       if(blk->stack)free(blk->stack);
       if(blk->heap)free(blk->heap);
-      for(unsigned char i = 0; i < blk->n_ad; ++i){
+      for(unsigned char i = 0; i < blk->n_ad; ++i)
             if(blk->addtnl[i])free(blk->addtnl[i]);
-      }
       if(blk->addtnl)free(blk->addtnl);
       free(blk);
 }
@@ -37,9 +36,8 @@ void free_mem_map(struct mem_map* mmap, bool integers){
       if(integers)free(mmap->mmap);
       else{
             if(!mmap->blk->in_place){
-                  for(unsigned int i = 0; i < mmap->size; ++i){
+                  for(unsigned int i = 0; i < mmap->size; ++i)
                         free(mmap->cp_mmap[i].value);
-                  }
             }
             else free_blkstr(mmap->blk);
             free(mmap->cp_mmap); 
@@ -293,7 +291,7 @@ void update_mem_map(struct mem_map* mem, bool integers){
                         read_bytes_from_pid_mem_dir(mem->cp_mmap[i].value, mem->pid, strlen(mem->cp_mmap[i].value), mem->cp_mmap[i].addr, NULL);
             }
       }
-      else{
+      else{ // faster but more memory intensive update methods
             if(integers){
                   struct mem_map tmp_mm;
                   tmp_mm.mapped_rgn = mem->mapped_rgn;
@@ -326,7 +324,7 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
             if(mem->mmap[i].value != match){
                   mem->mmap[i--] = mem->mmap[--mem->size];
                   /*
-                   *  // essentially, 
+                   *  // more simply,
                    *  mmap[i] = mmap[mem->size-1];
                    *  --mem->size;
                    *  --i;
@@ -415,9 +413,8 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact){
                         mem->blk->in_place = false;
                   }
             }
-            else{
+            else
                   memcpy(tmp_cp_mmap, mem->cp_mmap, sizeof(struct addr_str_pair)*mem->size);
-            }
             if(mem->cp_mmap)free(mem->cp_mmap);
             mem->cp_mmap = tmp_cp_mmap;
       }
