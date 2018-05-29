@@ -459,24 +459,19 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   tmp_val = atoi(tmp_str_ptr);
                   narrow_mem_map_int(vmem, tmp_val);
             }
-            else{
-                  bool exact = null_char_parse(tmp_str_ptr);
-                  narrow_mem_map_str(vmem, tmp_str_ptr, exact);
-            }
+            // if null_char_parse evaluates to true, we will want to do an exact string narrow
+            else narrow_mem_map_str(vmem, tmp_str_ptr, null_char_parse(tmp_str_ptr));
             if(vmem->size == 0){
                   printf("nothing matches your search of: %s\nresetting mem map\n", tmp_str_ptr);
                   // setting first to true to imitate behavior of first search and load, reducing space complexity by waiting to repopulate mem_map
                   first = true;
                   goto Find;
             }
+            if(!verbose && vmem->size > result_print_limit)
+                  printf("your search of %s has %i results\nresult_print_limit is set at %i. refusing to print\n", tmp_str_ptr, vmem->size, result_print_limit);
             else{
-                  if(!verbose && vmem->size > result_print_limit){
-                        printf("your search of %s has %i results\nresult_print_limit is set at %i. refusing to print\n", tmp_str_ptr, vmem->size, result_print_limit);
-                  }
-                  else{
-                        puts("matches are now:");
-                        print_mmap(vmem, "", integers, print_rgns);
-                  }
+                  puts("matches are now:");
+                  print_mmap(vmem, "", integers, print_rgns);
             }
             first = false;
       }
@@ -516,7 +511,11 @@ int main(int argc, char* argv[]){
                   }
             }
       }
-      pid_t pid = (pid_t)atoi(argv[1]);
+      pid_t pid;
+      if(!strtoi(argv[1], &pid)){
+            puts("enter a valid pid");
+            return -1;
+      }
       // initializing here extends scope to default behavior to avoid rescanning memory
       struct mem_map vmem;
       // vmem.size should be accurate
