@@ -487,7 +487,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char help_str[] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] -f [-S] [-H] [-B] [-A] [-E] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints all variables in specified memory region with corresponding virtual memory addresses. optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -f  : interactive mode (default)\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose (enables print region and ignores result_print_limit)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
+      char help_str[] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-f] [-S] [-H] [-B] [-A] [-E] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints values in specified memory region with optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -f  : interactive mode (default)\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose (enables print region and ignores result_print_limit)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
 
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             fputs("usage: ", stdout);
@@ -499,41 +499,25 @@ int main(int argc, char* argv[]){
       // TODO: initialize d_rgn to NONE and handle that case
       int d_rgn = STACK, n_bytes=4, result_print_limit=100;
       for(int i = 0; i < argc; ++i){
-            if(strcmp(argv[i], "-S") == 0){
-                  d_rgn = STACK;
-            }
-            if(strcmp(argv[i], "-H") == 0){
-                  d_rgn = HEAP;
-            }
-            if(strcmp(argv[i], "-B") == 0){
-                  d_rgn = BOTH;
-            }
-            if(strcmp(argv[i], "-A") == 0){
-                  additional = true;
-            }
-            if(strcmp(argv[i], "-E") == 0){
-                  additional = true;
-                  d_rgn = BOTH;
-            }
-            if(strcmp(argv[i], "-C") == 0){
-                  integers = false;
-            }
-            if(strcmp(argv[i], "-b") == 0){
-                  n_bytes = atoi(argv[i+1]);
-                  // TODO: i shouldn't depend on atoi of non int being 0 - this is undefined behavior - use strtol
-                  // atoi returns 0 if not valid int
-                  if(n_bytes == 0)n_bytes = 4;
-            }
-            if(strcmp(argv[i], "-v") == 0){
-                  verbose = true;
-                  print_rgns = true;
-            }
-            if(strcmp(argv[i], "-pr") == 0){
-                  print_rgns = true;
-            }
-            // print limit only has an effect on interactive mode
-            if(strcmp(argv[i], "-pl") == 0){
-                 result_print_limit = atoi(argv[i+1]);
+            if(*argv[i] == '-'){
+                  if(strlen(argv[i]) == 2){
+                        switch(argv[i][1]){
+                              case 'S': d_rgn = STACK; break;
+                              case 'H': d_rgn = HEAP; break;
+                              case 'B': d_rgn = BOTH; break;
+                              case 'A': additional = true; break;
+                              case 'E': additional = true; d_rgn = BOTH; break;
+                              case 'C': integers = false; break;
+                              case 'b': if(!strtoi(argv[i+1], &n_bytes))n_bytes = 4; break;
+                              case 'v': verbose = true; print_rgns = true; break;
+                        }
+                  }
+                  else if(argv[i][1] == 'p' && strlen(argv[i]) == 3){
+                        switch(argv[i][2]){
+                              case 'r': print_rgns = true; break;
+                              case 'l': if(!strtoi(argv[i+1], &result_print_limit))result_print_limit = 100; break;
+                        }
+                  }
             }
       }
       pid_t pid = (pid_t)atoi(argv[1]);
