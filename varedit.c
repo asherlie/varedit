@@ -371,7 +371,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                           }
                                     }
                               }
-                              // TODO: add show/print lock mode
                               // writing raw string to lock_pids regardless of string/int mode - this avoids the need to handle strings separately from ints
                               if(num_locks == lock_cap){
                                     lock_cap *= 2;
@@ -389,7 +388,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               lock_pids[num_locks-1].rng = !(v_loc[0] == v_loc[1]);
                               if(integers){
                                     lock_pids[num_locks-1].m_addr = vmem->mmap[v_loc[0]].addr;
-                                    // if we're locking values using "_" notation don't try to convert to int
+                                    // if we're locking values using "_" notation don't try to convert to_w to int
                                     if(strcmp(to_w, "_") != 0)lock_pids[num_locks-1].i_value = to_w_i;
                                     else lock_pids[num_locks-1].i_value = vmem->mmap[v_loc[0]].value;
                               }
@@ -418,9 +417,9 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                                 for(char* p = vmem->cp_mmap[i].value+to_w_len; *p <= 0 || *p >= 127; ++p)*p = 1;
                                           }
                                           else{
-                                               /* allocating enough space for updated string in mmap and 
-                                                * this string can contain anything as long as its length == strlen(to_w)
-                                                * it's about to be overwritten by update_mem_map, which will
+                                               /* allocating enough space for updated string in mmap
+                                                * this string can contain anything as long as its length >= strlen(to_w)
+                                                * it's about to be overwritten by update_mem_map anyway, which will
                                                 * ensure our individually malloc'd string has enough space for to_w
                                                 */
                                                 free(vmem->cp_mmap[i].value);
@@ -428,7 +427,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                                 memset(vmem->cp_mmap[i].value, 1, to_w_len+5+1);
                                           }
                                     }
-                                    // TODO: add option to zero entire string
+                                    // TODO: possibly add option to zero entire string
                                     write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, to_w);
                                     // write terminated string if \0 found
                                     if(nul)write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+strlen(to_w)), (BYTE*)"");
@@ -438,19 +437,16 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   }
             }
             // tmp_str != "w"
-            if(strcmp(tmp_str, "rv") == 0){ // rv for remove volatile for static - disqualifying all volatile vars
+            if(strcmp(tmp_str, "rv") == 0){ // rv for remove volatile - disqualifies all volatile vars
                   if(integers){
                         printf("%i volatile variables removed\n", remove_volatile_values(vmem));
                         goto Find;
                   }
             }
-            // checking if input is valid integer before populating mem_map
-            if((strcmp(tmp_str, "") == 0 || (integers && !strtoi(tmp_str, NULL)))){
-                  puts("enter a valid integer to search");
-                  goto Find;
-            }
-            else if(strcmp(tmp_str, "") == 0){
-                  puts("enter a valid string to search");
+            // checking if input is valid before calling populating mem_map
+            if(!*tmp_str || (integers && !strtoi(tmp_str, NULL))){
+                  if(integers)puts("enter a valid integer to search");
+                  else puts("enter a valid string to search");
                   goto Find;
             }
             if(first)populate_mem_map(vmem, vmem->pid, d_rgn, additional, integers, int_mode_bytes);
