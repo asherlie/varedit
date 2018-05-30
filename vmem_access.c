@@ -3,10 +3,6 @@
 #include <string.h>
 #include <sys/uio.h>
 
-#define STACK 0
-#define HEAP 1
-#define BOTH 2
-
 // with less than 1000000 values, it's faster to do individual reads for integers when updating mem_map
 #define RELOAD_CUTOFF 1000000
 /* 

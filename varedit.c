@@ -16,7 +16,10 @@ bool strtoi(const char* str, int* i){
 bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional){
       bool no_ad = (mem.n_remaining == 0 && additional);
       bool stack = true;
-      if(no_ad)fputs("WARNING: no valid unmarked memory regions were found\n", stderr);
+      if(no_ad){
+            fputs("WARNING: no valid unmarked memory regions were found\n", stderr);
+            if(d_rgn == NONE)return false;
+      }
       if((d_rgn == STACK || d_rgn == BOTH) && (mem.stack.start == NULL || mem.stack.end == NULL)){
             fputs("WARNING: no valid stack memory region was found\n", stderr);
             if(d_rgn == STACK && (no_ad || !additional))return false;
@@ -108,7 +111,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       if(d_rgn == STACK)printf("stack");
       if(d_rgn == HEAP)printf("heap");
       if(d_rgn == BOTH)printf("both stack and heap");
-      if(additional && vmem->mapped_rgn.n_remaining != 0)printf(" as well as %i additional memory regions", vmem->mapped_rgn.n_remaining);
+      if(additional && vmem->mapped_rgn.n_remaining != 0){
+            if(d_rgn != NONE)printf(" as well as %i additional memory regions", vmem->mapped_rgn.n_remaining);
+            else printf("%i additional memory regions", vmem->mapped_rgn.n_remaining);
+      }
       printf(" - looking for ");
       if(integers)puts("integers");
       else puts("strings");
@@ -487,8 +493,7 @@ int main(int argc, char* argv[]){
             return -1;
       }
       bool integers = true, additional=false, verbose=false, print_rgns=false;
-      // TODO: initialize d_rgn to NONE and handle that case
-      int d_rgn = STACK, n_bytes=4, result_print_limit=100;
+      int d_rgn = NONE, n_bytes=4, result_print_limit=100;
       for(int i = 0; i < argc; ++i){
             if(*argv[i] == '-'){
                   if(strlen(argv[i]) == 2){
@@ -511,6 +516,8 @@ int main(int argc, char* argv[]){
                   }
             }
       }
+      // default to stack if no region specified
+      if(d_rgn == NONE && !additional)d_rgn = STACK;
       pid_t pid;
       if(!strtoi(argv[1], &pid)){
             puts("enter a valid pid");
