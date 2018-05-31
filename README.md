@@ -113,17 +113,17 @@ struct mem_rgn rgn;
 pid_memcpy(getpid(), src_pid, &rgn, addr_mem_rgn, sizeof(struct mem_rgn));
 ```
 
-the remaining functions defined in vmem_access.h are used for creating and manipulating `mem_map` objects defined in vmem_access.h
-* void populate_mem_map(mem_map &mmap, pid_t pid, int d_rgn, bool use_additional_rgns, bool integers, int bytes)
-* void update_mem_map(mem_map &mem, bool integers)
-* void narrow_mem_map_int(mem_map &mem, int match)
-* void narrow_mem_map_str(mem_map &mem, const char* match, bool exact)
+the remaining functions defined in vmem_access.h are used for creating and manipulating `mem_map` structs defined in vmem_access.h
+* void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_additional_rgns, bool integers, int bytes)
+* void update_mem_map(struct mem_map* mem, bool integers)
+* void narrow_mem_map_int(struct mem_map* mem, int match)
+* void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact)
 
-in order to use these functions, an initial `mem_map` object must be created, and its attribute `mapped_rgn` must be set using `get_vmem_locations(pid_t, bool)` defined in vmem_parser.h
+in order to use these functions, an initial `mem_map` struct must be created, and its attribute `mapped_rgn` must be set using `get_vmem_locations(pid_t, bool)` defined in vmem_parser.h
 
 `mem_map.mapped_rgn` is of type `mem_rgn`, which is defined in vmem_parser.h and contains the virtual memory address ranges of different sections of process memory.
 
-The initialization and population of a `mem_map` object is demonstrated below, populating it with integers from both the stack and heap, as well as any additional memory regions that are found
+The initialization and population of a `mem_map` struct is demonstrated below, populating it with integers from both the stack and heap, as well as any additional memory regions that are found
 ```c
 // assuming pid_t pid = some valid process id 
 mem_map vmem;
