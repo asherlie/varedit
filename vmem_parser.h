@@ -1,7 +1,7 @@
-#define STACK 0         
-#define HEAP  1         
-#define BOTH  2         
-#define NONE  3         
+#define NONE  -1
+#define STACK  0
+#define HEAP   1
+#define BOTH   2
 
 #include <stdio.h>
 #include <stdbool.h>
