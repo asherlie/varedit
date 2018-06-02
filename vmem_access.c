@@ -148,6 +148,7 @@ void resize_str_mmap(struct mem_map* c_mm, unsigned int* m_size, int factor){
 }
 
 void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_additional_rgns, bool integers, int bytes){
+      mmap->size = 0;
       mmap->int_mode_bytes = bytes;
       mmap->d_rgn = d_rgn;
       mmap->use_addtnl = use_additional_rgns;

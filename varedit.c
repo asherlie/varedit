@@ -223,17 +223,15 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         // TODO: possibly update_mem_map here to print accurate values in write mode
                         // update_mem_map(vmem, integers);
-                        if(integers){
+                        if(integers)
                               for(unsigned int i = 0; i < vmem->size; ++i){
                                     printf("%i: (%p: %i)\n", i, vmem->mmap[i].addr, vmem->mmap[i].value);
-                              }
                         }
                         else{
-                              for(unsigned int i = 0; i < vmem->size; ++i){
+                              for(unsigned int i = 0; i < vmem->size; ++i)
                                     printf("%i: (%p: \"%s\")\n", i, vmem->cp_mmap[i].addr, vmem->cp_mmap[i].value);
-                              }
                         }
-                        printf("enter a number from [0-%i] or a range with a '-', followed by a value to write OR 's' to continue searching\n", vmem->size-1);
+                        printf("enter a number from [0-%i] or a range with a '-' followed by a value to write OR 's' to continue searching\n", vmem->size-1);
                         // width is 1 less than length of length of v_loc_s to avoid overwriting '\0'
                         // ignore leading whitespace
                         scanf(" %9[^ \t\n]%*c", v_loc_s);
@@ -487,16 +485,16 @@ int main(int argc, char* argv[]){
       char help_str[] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-f] [-S] [-H] [-B] [-A] [-E] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints values in specified memory region with optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -f  : interactive mode (default)\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose (enables print region and ignores result_print_limit)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
 
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
-            fputs("usage: ", stdout);
-            fputs(argv[0], stdout);
+            printf("usage: %s", argv[0]);
             puts(help_str);
             return -1;
       }
-      bool integers = true, additional=false, verbose=false, print_rgns=false;
+      bool integers=true, additional=false, verbose=false, print_rgns=false;
       int d_rgn = NONE, n_bytes=4, result_print_limit=100;
-      for(int i = 0; i < argc; ++i){
+      for(int i = 1; i < argc; ++i){
             if(*argv[i] == '-'){
-                  if(strlen(argv[i]) == 2){
+                  // if strlen == 2
+                  if(argv[i][1] && !argv[i][2]){
                         switch(argv[i][1]){
                               case 'S': d_rgn = STACK; break;
                               case 'H': d_rgn = HEAP; break;
@@ -508,10 +506,11 @@ int main(int argc, char* argv[]){
                               case 'v': verbose = true; print_rgns = true; break;
                         }
                   }
-                  else if(argv[i][1] == 'p' && strlen(argv[i]) == 3){
+                  // strlen == 3 and begins with -p
+                  else if(argv[i][1] == 'p' && argv[i][2] && !argv[i][3]){
                         switch(argv[i][2]){
                               case 'r': print_rgns = true; break;
-                              case 'l': if(!strtoi(argv[i+1], &result_print_limit))result_print_limit = 100; break;
+                              case 'l': if(!argv[i+1] || !strtoi(argv[i+1], &result_print_limit))result_print_limit = 100; break;
                         }
                   }
             }
@@ -525,8 +524,6 @@ int main(int argc, char* argv[]){
       }
       // initializing here extends scope to default behavior to avoid rescanning memory
       struct mem_map vmem;
-      // vmem.size should be accurate
-      vmem.size = 0;
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.cpp
       vmem.mapped_rgn = get_vmem_locations(pid, false); // disabling unmarked additional rgns until criteria for unmarked additional mem rgns are fixed
       if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional)){
@@ -542,8 +539,8 @@ int main(int argc, char* argv[]){
                         char* str = read_str_from_mem_range_slow(pid, (void*)strtoul(argv[3], NULL, 16), NULL);
                         printf("%s\n", str);
                         free(str);
-                        free_mem_rgn(&vmem.mapped_rgn);
                   }
+                  free_mem_rgn(&vmem.mapped_rgn);
                   return 0;
             }
             if(strcmp(argv[2], "-w") == 0){
