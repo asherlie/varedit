@@ -482,7 +482,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char help_str[] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-f] [-S] [-H] [-B] [-A] [-E] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints values in specified memory region with optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -f  : interactive mode (default)\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose (enables print region and ignores result_print_limit)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
+      char help_str[] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}\n    -p  : prints values in specified memory region with optional filter\n    -r  : read single value from virtual memory address\n    -w  : write single value to virtual memory address\n    -i  : interactive mode (default)\n    -S  : use stack (default)\n    -H  : use heap\n    -B  : use both heap and stack\n    -A  : look for additional memory regions\n    -E  : use all available memory regions\n    -C  : use char/string mode\n    -b  : set number of bytes to read at a time in integer mode\n    -v  : verbose (enables print region and ignores result_print_limit)\n    -pr : print region that memory addresses are found in\n    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
 
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             printf("usage: %s", argv[0]);
@@ -557,7 +557,7 @@ int main(int argc, char* argv[]){
                   free_mem_rgn(&vmem.mapped_rgn);
                   return 0;
             }
-            if(strcmp(argv[2], "-f") == 0){
+            if(strcmp(argv[2], "-i") == 0){
                   SAFE_INTER:
                   vmem.pid = pid;
                   if(interactive_mode(&vmem, integers, n_bytes, d_rgn, additional, verbose, result_print_limit, print_rgns)){
