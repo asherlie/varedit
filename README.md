@@ -28,19 +28,18 @@ vmem_access is a library created to make programs like varedit easier to write
 
 all code using this library must be compiled with the flag -D_GNU_SOURCE
 
+
 the boolean macros `LOW_MEM` and `FORCE_BLOCK_STR` change the behavior of functions that interact with `mem_map`s
 
 `FORCE_BLOCK_STR` defaults to true
 
 `FORCE_BLOCK_STR` should be set to false only if you are using a computer with very little memory
 
+the block string representation of strings is much faster than individually allocated strings but sacrifices memory
+
 if(FORCE_BLOCK_STR):
-
-      strings are never individually allocated, instead, they are kept in large blocks by memory region and freed when possible
-
-      `FORCE_BLOCK_STR` takes precedence over `LOW_MEM`, even if `LOW_MEM` is enabled, strings will never be individually allocated
-
-      the block string representation of strings is much faster than individually allocated strings but sacrifices memory
+* strings are never individually allocated, instead, they are kept in large blocks by memory region and freed when possible
+* `FORCE_BLOCK_STR` takes precedence over `LOW_MEM`, even if `LOW_MEM` is enabled, strings will never be individually allocated
 
 
 `LOW_MEM` defaults to false
@@ -48,12 +47,9 @@ if(FORCE_BLOCK_STR):
 `LOW_MEM` should be set to true only if you are using a computer with very little memory
 
 if(LOW_MEM):
-
-      memory intensive integer mem_map optimizations are disabled
-
-      if `FORCE_BLOCK_STR` is not enabled, strings are individually allocated
-
-      otherwise, unused memory blocks containing strings are freed as soon as possible, sacrificing speed
+* memory intensive integer mem_map optimizations are disabled
+* if `FORCE_BLOCK_STR` is not enabled, strings are individually allocated
+* otherwise, unused memory blocks containing strings are freed as soon as possible, sacrificing speed
 
 
 vmem_access.h contains the following functions for reading and writing to virtual memory
