@@ -1,6 +1,4 @@
 #include <string.h>
-#include <unistd.h> // fork()
-
 #include <signal.h> // kill()
 #include <sys/wait.h> // wait()
 

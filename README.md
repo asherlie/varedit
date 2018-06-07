@@ -26,10 +26,12 @@
 
 vmem_access is a library created to make programs like varedit easier to write
 
-all code using this library must be compiled with the flag -D_GNU_SOURCE
+vmem_access relies on linux specific system calls and will not work on any other platform. all code using this library must be compiled with the flag -D_GNU_SOURCE
+
 
 
 the boolean macros `LOW_MEM` and `FORCE_BLOCK_STR` change the behavior of functions that interact with `mem_map`s
+### FORCE_BLOCK_STR
 
 `FORCE_BLOCK_STR` defaults to true
 
@@ -37,22 +39,23 @@ the boolean macros `LOW_MEM` and `FORCE_BLOCK_STR` change the behavior of functi
 
 the block string representation of strings is much faster than individually allocated strings but sacrifices memory
 
-if(FORCE_BLOCK_STR):
+#### if FORCE_BLOCK_STR is enabled:
 * strings are never individually allocated, instead, they are kept in large blocks by memory region and freed when possible
-* `FORCE_BLOCK_STR` takes precedence over `LOW_MEM`, even if `LOW_MEM` is enabled, strings will never be individually allocated
+* `FORCE_BLOCK_STR` takes precedence over `LOW_MEM`. even if `LOW_MEM` is enabled, strings will never be individually allocated
 
+### LOW_MEM
 
 `LOW_MEM` defaults to false
 
 `LOW_MEM` should be set to true only if you are using a computer with very little memory
 
-if(LOW_MEM):
+#### if LOW_MEM is enabled:
 * memory intensive integer mem_map optimizations are disabled
 * if `FORCE_BLOCK_STR` is not enabled, strings are individually allocated
 * otherwise, unused memory blocks containing strings are freed as soon as possible, sacrificing speed
 
 
-vmem_access.h contains the following functions for reading and writing to virtual memory
+#### vmem_access.h contains the following functions for reading and writing to virtual memory
 * bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e)
 * BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e) // BYTE* is unsigned char
 * int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm)
