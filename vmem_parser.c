@@ -28,7 +28,7 @@ const char* which_rgn(struct mem_rgn rgn, void* addr, int* res){
                   return "unmarked";
             }
       }
-      *res = -1;
+      if(res)*res = -1;
       return NULL;
 }
 

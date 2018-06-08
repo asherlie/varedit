@@ -77,7 +77,7 @@ int main(int argc, char* argv[]){
     // memory addresses must be cast to void* to work with read_bytes_from_pid_mem
     void* mem_addr = (void*)strtoul(argv[2], 0, 16);
     // the final parameter of read_bytes_from_pid_mem is NULL when reading a single value
-    // read_bytes_from_pid_mem returns the pointer to a BYTE array obtained with malloc()
+    // read_bytes_from_pid_mem returns a pointer to a BYTE array obtained with malloc()
     // this memory should be freed using free()
     BYTE* bytes = read_bytes_from_pid_mem(pid, sizeof(int), mem_addr, NULL);
     int value = *((int*)bytes);
@@ -148,16 +148,15 @@ the remaining functions defined in vmem_access.h are used for creating and manip
 
 in order to use these functions, an initial `mem_map` struct must be created, and its attribute `mapped_rgn` must be set using `get_vmem_locations(pid_t, bool)` defined in vmem_parser.h
 
-`mem_map.mapped_rgn` is of type `mem_rgn`, which is defined in vmem_parser.h and contains the virtual memory address ranges of different sections of process memory.
+`mem_map.mapped_rgn` is of type `mem_rgn`, which is defined in vmem_parser.h and contains the virtual memory address ranges of each section of process memory.
 
 The initialization and population of a `mem_map` struct is demonstrated below, populating it with integers from both the stack and heap, as well as any additional memory regions that are found
 ```c
 // assuming pid_t pid = some valid process id 
-mem_map vmem;
-vmem.size = 0;
+struct mem_map vmem;
 vmem.mapped_rgn = get_vmem_locations(pid, true);
 // BOTH is a macro that indicates we will be searching both the stack and heap
-populate_mem_map(vmem, pid, BOTH, true, true, 4);
+populate_mem_map(vmem, pid, BOTH, true, true, sizeof(int));
 free_mem_rgn(&vmem.mapped_rgn);
 free_mem_map(&vmem);
 ```
