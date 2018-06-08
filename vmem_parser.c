@@ -71,12 +71,28 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
             *(end_add++) = '\0';
             void* l_start_add = (void*)strtoul(start_add, NULL, 16);
             void* l_end_add = (void*)strtoul(end_add, NULL, 16);
-            char* sl = strchr(space, '/');
-            if(sl){
-                  if(p_end != l_start_add && (strstr(sl, vmem.p_name) || unmarked_additional)){
-                        struct m_addr_pair tmp_pair;
-                        tmp_pair.start = l_start_add;
-                        tmp_pair.end = l_end_add;
+            char* sl;
+            // TODO: make the criteria for unmarked_additional more strict/correct
+            if(unmarked_additional){
+                  if(vmem.n_remaining == rem_alloc_sz){
+                        ++rem_alloc_sz;
+                        if(first_unmarked){
+                              first_unmarked = false;
+                              vmem.remaining_addr = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
+                        }
+                        else {
+                              struct m_addr_pair* tmp_realloc = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
+                              memcpy(tmp_realloc, vmem.remaining_addr, sizeof(struct m_addr_pair)*(rem_alloc_sz-1));
+                              free(vmem.remaining_addr);
+                              vmem.remaining_addr = tmp_realloc;
+                        }
+                  }
+                  vmem.remaining_addr[vmem.n_remaining].start = l_start_add;
+                  vmem.remaining_addr[vmem.n_remaining++].end = l_end_add;
+            }
+            else if((sl = strchr(space, '/'))){
+                  // TODO: look into this precaution - does it make sense
+                  if(p_end != l_start_add && (strstr(sl, vmem.p_name))){
                         if(vmem.n_remaining == rem_alloc_sz){
                               ++rem_alloc_sz;
                               if(first_unmarked){
@@ -90,7 +106,8 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
                                     vmem.remaining_addr = tmp_realloc;
                               }
                         }
-                        vmem.remaining_addr[vmem.n_remaining++] = tmp_pair;
+                        vmem.remaining_addr[vmem.n_remaining].start = l_start_add;
+                        vmem.remaining_addr[vmem.n_remaining++].end = l_end_add;
                   }
             }
             char* desc = strchr(space, '[');

@@ -522,7 +522,7 @@ int main(int argc, char* argv[]){
       }
       // initializing here extends scope to default behavior to avoid rescanning memory
       struct mem_map vmem;
-      // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.cpp
+      // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.c
       vmem.mapped_rgn = get_vmem_locations(pid, false); // disabling unmarked additional rgns until criteria for unmarked additional mem rgns are fixed
       if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional)){
             puts("you DO have root privileges, don't you");
