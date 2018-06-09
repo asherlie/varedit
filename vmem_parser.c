@@ -62,7 +62,6 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
       int rem_alloc_sz = 0;
       void* p_end = NULL;
       size_t sz = 0;
-      bool first_unmarked = true;
       while(getline(&tmp, &sz, fp) != -1){
             char* start_add = tmp;
             char* end_add = strchr(tmp, '-');
@@ -76,11 +75,8 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
             if(unmarked_additional){
                   if(vmem.n_remaining == rem_alloc_sz){
                         ++rem_alloc_sz;
-                        if(first_unmarked){
-                              first_unmarked = false;
-                              vmem.remaining_addr = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
-                        }
-                        else {
+                        if(vmem.n_remaining == 0)vmem.remaining_addr = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
+                        else{
                               struct m_addr_pair* tmp_realloc = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
                               memcpy(tmp_realloc, vmem.remaining_addr, sizeof(struct m_addr_pair)*(rem_alloc_sz-1));
                               free(vmem.remaining_addr);
@@ -95,11 +91,8 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
                   if(p_end != l_start_add && (strstr(sl, vmem.p_name))){
                         if(vmem.n_remaining == rem_alloc_sz){
                               ++rem_alloc_sz;
-                              if(first_unmarked){
-                                    first_unmarked = false;
-                                    vmem.remaining_addr = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
-                              }
-                              else {
+                              if(vmem.n_remaining == 0)vmem.remaining_addr = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
+                              else{
                                     struct m_addr_pair* tmp_realloc = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
                                     memcpy(tmp_realloc, vmem.remaining_addr, sizeof(struct m_addr_pair)*(rem_alloc_sz-1));
                                     free(vmem.remaining_addr);
