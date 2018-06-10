@@ -71,7 +71,7 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
             void* l_start_add = (void*)strtoul(start_add, NULL, 16);
             void* l_end_add = (void*)strtoul(end_add, NULL, 16);
             char* sl;
-            // TODO: make the criteria for unmarked_additional more strict/correct
+            // TODO: make the criteria for unmarked_additional more strict/correct, too many regions are being returned
             if(unmarked_additional){
                   if(vmem.n_remaining == rem_alloc_sz){
                         ++rem_alloc_sz;

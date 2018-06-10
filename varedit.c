@@ -486,7 +486,7 @@ int main(int argc, char* argv[]){
             puts(help_str);
             return -1;
       }
-      bool integers=true, additional=false, verbose=false, print_rgns=false;
+      bool integers=true, additional=false, verbose=false, print_rgns=false, unmarked=false;
       int d_rgn = NONE, n_bytes=4, result_print_limit=100;
       for(int i = 1; i < argc; ++i){
             if(*argv[i] == '-'){
@@ -498,6 +498,7 @@ int main(int argc, char* argv[]){
                               case 'B': d_rgn = BOTH; break;
                               case 'A': additional = true; break;
                               case 'E': additional = true; d_rgn = BOTH; break;
+                              case 'U': unmarked = true; break;
                               case 'C': integers = false; break;
                               case 'b': if(!strtoi(argv[i+1], &n_bytes))n_bytes = 4; break;
                               case 'v': verbose = true; print_rgns = true; break;
@@ -519,10 +520,10 @@ int main(int argc, char* argv[]){
             puts("enter a valid pid");
             return -1;
       }
-      // initializing here extends scope to default behavior to avoid rescanning memory
+      // initializing vmem here extends scope to default behavior to avoid rescanning memory
       struct mem_map vmem;
-      // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.c
-      vmem.mapped_rgn = get_vmem_locations(pid, false); // disabling unmarked additional rgns until criteria for unmarked additional mem rgns are fixed
+      // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.c, too many regions are being recorded
+      vmem.mapped_rgn = get_vmem_locations(pid, unmarked);
       if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional)){
             puts("you DO have root privileges, don't you");
             return -1;
