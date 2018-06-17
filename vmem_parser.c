@@ -68,7 +68,11 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
             void* l_end_add = (void*)strtoul(end_add, NULL, 16);
             char* sl;
             // TODO: make the criteria for unmarked_additional more strict/correct, too many regions are being returned
-            if(unmarked_additional){
+            // TODO: look into the p_end != l_start_add precaution, it is only correct to use as a criterion in some circumstances
+            // in others, it will ignore important values, for example, variables in the python interpreter
+            // the commented line below is much less strict for unmarked_additional
+            /*if(unmarked_additional || (p_end != l_start_add && ((sl = strchr(space, '/')) && strstr(sl, vmem.p_name)))){*/
+            if(p_end != l_start_add && (unmarked_additional || (((sl = strchr(space, '/')) && strstr(sl, vmem.p_name))))){
                   if(vmem.n_remaining == rem_alloc_sz){
                         ++rem_alloc_sz;
                         if(vmem.n_remaining == 0)vmem.remaining_addr = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
@@ -81,23 +85,6 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
                   }
                   vmem.remaining_addr[vmem.n_remaining].start = l_start_add;
                   vmem.remaining_addr[vmem.n_remaining++].end = l_end_add;
-            }
-            else if((sl = strchr(space, '/'))){
-                  // TODO: look into this precaution - does it make sense
-                  if(p_end != l_start_add && (strstr(sl, vmem.p_name))){
-                        if(vmem.n_remaining == rem_alloc_sz){
-                              ++rem_alloc_sz;
-                              if(vmem.n_remaining == 0)vmem.remaining_addr = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
-                              else{
-                                    struct m_addr_pair* tmp_realloc = malloc(sizeof(struct m_addr_pair)*rem_alloc_sz);
-                                    memcpy(tmp_realloc, vmem.remaining_addr, sizeof(struct m_addr_pair)*(rem_alloc_sz-1));
-                                    free(vmem.remaining_addr);
-                                    vmem.remaining_addr = tmp_realloc;
-                              }
-                        }
-                        vmem.remaining_addr[vmem.n_remaining].start = l_start_add;
-                        vmem.remaining_addr[vmem.n_remaining++].end = l_end_add;
-                  }
             }
             char* desc = strchr(space, '[');
             if(desc){

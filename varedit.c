@@ -516,7 +516,7 @@ int main(int argc, char* argv[]){
                               case 'E': additional = true; d_rgn = BOTH; break;
                               case 'U': unmarked = true; break;
                               case 'C': integers = false; break;
-                              case 'b': if(!strtoi(argv[i+1], &n_bytes))n_bytes = 4; break;
+                              case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], &n_bytes))n_bytes = 4; break;
                               case 'v': verbose = true; print_rgns = true; break;
                         }
                   }
@@ -524,7 +524,7 @@ int main(int argc, char* argv[]){
                   else if(argv[i][1] == 'p' && argv[i][2] && !argv[i][3]){
                         switch(argv[i][2]){
                               case 'r': print_rgns = true; break;
-                              case 'l': if(!argv[i+1] || !strtoi(argv[i+1], &result_print_limit))result_print_limit = 100; break;
+                              case 'l': if(!(argc > i+1) || !strtoi(argv[i+1], &result_print_limit))result_print_limit = 100; break;
                         }
                   }
             }
