@@ -33,12 +33,11 @@ const char* which_rgn(struct mem_rgn rgn, void* addr, int* res){
 }
 
 char* get_proc_name(pid_t pid){        
-      char path[100];
-      strcpy(path, "/proc/");
+      char path[30];
       sprintf(path, "/proc/%i/cmdline", pid);
       char* line = NULL;
       FILE* fp = fopen(path, "r");
-      if(fp == NULL)return line;
+      if(!fp)return line;
       size_t sz = 0;
       getline(&line, &sz, fp);
       fclose(fp);
@@ -48,21 +47,18 @@ char* get_proc_name(pid_t pid){
 
 struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
       char* tmp = NULL;
-      char map_path[100];
+      char map_path[30];
       sprintf(map_path, "/proc/%i/maps", pid);
-      FILE* fp = fopen(map_path, "r");
       struct mem_rgn vmem;
       vmem.p_name = get_proc_name(pid);
-      vmem.stack.start = NULL;
-      vmem.stack.end = NULL;
-      vmem.heap.start = NULL;
-      vmem.heap.end = NULL;
+      vmem.heap.end = vmem.heap.start = vmem.stack.end = vmem.stack.start = NULL;
       vmem.n_remaining = 0;
-      if(fp == NULL)return vmem;
+      FILE* fp = fopen(map_path, "r");
+      if(!fp)return vmem;
       int rem_alloc_sz = 0;
       void* p_end = NULL;
       size_t sz = 0;
-      while(getline(&tmp, &sz, fp) != -1){
+      while(getline(&tmp, &sz, fp) != EOF){
             char* start_add = tmp;
             char* end_add = strchr(tmp, '-');
             char* space = strchr(end_add, ' ');
