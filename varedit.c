@@ -497,7 +497,6 @@ int main(int argc, char* argv[]){
       "    -v  : verbose (enables print region and ignores result_print_limit)\n"
       "    -pr : print region that memory addresses are found in\n"
       "    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
-      printf("help motha A%li\n", strlen(help_str));
       strncpy(help_str+941, "\x66\x6f\x72\x20\x6d\x65\x65\x6e\x61", 10);
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             printf("usage: %s", argv[0]);
