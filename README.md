@@ -56,16 +56,16 @@ the block string representation of strings is much faster than individually allo
 
 
 #### vmem_access.h contains the following functions for reading and writing to virtual memory
-* bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e)
-* BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e) // BYTE* is unsigned char
-* int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm)
-* char* read_str_from_mem_range(pid_t pid, void* mb_start, int len)
-* char* read_str_from_mem_range_slow_dir(char* dest, pid_t pid, void* mb_start, int min_strlen, void* last_avail)
-* char* read_str_from_mem_range_slow(pid_t pid, void* mb_start, void* mb_end)
-* bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_bytes)
-* bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, int value)
-* bool write_int_to_pid_mem(pid_t pid, void* vm, int value)
-* bool write_str_to_pid_mem(pid_t pid, void* vm, const char* str)
+* `bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e)`
+* `BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e)` // BYTE* is unsigned char
+* `int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm)`
+* `char* read_str_from_mem_range(pid_t pid, void* mb_start, int len)`
+* `char* read_str_from_mem_range_slow_dir(char* dest, pid_t pid, void* mb_start, int min_strlen, void* last_avail)`
+* `char* read_str_from_mem_range_slow(pid_t pid, void* mb_start, void* mb_end)`
+* `bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_bytes)`
+* `bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, int value)`
+* `bool write_int_to_pid_mem(pid_t pid, void* vm, int value)`
+* `bool write_str_to_pid_mem(pid_t pid, void* vm, const char* str)`
 ##### the following is a simple program written using vmem_access.h that will print the value stored in the specified virtual memory location of the specified process id
 ```c
 #include <stdio.h>
@@ -141,10 +141,10 @@ pid_memcpy(getpid(), src_pid, &rgn, addr_mem_rgn, sizeof(struct mem_rgn));
 ```
 
 the remaining functions defined in vmem_access.h are used for creating and manipulating `mem_map` structs defined in vmem_access.h
-* void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_additional_rgns, bool integers, int bytes)
-* void update_mem_map(struct mem_map* mem, bool integers)
-* void narrow_mem_map_int(struct mem_map* mem, int match)
-* void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact)
+* `void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_additional_rgns, bool integers, int bytes)`
+* `void update_mem_map(struct mem_map* mem, bool integers)`
+* `void narrow_mem_map_int(struct mem_map* mem, int match)`
+* `void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact)`
 
 in order to use these functions, an initial `mem_map` struct must be created, and its attribute `mapped_rgn` must be set using `get_vmem_locations(pid_t, bool)` defined in vmem_parser.h
 
