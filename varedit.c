@@ -83,6 +83,23 @@ bool null_char_parse(char* str){
       return false;
 }
 
+// used to parse the ^ char that demarcates beginning of string
+bool caret_parse(char* str){
+      char* c = str;
+      while((c = strchr(c, '^'))){
+            if(c > str && *(c-1) == '\\'){
+                  for(char* i = c-1; *i != '\0'; ++i)*i = *(i+1);
+                  ++c;
+                  continue;
+            }
+            unsigned int cl = strlen(c+1);
+            memcpy(str, c+1, cl);
+            str[cl] = '\0';
+            return true;
+      }
+      return false;
+}
+
 void print_locks(struct lock_container* locks, unsigned char num_locks, unsigned char l_removed, bool integers){
       if(num_locks-l_removed == 0){
             puts("no locks are currently in place");
@@ -462,8 +479,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   tmp_val = atoi(tmp_str_ptr);
                   narrow_mem_map_int(vmem, tmp_val);
             }
-            // if null_char_parse evaluates to true, we will want to do an exact string narrow
-            else narrow_mem_map_str(vmem, tmp_str_ptr, null_char_parse(tmp_str_ptr));
+            // if caret_parse evaluates to true, exact_s, if null_char_parse, exact_e
+            else narrow_mem_map_str(vmem, tmp_str_ptr, caret_parse(tmp_str_ptr), null_char_parse(tmp_str_ptr));
             if(vmem->size == 0){
                   printf("nothing matches your search of: %s\nresetting mem map\n", tmp_str_ptr);
                   // setting first to true to imitate behavior of first search and load, reducing space complexity by waiting to repopulate mem_map
@@ -543,6 +560,7 @@ int main(int argc, char* argv[]){
       vmem.mapped_rgn = get_vmem_locations(pid, unmarked);
       if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional)){
             puts("you DO have root privileges, don't you");
+            free_mem_rgn(&vmem.mapped_rgn);
             return -1;
       }
       if(argc > 2){
