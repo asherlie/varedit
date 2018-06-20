@@ -93,7 +93,7 @@ bool caret_parse(char* str){
                   continue;
             }
             unsigned int cl = strlen(c+1);
-            memcpy(str, c+1, cl);
+            memmove(str, c+1, cl);
             str[cl] = '\0';
             return true;
       }

@@ -21,6 +21,7 @@
   ```
   sudo ./v 139 -E -C
   ```
+
    
 # vmem_access
 
@@ -144,7 +145,7 @@ the remaining functions defined in vmem_access.h are used for creating and manip
 * `void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_additional_rgns, bool integers, int bytes)`
 * `void update_mem_map(struct mem_map* mem, bool integers)`
 * `void narrow_mem_map_int(struct mem_map* mem, int match)`
-* `void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact)`
+* `void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bool exact_e)`
 
 in order to use these functions, an initial `mem_map` struct must be created, and its attribute `mapped_rgn` must be set using `get_vmem_locations(pid_t, bool)` defined in vmem_parser.h
 
