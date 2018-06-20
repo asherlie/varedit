@@ -344,23 +344,12 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bo
       unsigned int initial = mem->size;
       int mlen = strlen(match);
       for(unsigned int i = 0; i < mem->size; ++i){
-            // TODO: this might be redundant
-            if(exact_s && exact_e){
-                  if(strcmp(mem->cp_mmap[i].value, match) != 0){
-                        if(!mem->blk->in_place)free(mem->cp_mmap[i].value);
-                        --mem->size;
-                        if(mem->size == 0)break;
-                        mem->cp_mmap[i--] = mem->cp_mmap[mem->size];
-                  }
-            }
-            else{
-                  char* s = strstr(mem->cp_mmap[i].value, match);
-                  if(!s || (exact_s && s != mem->cp_mmap[i].value) || (exact_e && s[mlen] != '\0')){
-                        if(!mem->blk->in_place)free(mem->cp_mmap[i].value);
-                        --mem->size;
-                        if(mem->size == 0)break;
-                        mem->cp_mmap[i--] = mem->cp_mmap[mem->size];
-                  }
+            char* s = strstr(mem->cp_mmap[i].value, match);
+            if(!s || (exact_s && s != mem->cp_mmap[i].value) || (exact_e && s[mlen] != '\0')){
+                  if(!mem->blk->in_place)free(mem->cp_mmap[i].value);
+                  --mem->size;
+                  if(mem->size == 0)break;
+                  mem->cp_mmap[i--] = mem->cp_mmap[mem->size];
             }
       }
       // to make sure not to try to reallocate empty mmap with resize
