@@ -44,7 +44,8 @@ usage: ./v <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <valu
 * the delimeter '\\' can be used to search for '?', 'q', 'u', 'r' and 'w' in string mode
 * a '^' in a search string acts as it would in a regular expression. it marks the beginning of a target string of our search, it will only accept exact matches to the start of a string
 * "\\0" marks the end of a target string of our search, it will only accept exact matches to the end of a string
-* because of the behavior of '^' and "\0" in search strings, the two can be used together to search for strings whose exact values are known, ^string\0, for example, can be used to find strings that exactly match "string"
+* because of the behavior of '^' and "\0" in search strings, the two can be used together to search for strings whose exact values are known, ^string\0, for example, can be used to find strings that exactly match "string". this search would be equivalent to the search foo^string\0bar
+* a "\0" in any write string will be replaced with a NUL character unless escaped with a '\'. this can be used to shorten strings
 
 ### some examples of common usage
 ##### find the virtual memory address of a string containing "hello" in process with pid 487, searching in all available memory locations:

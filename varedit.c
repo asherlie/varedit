@@ -124,7 +124,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       char write_mode_help[468+96];
       prog = write_mode_help;
       if(!integers)prog = stpncpy(prog, "NOTE: a \"\\0\" in any write string will be replaced with a NUL character unless escaped with a \'\\\'\n", 124);
-      strncpy(prog, "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)\n    rl <lock number> : remove specified lock\n    ? : show this\n    q : quit", 467);
+      strncpy(prog, "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)\n    rl <lock number> : remove specified lock\n    ? : show this\n    q : quit", 468);
       printf("in interactive mode on process %i (%s)\nusing ", vmem->pid, vmem->mapped_rgn.p_name);
       if(d_rgn == STACK)printf("stack");
       if(d_rgn == HEAP)printf("heap");
@@ -169,7 +169,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             }
             // TODO: add ability to rescan memory regions and update vmem->mapped_rgn
             if(strcmp(tmp_str, "?") == 0){
-                  printf("%s\n", search_mode_help);
+                  puts(search_mode_help);
                   goto Find;
             }
             if(strcmp(tmp_str, "u") == 0){
