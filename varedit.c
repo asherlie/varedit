@@ -116,13 +116,15 @@ void print_locks(struct lock_container* locks, unsigned char num_locks, unsigned
 }
 
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
-      char search_mode_help[650];
-      char* prog;
-      prog = stpcpy(search_mode_help, "search mode options:\n    r : reset mem map\n    wa <value> : write single value to all current results\n    ");
-      if(integers)prog = stpcpy(prog, "<integer> : enter an integer to narrow results\n    rv : remove volatile variables\n    ");
-      else prog = stpcpy(prog, "<string> : enter a string to narrow results - end string with \"\\0\" to search for exact strings or use delimeter '\\' to search for '?', 'q', 'u', 'r', 'w'\n    ");
+      char search_mode_help[650+123+116];
+      char* prog = search_mode_help;
+      if(!integers)prog = stpcpy(search_mode_help, "NOTE: '^' marks the beginning of a target string of our search, it will only accept exact matches to the start of a string\nNOTE: \"\\0\" marks the end of a target string of our search, it will only accept exact matches to the end of a string\nsearch mode options:\n    r : reset mem map\n    wa <value> : write single value to all current results\n    <string> : enter a string to narrow results - end string with \"\\0\" to search for exact strings or use delimeter '\\' to search for '?', 'q', 'u', 'r', 'w'\n    ");
+      else prog = stpcpy(prog, "<integer> : enter an integer to narrow results\n    rv : remove volatile variables\n    ");
       strcpy(prog, "u : update visible values\n    ? : show this\n    q : quit");
-      char write_mode_help[] = "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)\n    rl <lock number> : remove specified lock\n    ? : show this\n    q : quit";
+      char write_mode_help[468+96];
+      prog = write_mode_help;
+      if(!integers)prog = stpncpy(prog, "NOTE: a \"\\0\" in any write string will be replaced with a NUL character unless escaped with a \'\\\'\n", 124);
+      strncpy(prog, "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)\n    rl <lock number> : remove specified lock\n    ? : show this\n    q : quit", 467);
       printf("in interactive mode on process %i (%s)\nusing ", vmem->pid, vmem->mapped_rgn.p_name);
       if(d_rgn == STACK)printf("stack");
       if(d_rgn == HEAP)printf("heap");
@@ -498,7 +500,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char help_str[960] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}\n"
+      char help_str[999] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
       "    -w  : write single value to virtual memory address\n"
@@ -514,7 +516,7 @@ int main(int argc, char* argv[]){
       "    -v  : verbose (enables print region and ignores result_print_limit)\n"
       "    -pr : print region that memory addresses are found in\n"
       "    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
-      strncpy(help_str+941, "\x66\x6f\x72\x20\x6d\x65\x65\x6e\x61", 10);
+      strncpy(help_str+941, "\x66\x6f\x72\x20\x6d\x65\x65\x6e\x61\x20\x61\x6e\x64\x20\x68\x61\x73\x6b\x65\x6c\x6c\x2c\x20\x6d\x79\x20\x73\x65\x63\x6f\x6e\x64\x20\x61\x6e\x64\x20\x66\x69\x72\x73\x74\x20\x6c\x6f\x76\x65\x73\x0", 50);
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             printf("usage: %s", argv[0]);
             puts(help_str);

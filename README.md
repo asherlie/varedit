@@ -4,6 +4,48 @@
 
 - [x] varedit edits these variables
 
+#### this section is devoted to varedit usage. vmem_access and vmem_parser library documentation begin [here](#vmem_access)
+
+usage: ./v <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}
+
+&nbsp;&nbsp;&nbsp;&nbsp;-p&nbsp;&nbsp;:&nbsp;prints values in specified memory region with optional filter
+
+&nbsp;&nbsp;&nbsp;&nbsp;-r&nbsp;&nbsp;:&nbsp;read single value from virtual memory address
+
+&nbsp;&nbsp;&nbsp;&nbsp;-w&nbsp;&nbsp;:&nbsp;write single value to virtual memory address
+
+&nbsp;&nbsp;&nbsp;&nbsp;-i&nbsp;&nbsp;:&nbsp;interactive mode (default)
+
+&nbsp;&nbsp;&nbsp;&nbsp;-S&nbsp;&nbsp;:&nbsp;use stack (default)
+
+&nbsp;&nbsp;&nbsp;&nbsp;-H&nbsp;&nbsp;:&nbsp;use heap
+
+&nbsp;&nbsp;&nbsp;&nbsp;-B&nbsp;&nbsp;:&nbsp;use both heap and stack
+
+&nbsp;&nbsp;&nbsp;&nbsp;-A&nbsp;&nbsp;:&nbsp;look for additional memory regions
+
+&nbsp;&nbsp;&nbsp;&nbsp;-E&nbsp;&nbsp;:&nbsp;use all available memory regions
+
+&nbsp;&nbsp;&nbsp;&nbsp;-U&nbsp;&nbsp;:&nbsp;use unmarked additional regions (very slow)
+
+&nbsp;&nbsp;&nbsp;&nbsp;-C&nbsp;&nbsp;:&nbsp;use char/string mode
+
+&nbsp;&nbsp;&nbsp;&nbsp;-b&nbsp;&nbsp;:&nbsp;set number of bytes to read at a time in integer mode
+
+&nbsp;&nbsp;&nbsp;&nbsp;-v&nbsp;&nbsp;:&nbsp;verbose (enables print region and ignores result_print_limit)
+
+&nbsp;&nbsp;&nbsp;&nbsp;-p&nbsp;&nbsp;:&nbsp;print region that memory addresses are found in
+
+&nbsp;&nbsp;&nbsp;&nbsp;-pl&nbsp;:&nbsp;set print limit for search results (only affects interactive mode, can be useful for small screens)
+
+
+### notes on varedit interactive mode behavior
+* '?' can be entered at any time for mode specific help
+* the delimeter '\\' can be used to search for '?', 'q', 'u', 'r' and 'w' in string mode
+* a '^' in a search string acts as it would in a regular expression. it marks the beginning of a target string of our search, it will only accept exact matches to the start of a string
+* "\\0" marks the end of a target string of our search, it will only accept exact matches to the end of a string
+* because of the behavior of '^' and "\0" in search strings, the two can be used together to search for strings whose exact values are known, ^string\0, for example, can be used to find strings that exactly match "string"
+
 ### some examples of common usage
 ##### find the virtual memory address of a string containing "hello" in process with pid 487, searching in all available memory locations:
   ```
@@ -22,7 +64,6 @@
   sudo ./v 139 -E -C
   ```
 
-   
 # vmem_access
 
 vmem_access is a library created to make programs like varedit easier to write
