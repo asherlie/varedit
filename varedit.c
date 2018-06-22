@@ -64,40 +64,40 @@ void print_mmap(const struct mem_map* mem, const char* contains, bool integers, 
       }
 }
 
-/* this was added to fix a bug that occured when strings are cut short with a \0 and the literal '\' and '0' were 
- * also written, which was apparent when the null byte was later overwritten, exposing the rest of the string */
-bool null_char_parse(char* str){
-      char* null_char = str;
-      while((null_char = strstr(null_char, "\\0"))){
-            if(null_char > str && *(null_char-1) == '\\'){
-                  unsigned int j;
-                  --null_char;
-                  for(j = 0; j < strlen(null_char)-1; ++j)null_char[j] = null_char[j+1];
-                  null_char[j] = '\0';
-                  null_char += 3;
+/* ch_p is an abstraction of the deprecated null_char_parse and caret_parse */
+bool ch_p(char* chr, char* str, bool beg){
+      char* c = str;
+      unsigned int chrlen = strlen(chr);
+      while((c = strstr(c, chr))){
+            if(c > str && *(c-1) == '\\'){
+                  for(char* i = c-1; *i != '\0'; ++i)*i = *(i+1);
+                  c += chrlen;
                   continue;
             }
-            memset(null_char, '\0', strlen(null_char)-1);
-            return true;
+            if(beg){
+                  unsigned int cl = strlen(c+1);
+                  // memmove because of overlapping pointers
+                  memmove(str, c+1, cl);
+                  str[cl] = '\0';
+                  return true;
+            }
+            else{
+                  *c = '\0';
+                  return true;
+            }
       }
       return false;
 }
 
+/* this was added to fix a bug that occured when strings are cut short with a \0 and the literal '\' and '0' were 
+ * also written, which was apparent when the null byte was later overwritten, exposing the rest of the string */
+bool null_char_parse(char* str){
+      return ch_p("\\0", str, false);
+}
+
 // used to parse the ^ char that demarcates beginning of string
 bool caret_parse(char* str){
-      char* c = str;
-      while((c = strchr(c, '^'))){
-            if(c > str && *(c-1) == '\\'){
-                  for(char* i = c-1; *i != '\0'; ++i)*i = *(i+1);
-                  ++c;
-                  continue;
-            }
-            unsigned int cl = strlen(c+1);
-            memmove(str, c+1, cl);
-            str[cl] = '\0';
-            return true;
-      }
-      return false;
+      return ch_p("^", str, true);
 }
 
 void print_locks(struct lock_container* locks, unsigned char num_locks, unsigned char l_removed, bool integers){
