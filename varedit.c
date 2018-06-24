@@ -193,6 +193,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   if(tmp_str[0] == 'w' && tmp_str[1] == 'a' && tmp_str[2] == ' '){
                         // for int mode
                         BYTE write[int_mode_bytes];
+                        // this was producing an incorrect uninitialized variable warning
+                        #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
                         bool nul;
                         if(integers){
                               if(!strtoi(tmp_str+3, &tmp_val)){
