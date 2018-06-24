@@ -342,7 +342,8 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
 
 // this function finds the last match of needle in haystack, useful for exact_e in narrow_mem_map_str
 // TODO: is there a better way to do this?
-char* last_m(char* haystack, const char* needle){
+char* adj_m(char* haystack, const char* needle, bool exact_s){
+      if(exact_s)return haystack;
       char* c = haystack;
       char* p;
       while((p = strstr(c, needle))){
@@ -357,7 +358,7 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bo
       int mlen = strlen(match);
       for(unsigned int i = 0; i < mem->size; ++i){
             char* s = strstr(mem->cp_mmap[i].value, match);
-            if(!s || (exact_s && s != mem->cp_mmap[i].value) || (exact_e && last_m(mem->cp_mmap[i].value, match)[mlen] != '\0')){
+            if(!s || (exact_s && s != mem->cp_mmap[i].value) || (exact_e && adj_m(mem->cp_mmap[i].value, match, exact_s)[mlen] != '\0')){
                   if(!mem->blk->in_place)free(mem->cp_mmap[i].value);
                   --mem->size;
                   if(mem->size == 0)break;
