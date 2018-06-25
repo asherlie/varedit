@@ -6,7 +6,7 @@
 
 #### this section is devoted to varedit usage. vmem_access and vmem_parser library documentation begin [here](#vmem_access)
 
-usage: ./v <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}
+usage: ./v <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}
 
 &nbsp;&nbsp;&nbsp;&nbsp;-p&nbsp;&nbsp;:&nbsp;prints values in specified memory region with optional filter
 
@@ -32,7 +32,7 @@ usage: ./v <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <valu
 
 &nbsp;&nbsp;&nbsp;&nbsp;-b&nbsp;&nbsp;:&nbsp;set number of bytes to read at a time in integer mode
 
-&nbsp;&nbsp;&nbsp;&nbsp;-v&nbsp;&nbsp;:&nbsp;verbose (enables print region and ignores result_print_limit)
+&nbsp;&nbsp;&nbsp;&nbsp;-V&nbsp;&nbsp;:&nbsp;verbose (enables print region and ignores result_print_limit)
 
 &nbsp;&nbsp;&nbsp;&nbsp;-p&nbsp;&nbsp;:&nbsp;print region that memory addresses are found in
 

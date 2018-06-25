@@ -508,7 +508,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 
 int main(int argc, char* argv[]){
       char ver[] = "varedit 1.0.0";
-      char help_str[1033] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}\n"
+      char help_str[1033] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
       "    -w  : write single value to virtual memory address\n"
@@ -521,7 +521,7 @@ int main(int argc, char* argv[]){
       "    -U  : use unmarked additional regions (very slow)\n"
       "    -C  : use char/string mode\n"
       "    -b  : set number of bytes to read at a time in integer mode (causes undefined behavior if > 4)\n"
-      "    -v  : verbose (enables print region and ignores result_print_limit)\n"
+      "    -V  : verbose (enables print region and ignores result_print_limit)\n"
       "    -pr : print region that memory addresses are found in\n"
       "    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
       strncpy(help_str+976, "\x66\x6f\x72\x20\x6d\x65\x65\x6e\x61\x20\x61\x6e\x64\x20\x68\x61\x73\x6b\x65\x6c\x6c\x2c\x20\x6d\x79\x20\x73\x65\x63\x6f\x6e\x64\x20\x61\x6e\x64\x20\x66\x69\x72\x73\x74\x20\x6c\x6f\x76\x65\x73\x0", 50);
