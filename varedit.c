@@ -432,10 +432,15 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               else{
                                     if(to_w_len > strlen(vmem->cp_mmap[i].value)){
                                           fprintf(stderr, "WARNING (%i: %p): writing a string that is larger than the original string in its memory location causes undefined behavior\n", vmem->pid, vmem->cp_mmap[i].addr);
+                                          // TODO: confirm that writing of MUCH larger strings than destination is supported
                                           if(vmem->blk->in_place){
-                                               /* TODO: add bounds checking to make sure we're not writing past BYTE*
+                                               /* TODO: add bounds checking to make sure we're not writing past BYTE* - blk + rgn.end-rgn.start
+                                                * TODO: possibly overallocate each block str by enough to allow for reasonable string extensions
+                                                * possibly ignore this, as it's very unlikely to occur
                                                 * filling bytes immediately after to_w[to_w_len] to make room for a longer string
                                                 * this comes in handy when overwriting a null byte at the beginning of a string
+                                                * we can get away with possibly not having enough space before the next string
+                                                * by calling the writing of a larger string ~~undefined behavior~~
                                                 */
                                                 memset(vmem->cp_mmap[i].value, 1, to_w_len);
                                                 for(char* p = vmem->cp_mmap[i].value+to_w_len; *p <= 0 || *p >= 127; ++p)*p = 1;
@@ -502,7 +507,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char help_str[999] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}\n"
+      char help_str[1033] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
       "    -w  : write single value to virtual memory address\n"
@@ -514,11 +519,11 @@ int main(int argc, char* argv[]){
       "    -E  : use all available memory regions\n"
       "    -U  : use unmarked additional regions (very slow)\n"
       "    -C  : use char/string mode\n"
-      "    -b  : set number of bytes to read at a time in integer mode\n"
+      "    -b  : set number of bytes to read at a time in integer mode (causes undefined behavior if > 4)\n"
       "    -v  : verbose (enables print region and ignores result_print_limit)\n"
       "    -pr : print region that memory addresses are found in\n"
       "    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
-      strncpy(help_str+941, "\x66\x6f\x72\x20\x6d\x65\x65\x6e\x61\x20\x61\x6e\x64\x20\x68\x61\x73\x6b\x65\x6c\x6c\x2c\x20\x6d\x79\x20\x73\x65\x63\x6f\x6e\x64\x20\x61\x6e\x64\x20\x66\x69\x72\x73\x74\x20\x6c\x6f\x76\x65\x73\x0", 50);
+      strncpy(help_str+976, "\x66\x6f\x72\x20\x6d\x65\x65\x6e\x61\x20\x61\x6e\x64\x20\x68\x61\x73\x6b\x65\x6c\x6c\x2c\x20\x6d\x79\x20\x73\x65\x63\x6f\x6e\x64\x20\x61\x6e\x64\x20\x66\x69\x72\x73\x74\x20\x6c\x6f\x76\x65\x73\x0", 50);
       if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
             printf("usage: %s", argv[0]);
             puts(help_str);

@@ -158,17 +158,11 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             for(int i = 0; i < mmap->mapped_rgn.n_remaining; ++i)
                   m_size += (char*)mmap->mapped_rgn.remaining_addr[i].end-(char*)mmap->mapped_rgn.remaining_addr[i].start;
       }
-      if(integers){
-            m_size /= bytes;
-            mmap->mmap = malloc(sizeof(struct addr_int_pair)*m_size);
-      }
-      else {
-            m_size /= 10;
-            mmap->cp_mmap = malloc(sizeof(struct addr_str_pair)*m_size);
-      }
       unsigned long buf_s = 0;
       // TODO: fix integer mode when int_mode_bytes > 4
       if(integers){
+            m_size /= bytes;
+            mmap->mmap = malloc(sizeof(struct addr_int_pair)*m_size);
             if(d_rgn == STACK || d_rgn == BOTH){
                   BYTE* ints_in_stack = read_bytes_from_pid_mem(pid, bytes, mmap->mapped_rgn.stack.start, mmap->mapped_rgn.stack.end);
                   for(char* sp = mmap->mapped_rgn.stack.start; sp != mmap->mapped_rgn.stack.end; sp += bytes){
@@ -204,6 +198,8 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             }
       }
       else{ // !integers
+            m_size /= 10;
+            mmap->cp_mmap = malloc(sizeof(struct addr_str_pair)*m_size);
             /* populate_mem_map will always result in in_place strs
              * even in case of LOW_MEM, strings are malloc'd in narrow_mem_map_str */
             // these must be initialized to NULL to avoid free errors in free_mem_map
