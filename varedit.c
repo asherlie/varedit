@@ -507,6 +507,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
+      char ver[] = "varedit 1.0.0";
       char help_str[1033] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-v] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -544,7 +545,8 @@ int main(int argc, char* argv[]){
                               case 'U': unmarked = true; break;
                               case 'C': integers = false; break;
                               case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], &n_bytes))n_bytes = 4; break;
-                              case 'v': verbose = true; print_rgns = true; break;
+                              case 'V': verbose = true; print_rgns = true; break;
+                              case 'v': puts(ver); return -1;
                         }
                   }
                   // strlen == 3 and begins with -p
