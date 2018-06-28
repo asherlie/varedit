@@ -532,6 +532,9 @@ int main(int argc, char* argv[]){
       }
       bool integers=true, additional=false, verbose=false, print_rgns=false, unmarked=false;
       int d_rgn = NONE, n_bytes=4, result_print_limit=100;
+      // stores argv index of previous value setting argument
+      int p = -1;
+      pid_t pid;
       for(int i = 1; i < argc; ++i){
             if(*argv[i] == '-'){
                   // if strlen == 2
@@ -544,7 +547,7 @@ int main(int argc, char* argv[]){
                               case 'E': additional = true; d_rgn = BOTH; break;
                               case 'U': unmarked = true; break;
                               case 'C': integers = false; break;
-                              case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], &n_bytes))n_bytes = 4; break;
+                              case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], &n_bytes)){n_bytes = 4; p = i+1;} break;
                               case 'V': verbose = true; print_rgns = true; break;
                               case 'v': puts(ver); return -1;
                         }
@@ -553,18 +556,18 @@ int main(int argc, char* argv[]){
                   else if(argv[i][1] == 'p' && argv[i][2] && !argv[i][3]){
                         switch(argv[i][2]){
                               case 'r': print_rgns = true; break;
-                              case 'l': if(!(argc > i+1) || !strtoi(argv[i+1], &result_print_limit))result_print_limit = 100; break;
+                              case 'l': if(!(argc > i+1) || !strtoi(argv[i+1], &result_print_limit)){result_print_limit = 100; p = i+1;} break;
                         }
                   }
             }
+            else if(p != -2 && p != i && strtoi(argv[i], &pid))p = -2;
       }
-      // default to stack if no region specified
-      if(d_rgn == NONE && !additional)d_rgn = STACK;
-      pid_t pid;
-      if(!strtoi(argv[1], &pid)){
+      if(p != -2){
             puts("enter a valid pid");
             return -1;
       }
+      // default to stack if no region specified
+      if(d_rgn == NONE && !additional)d_rgn = STACK;
       // initializing vmem here extends scope to default behavior to avoid rescanning memory
       struct mem_map vmem;
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.c, too many regions are being recorded
