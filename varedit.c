@@ -507,17 +507,17 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.1";
+      char ver[] = "varedit 1.0.2";
       char help_str[1033] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
       "    -w  : write single value to virtual memory address\n"
       "    -i  : interactive mode (default)\n"
-      "    -S  : use stack (default)\n"
+      "    -S  : use stack\n"
       "    -H  : use heap\n"
       "    -B  : use both heap and stack\n"
       "    -A  : look for additional memory regions\n"
-      "    -E  : use all available memory regions\n"
+      "    -E  : use all available memory regions (default)\n"
       "    -U  : use unmarked additional regions (very slow)\n"
       "    -C  : use char/string mode\n"
       "    -b  : set number of bytes to read at a time in integer mode (causes undefined behavior if > 4)\n"
@@ -536,6 +536,7 @@ int main(int argc, char* argv[]){
       int p = -1;
       // default to interactive
       char mode = 'i';
+      // stores argument indices in argv for p, r, w modes
       int args[2];
       pid_t pid;
       for(int i = 1; i < argc; ++i){
@@ -553,7 +554,6 @@ int main(int argc, char* argv[]){
                               case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], &n_bytes)){n_bytes = 4; if(p != -2)p = i+1;} break;
                               case 'V': verbose = true; print_rgns = true; break;
                               case 'v': puts(ver); return -1;
-                              // the following cases are just to ensure accurate pid with multiple argument flags
                               // TODO: -p will sometimes be used without a filter str
                               case 'p': mode = 'p'; if(p != -2)p = i+1; args[0] = i+1; break; 
                               case 'r': mode = 'r'; if(p != -2)p = i+1; args[0] = i+1; break;
@@ -577,7 +577,10 @@ int main(int argc, char* argv[]){
             return -1;
       }
       // default to stack if no region specified
-      if(d_rgn == NONE && !additional)d_rgn = STACK;
+      if(d_rgn == NONE && !additional){
+            d_rgn = BOTH;
+            additional = true;
+      }
       // initializing vmem here extends scope to default behavior to avoid rescanning memory
       struct mem_map vmem;
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.c, too many regions are being recorded
@@ -593,7 +596,7 @@ int main(int argc, char* argv[]){
             // read_str_from_mem_range_slow must be used because string size is unknown
             else{
                   char* str = read_str_from_mem_range_slow(pid, (void*)strtoul(argv[args[0]], NULL, 16), NULL);
-                  printf("%s\n", str);
+                  puts(str);
                   free(str);
             }
       }
@@ -611,16 +614,14 @@ int main(int argc, char* argv[]){
       }
       else if(mode == 'i'){
             vmem.pid = pid;
-            if(interactive_mode(&vmem, integers, n_bytes, d_rgn, additional, verbose, result_print_limit, print_rgns)){
+            if(interactive_mode(&vmem, integers, n_bytes, d_rgn, additional, verbose, result_print_limit, print_rgns))
                   free_mem_map(&vmem, integers);
-            }
       }
       else if(mode == 'p'){
             populate_mem_map(&vmem, pid, d_rgn, additional, integers, n_bytes);
             // TODO: allow escaped '-' in search string
-            if(argc > 3 && argv[args[0]][0] != '-'){
+            if(argc > 3 && *argv[args[0]] != '-')
                   print_mmap(&vmem, argv[args[0]], integers, print_rgns);
-            }
             else print_mmap(&vmem, "", integers, print_rgns);
             free_mem_map(&vmem, integers);
       }
