@@ -550,6 +550,9 @@ int main(int argc, char* argv[]){
                               case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], &n_bytes)){n_bytes = 4; p = i+1;} break;
                               case 'V': verbose = true; print_rgns = true; break;
                               case 'v': puts(ver); return -1;
+                              // the following cases are just to ensure accurate pid with multiple argument flags
+                              case 'r': p = i+1; break;
+                              case 'w': p = i+2; break;
                         }
                   }
                   // strlen == 3 and begins with -p
@@ -560,7 +563,8 @@ int main(int argc, char* argv[]){
                         }
                   }
             }
-            else if(p != -2 && p != i && strtoi(argv[i], &pid))p = -2;
+            // p == -2 when pid has been set, >= i when used as an argument for a flag
+            else if(p != -2 && p < i && strtoi(argv[i], &pid)){p = -2;printf("%i pid found\n", pid);}
       }
       if(p != -2){
             puts("enter a valid pid");
