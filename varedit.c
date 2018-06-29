@@ -534,6 +534,8 @@ int main(int argc, char* argv[]){
       int d_rgn = NONE, n_bytes=4, result_print_limit=100;
       // stores argv index of previous value setting argument
       int p = -1;
+      // default to interactive
+      char mode = 'i';
       pid_t pid;
       for(int i = 1; i < argc; ++i){
             if(*argv[i] == '-'){
@@ -547,12 +549,15 @@ int main(int argc, char* argv[]){
                               case 'E': additional = true; d_rgn = BOTH; break;
                               case 'U': unmarked = true; break;
                               case 'C': integers = false; break;
-                              case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], &n_bytes)){n_bytes = 4; p = i+1;} break;
+                              case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], &n_bytes)){n_bytes = 4; if(p != -2)p = i+1;} break;
                               case 'V': verbose = true; print_rgns = true; break;
                               case 'v': puts(ver); return -1;
                               // the following cases are just to ensure accurate pid with multiple argument flags
-                              case 'r': p = i+1; break;
-                              case 'w': p = i+2; break;
+                              // TODO: -p will sometimes be used without a filter str
+                              case 'p': mode = 'p'; if(p != -2)p = i+1; break; 
+                              case 'r': mode = 'r'; if(p != -2)p = i+1; break;
+                              case 'w': mode = 'w'; if(p != -2)p = i+2; break;
+                              case 'i': mode = 'i'; break;
                         }
                   }
                   // strlen == 3 and begins with -p
@@ -581,57 +586,50 @@ int main(int argc, char* argv[]){
             free_mem_rgn(&vmem.mapped_rgn);
             return -1;
       }
-      if(argc > 2){
-            // -r and -w can be used without slowly loading a complete mem_map
-            if(strcmp(argv[2], "-r") == 0){
-                  if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], NULL, 16)));
-                  // read_str_from_mem_range_slow must be used because string size is unknown
-                  else{
-                        char* str = read_str_from_mem_range_slow(pid, (void*)strtoul(argv[3], NULL, 16), NULL);
-                        printf("%s\n", str);
-                        free(str);
-                  }
-                  free_mem_rgn(&vmem.mapped_rgn);
-                  return 0;
+      // TODO: possibly translate this to a switch statement
+      if(mode == 'r'){
+            if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], NULL, 16)));
+            // read_str_from_mem_range_slow must be used because string size is unknown
+            else{
+                  char* str = read_str_from_mem_range_slow(pid, (void*)strtoul(argv[3], NULL, 16), NULL);
+                  printf("%s\n", str);
+                  free(str);
             }
-            if(strcmp(argv[2], "-w") == 0){
-                  if(integers){
-                        int tmp_i;
-                        if(!strtoi(argv[4], &tmp_i))puts("enter a valid integer");
-                        else{
-                              BYTE to_w[n_bytes];
-                              memcpy(to_w, &tmp_i, n_bytes);
-                              write_bytes_to_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], NULL, 16), to_w);
-                        }
-                  }
-                  else write_str_to_pid_mem(pid, (void*)strtoul(argv[3], NULL, 16), argv[4]);
-                  free_mem_rgn(&vmem.mapped_rgn);
-                  return 0;
-            }
-            if(strcmp(argv[2], "-i") == 0){
-                  SAFE_INTER:
-                  vmem.pid = pid;
-                  if(interactive_mode(&vmem, integers, n_bytes, d_rgn, additional, verbose, result_print_limit, print_rgns)){
-                        free_mem_map(&vmem, integers);
-                  }
-                  // we need to free mapped_rgn even if mem_map wasn't populated
-                  free_mem_rgn(&vmem.mapped_rgn);
-                  return 0;
-            }
-            if(strcmp(argv[2], "-p") == 0){
-                  populate_mem_map(&vmem, pid, d_rgn, additional, integers, n_bytes);
-                  // TODO: allow escaped '-' in search string
-                  if(argc > 3 && argv[3][0] != '-'){
-                        print_mmap(&vmem, argv[3], integers, print_rgns);
-                  }
-                  else print_mmap(&vmem, "", integers, print_rgns);
-                  free_mem_map(&vmem, integers);
-                  free_mem_rgn(&vmem.mapped_rgn);
-                  return 0;
-            }
-            goto SAFE_INTER;
+            free_mem_rgn(&vmem.mapped_rgn);
+            return 0;
       }
-      // argc <= 2
-      // default to interactive mode
-      goto SAFE_INTER;
+      if(mode == 'w'){
+            if(integers){
+                  int tmp_i;
+                  if(!strtoi(argv[4], &tmp_i))puts("enter a valid integer");
+                  else{
+                        BYTE to_w[n_bytes];
+                        memcpy(to_w, &tmp_i, n_bytes);
+                        write_bytes_to_pid_mem(pid, n_bytes, (void*)strtoul(argv[3], NULL, 16), to_w);
+                  }
+            }
+            else write_str_to_pid_mem(pid, (void*)strtoul(argv[3], NULL, 16), argv[4]);
+            free_mem_rgn(&vmem.mapped_rgn);
+            return 0;
+      }
+      if(mode == 'i'){
+            vmem.pid = pid;
+            if(interactive_mode(&vmem, integers, n_bytes, d_rgn, additional, verbose, result_print_limit, print_rgns)){
+                  free_mem_map(&vmem, integers);
+            }
+            // we need to free mapped_rgn even if mem_map wasn't populated
+            free_mem_rgn(&vmem.mapped_rgn);
+            return 0;
+      }
+      if(mode == 'p'){
+            populate_mem_map(&vmem, pid, d_rgn, additional, integers, n_bytes);
+            // TODO: allow escaped '-' in search string
+            if(argc > 3 && argv[3][0] != '-'){
+                  print_mmap(&vmem, argv[3], integers, print_rgns);
+            }
+            else print_mmap(&vmem, "", integers, print_rgns);
+            free_mem_map(&vmem, integers);
+            free_mem_rgn(&vmem.mapped_rgn);
+            return 0;
+      }
 }
