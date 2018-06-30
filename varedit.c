@@ -507,7 +507,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.2";
+      char ver[] = "varedit 1.0.3";
       char help_str[1033] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -586,7 +586,7 @@ int main(int argc, char* argv[]){
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.c, too many regions are being recorded
       vmem.mapped_rgn = get_vmem_locations(pid, unmarked);
       if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional)){
-            puts("you DO have root privileges, don't you");
+            puts("no usable memory regions found\nyou DO have root privileges, don't you");
             free_mem_rgn(&vmem.mapped_rgn);
             return -1;
       }
@@ -636,9 +636,8 @@ int main(int argc, char* argv[]){
       }
       else if(mode == 'p'){
             populate_mem_map(&vmem, pid, d_rgn, additional, integers, n_bytes);
-            // TODO: allow escaped '-' in search string. -E, -S, -A, -U should not be counted as search strings unless they're escaped
-            if(argc > args[0] && *argv[args[0]] != '-')
-                  print_mmap(&vmem, argv[args[0]], integers, print_rgns);
+            // TODO: allow escaped '-' in search string. -E, -S, -A and -U should not be counted as search strings unless they're escaped
+            if(argc > args[0] && *argv[args[0]] != '-')print_mmap(&vmem, argv[args[0]], integers, print_rgns);
             else print_mmap(&vmem, "", integers, print_rgns);
             free_mem_map(&vmem, integers);
       }
