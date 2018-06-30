@@ -592,6 +592,11 @@ int main(int argc, char* argv[]){
       }
       // TODO: possibly translate this to a switch statement
       if(mode == 'r'){
+            if(argc <= args[0]){
+                  puts("enter a valid address to read from");
+                  free_mem_rgn(&vmem.mapped_rgn);
+                  return -1;
+            }
             if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, (void*)strtoul(argv[args[0]], NULL, 16)));
             // read_str_from_mem_range_slow must be used because string size is unknown
             else{
@@ -601,13 +606,25 @@ int main(int argc, char* argv[]){
             }
       }
       else if(mode == 'w'){
+            bool run = true;
+            if(argc <= args[0]){
+                  puts("enter a valid address to write to");
+                  run = false;
+            }
             if(integers){
                   int tmp_i;
-                  if(!strtoi(argv[args[1]], &tmp_i))puts("enter a valid integer");
-                  else{
+                  if(argc <= args[1] || !strtoi(argv[args[1]], &tmp_i)){
+                        puts("enter a valid integer to write");
+                        run = false;
+                  }
+                  else if(run){
                         BYTE to_w[n_bytes];
                         memcpy(to_w, &tmp_i, n_bytes);
                         write_bytes_to_pid_mem(pid, n_bytes, (void*)strtoul(argv[args[0]], NULL, 16), to_w);
+                  }
+                  else{
+                        free_mem_rgn(&vmem.mapped_rgn);
+                        return -1;
                   }
             }
             else write_str_to_pid_mem(pid, (void*)strtoul(argv[args[0]], NULL, 16), argv[4]);
@@ -619,8 +636,8 @@ int main(int argc, char* argv[]){
       }
       else if(mode == 'p'){
             populate_mem_map(&vmem, pid, d_rgn, additional, integers, n_bytes);
-            // TODO: allow escaped '-' in search string
-            if(argc > 3 && *argv[args[0]] != '-')
+            // TODO: allow escaped '-' in search string. -E, -S, -A, -U should not be counted as search strings unless they're escaped
+            if(argc > args[0] && *argv[args[0]] != '-')
                   print_mmap(&vmem, argv[args[0]], integers, print_rgns);
             else print_mmap(&vmem, "", integers, print_rgns);
             free_mem_map(&vmem, integers);
