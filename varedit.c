@@ -507,7 +507,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.3";
+      char ver[] = "varedit 1.0.4";
       char help_str[1033] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -551,7 +551,7 @@ int main(int argc, char* argv[]){
                               case 'E': additional = true; d_rgn = BOTH; break;
                               case 'U': unmarked = true; break;
                               case 'C': integers = false; break;
-                              case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], &n_bytes)){n_bytes = 4; if(p != -2)p = i+1;} break;
+                              case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], &n_bytes)){n_bytes = 4;}else if(p != -2)p = i+1; break;
                               case 'V': verbose = true; print_rgns = true; break;
                               case 'v': puts(ver); return -1;
                               // TODO: -p will sometimes be used without a filter str
@@ -565,7 +565,7 @@ int main(int argc, char* argv[]){
                   else if(argv[i][1] == 'p' && argv[i][2] && !argv[i][3]){
                         switch(argv[i][2]){
                               case 'r': print_rgns = true; break;
-                              case 'l': if(!(argc > i+1) || !strtoi(argv[i+1], &result_print_limit)){result_print_limit = 100;} else p = i+1; break;
+                              case 'l': if(!(argc > i+1) || !strtoi(argv[i+1], &result_print_limit)){result_print_limit = 100;} else if(p != -2)p = i+1; break;
                         }
                   }
             }
