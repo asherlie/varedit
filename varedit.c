@@ -11,6 +11,7 @@ bool strtoi(const char* str, int* i){
       return !*res;
 }
 
+// TODO: possibly add bool silent parameter for silence during -r and -w modes
 bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional){
       bool no_ad = (mem.n_remaining == 0 && additional);
       bool stack = true;
@@ -507,7 +508,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.4";
+      char ver[] = "varedit 1.0.5";
       char help_str[1033] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -551,7 +552,7 @@ int main(int argc, char* argv[]){
                               case 'E': additional = true; d_rgn = BOTH; break;
                               case 'U': unmarked = true; break;
                               case 'C': integers = false; break;
-                              case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], &n_bytes)){n_bytes = 4;}else if(p != -2)p = i+1; break;
+                              case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], &n_bytes))n_bytes = 4; else if(p != -2)p = i+1; break;
                               case 'V': verbose = true; print_rgns = true; break;
                               case 'v': puts(ver); return -1;
                               // TODO: -p will sometimes be used without a filter str
@@ -565,7 +566,7 @@ int main(int argc, char* argv[]){
                   else if(argv[i][1] == 'p' && argv[i][2] && !argv[i][3]){
                         switch(argv[i][2]){
                               case 'r': print_rgns = true; break;
-                              case 'l': if(!(argc > i+1) || !strtoi(argv[i+1], &result_print_limit)){result_print_limit = 100;} else if(p != -2)p = i+1; break;
+                              case 'l': if(!(argc > i+1) || !strtoi(argv[i+1], &result_print_limit))result_print_limit = 100; else if(p != -2)p = i+1; break;
                         }
                   }
             }
@@ -591,12 +592,14 @@ int main(int argc, char* argv[]){
             return -1;
       }
       // TODO: possibly translate this to a switch statement
+      // TODO: all returns should fall through and be replaced by a single return not_run, not_run being set by each relevant flag
       if(mode == 'r'){
             if(argc <= args[0]){
                   puts("enter a valid address to read from");
                   free_mem_rgn(&vmem.mapped_rgn);
                   return -1;
             }
+            // TODO: add error handling for invalid addr similar to -w mode
             if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, (void*)strtoul(argv[args[0]], NULL, 16)));
             // read_str_from_mem_range_slow must be used because string size is unknown
             else{
@@ -606,31 +609,28 @@ int main(int argc, char* argv[]){
             }
       }
       else if(mode == 'w'){
-            bool run = true;
-            void* addr;
-            if(argc <= args[0]){
-                  puts("enter a valid address to write to");
-                  run = false;
-            }
-            // TODO: check for validity in addr using endptr param
-            else addr = (void*)strtoul(argv[args[0]], NULL, 16);
+            // 0 is run, 1 invalid address, 2, invalid integer to write, 3, both
+            int not_run = 0;
+            void* addr; char* ret = &mode;
+            if(argc <= args[0])not_run = 1;
+            else addr = (void*)strtoul(argv[args[0]], &ret, 16);
+            if(*ret)not_run = 1;
             if(integers){
                   int tmp_i;
-                  if(argc <= args[1] || !strtoi(argv[args[1]], &tmp_i)){
-                        puts("enter a valid integer to write");
-                        run = false;
-                  }
-                  else if(run){
+                  if(argc <= args[1] || !strtoi(argv[args[1]], &tmp_i))if(not_run)not_run = 3; else not_run = 2;
+                  else if(!not_run){
                         BYTE to_w[n_bytes];
                         memcpy(to_w, &tmp_i, n_bytes);
                         write_bytes_to_pid_mem(pid, n_bytes, addr, to_w);
                   }
-                  else{
-                        free_mem_rgn(&vmem.mapped_rgn);
-                        return -1;
-                  }
             }
-            else write_str_to_pid_mem(pid, (void*)strtoul(argv[args[0]], NULL, 16), argv[4]);
+            else if(!not_run)write_str_to_pid_mem(pid, addr, argv[args[1]]);
+            if(not_run == 1 || not_run == 3)puts("enter a valid address to write to");
+            if(not_run == 2 || not_run == 3)puts("enter a valid integer to write");
+            if(not_run){
+                  free_mem_rgn(&vmem.mapped_rgn);
+                  return -1;
+            }
       }
       else if(mode == 'i'){
             vmem.pid = pid;
