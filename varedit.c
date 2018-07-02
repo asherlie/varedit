@@ -19,20 +19,20 @@ bool strtop(const char* str, void** p){
 }
 
 // TODO: possibly add bool silent parameter for silence during -r and -w modes
-bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional){
+bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional, bool silent){
       bool no_ad = (mem.n_remaining == 0 && additional);
       bool stack = true;
       if(no_ad){
-            fputs("WARNING: no valid unmarked memory regions were found\n", stderr);
+            if(!silent)fputs("WARNING: no valid unmarked memory regions were found\n", stderr);
             if(d_rgn == NONE)return false;
       }
       if((d_rgn == STACK || d_rgn == BOTH) && (mem.stack.start == NULL || mem.stack.end == NULL)){
-            fputs("WARNING: no valid stack memory region was found\n", stderr);
+            if(!silent)fputs("WARNING: no valid stack memory region was found\n", stderr);
             if(d_rgn == STACK && (no_ad || !additional))return false;
             stack = false;
       }
       if((d_rgn == HEAP || d_rgn == BOTH) && (mem.heap.start == NULL || mem.heap.end == NULL)){
-            fputs("WARNING: no valid heap memory region was found\n", stderr);
+            if(!silent)fputs("WARNING: no valid heap memory region was found\n", stderr);
             if((d_rgn == HEAP || (d_rgn == BOTH && !stack)) && (no_ad || !additional))return false;
       }
       return true;
@@ -515,7 +515,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.6";
+      char ver[] = "varedit 1.0.7";
       char help_str[1033] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -593,7 +593,8 @@ int main(int argc, char* argv[]){
       struct mem_map vmem;
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.c, too many regions are being recorded
       vmem.mapped_rgn = get_vmem_locations(pid, unmarked);
-      if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional)){
+      // no warnings are printed unless we're in interactive mode
+      if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional, verbose || mode != 'i')){
             puts("no usable memory regions found\nyou DO have root privileges, don't you");
             free_mem_rgn(&vmem.mapped_rgn);
             return -1;
