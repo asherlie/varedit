@@ -565,7 +565,7 @@ int main(int argc, char* argv[]){
                   else if(argv[i][1] == 'p' && argv[i][2] && !argv[i][3]){
                         switch(argv[i][2]){
                               case 'r': print_rgns = true; break;
-                              case 'l': if(!(argc > i+1) || !strtoi(argv[i+1], &result_print_limit)){result_print_limit = 100; p = i+1;} break;
+                              case 'l': if(!(argc > i+1) || !strtoi(argv[i+1], &result_print_limit)){result_print_limit = 100;} else p = i+1; break;
                         }
                   }
             }
@@ -607,10 +607,13 @@ int main(int argc, char* argv[]){
       }
       else if(mode == 'w'){
             bool run = true;
+            void* addr;
             if(argc <= args[0]){
                   puts("enter a valid address to write to");
                   run = false;
             }
+            // TODO: check for validity in addr using endptr param
+            else addr = (void*)strtoul(argv[args[0]], NULL, 16);
             if(integers){
                   int tmp_i;
                   if(argc <= args[1] || !strtoi(argv[args[1]], &tmp_i)){
@@ -620,7 +623,7 @@ int main(int argc, char* argv[]){
                   else if(run){
                         BYTE to_w[n_bytes];
                         memcpy(to_w, &tmp_i, n_bytes);
-                        write_bytes_to_pid_mem(pid, n_bytes, (void*)strtoul(argv[args[0]], NULL, 16), to_w);
+                        write_bytes_to_pid_mem(pid, n_bytes, addr, to_w);
                   }
                   else{
                         free_mem_rgn(&vmem.mapped_rgn);
