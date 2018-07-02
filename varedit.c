@@ -601,16 +601,16 @@ int main(int argc, char* argv[]){
       // TODO: possibly translate this to a switch statement
       // TODO: all returns should fall through and be replaced by a single return not_run, not_run being set by each relevant flag
       if(mode == 'r'){
-            if(argc <= args[0]){
+            void* addr;
+            if(argc <= args[0] || !strtop(argv[args[0]], &addr)){
                   puts("enter a valid address to read from");
                   free_mem_rgn(&vmem.mapped_rgn);
                   return -1;
             }
-            // TODO: add error handling for invalid addr similar to -w mode
-            if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, (void*)strtoul(argv[args[0]], NULL, 16)));
+            if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, addr));
             // read_str_from_mem_range_slow must be used because string size is unknown
             else{
-                  char* str = read_str_from_mem_range_slow(pid, (void*)strtoul(argv[args[0]], NULL, 16), NULL);
+                  char* str = read_str_from_mem_range_slow(pid, addr, NULL);
                   puts(str);
                   free(str);
             }
