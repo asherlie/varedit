@@ -515,7 +515,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.7";
+      char ver[] = "varedit 1.0.8";
       char help_str[1033] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -600,25 +600,22 @@ int main(int argc, char* argv[]){
             return -1;
       }
       // TODO: possibly translate this to a switch statement
-      // TODO: all returns should fall through and be replaced by a single return not_run, not_run being set by each relevant flag
+      // 0 is run, 1 invalid address, 2, invalid integer to write, 3, both
+      unsigned char not_run = 0;
       if(mode == 'r'){
             void* addr;
-            if(argc <= args[0] || !strtop(argv[args[0]], &addr)){
-                  puts("enter a valid address to read from");
-                  free_mem_rgn(&vmem.mapped_rgn);
-                  return -1;
-            }
-            if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, addr));
-            // read_str_from_mem_range_slow must be used because string size is unknown
+            if(argc <= args[0] || !strtop(argv[args[0]], &addr))not_run = 1;
             else{
-                  char* str = read_str_from_mem_range_slow(pid, addr, NULL);
-                  puts(str);
-                  free(str);
+                  if(integers)printf("%i\n", read_single_val_from_pid_mem(pid, n_bytes, addr));
+                  // read_str_from_mem_range_slow must be used because string size is unknown
+                  else{
+                        char* str = read_str_from_mem_range_slow(pid, addr, NULL);
+                        puts(str);
+                        free(str);
+                  }
             }
       }
       else if(mode == 'w'){
-            // 0 is run, 1 invalid address, 2, invalid integer to write, 3, both
-            unsigned char not_run = 0;
             void* addr;
             if(argc <= args[0] || !strtop(argv[args[0]], &addr))not_run = 1;
             if(integers){
@@ -631,12 +628,6 @@ int main(int argc, char* argv[]){
                   }
             }
             else if(!not_run)write_str_to_pid_mem(pid, addr, argv[args[1]]);
-            if(not_run == 1 || not_run == 3)puts("enter a valid address to write to");
-            if(not_run == 2 || not_run == 3)puts("enter a valid integer to write");
-            if(not_run){
-                  free_mem_rgn(&vmem.mapped_rgn);
-                  return -1;
-            }
       }
       else if(mode == 'i'){
             vmem.pid = pid;
@@ -650,6 +641,9 @@ int main(int argc, char* argv[]){
             else print_mmap(&vmem, "", integers, print_rgns);
             free_mem_map(&vmem, integers);
       }
+      if(not_run == 1 || not_run == 3)puts("enter a valid address");
+      if(not_run == 2 || not_run == 3)puts("enter a valid integer to write");
       free_mem_rgn(&vmem.mapped_rgn);
-      return 0;
+      // not_run will be non-zero when an error has been found
+      return not_run;
 }
