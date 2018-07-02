@@ -11,6 +11,13 @@ bool strtoi(const char* str, int* i){
       return !*res;
 }
 
+bool strtop(const char* str, void** p){
+      char* res;
+      if(p)*p = (void*)strtoul(str, &res, 16);
+      else strtoul(str, &res, 16);
+      return !*res;
+}
+
 // TODO: possibly add bool silent parameter for silence during -r and -w modes
 bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional){
       bool no_ad = (mem.n_remaining == 0 && additional);
@@ -508,7 +515,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.5";
+      char ver[] = "varedit 1.0.6";
       char help_str[1033] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -610,14 +617,12 @@ int main(int argc, char* argv[]){
       }
       else if(mode == 'w'){
             // 0 is run, 1 invalid address, 2, invalid integer to write, 3, both
-            int not_run = 0;
-            void* addr; char* ret = &mode;
-            if(argc <= args[0])not_run = 1;
-            else addr = (void*)strtoul(argv[args[0]], &ret, 16);
-            if(*ret)not_run = 1;
+            unsigned char not_run = 0;
+            void* addr;
+            if(argc <= args[0] || !strtop(argv[args[0]], &addr))not_run = 1;
             if(integers){
                   int tmp_i;
-                  if(argc <= args[1] || !strtoi(argv[args[1]], &tmp_i))if(not_run)not_run = 3; else not_run = 2;
+                  if(argc <= args[1] || !strtoi(argv[args[1]], &tmp_i))not_run += 2;
                   else if(!not_run){
                         BYTE to_w[n_bytes];
                         memcpy(to_w, &tmp_i, n_bytes);
