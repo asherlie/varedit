@@ -51,20 +51,18 @@ int remove_volatile_values(struct mem_map* vmem){
       return n;
 }
 
-// TODO: possibly merge this with update_mem_map and give update_mem_map a param bool print_mmap
 void print_mmap(const struct mem_map* mem, const char* contains, bool integers, bool show_rgns){
-      bool cont = strlen(contains) != 0;
       int i_cont = 0;
-      if(integers && cont)strtoi(contains, &i_cont);
+      if(integers && contains)strtoi(contains, &i_cont);
       for(unsigned int i = 0; i < mem->size; ++i){
             if(integers){
-                  if(!cont || mem->mmap[i].value == i_cont){
+                  if(!contains || mem->mmap[i].value == i_cont){
                         if(show_rgns)printf("%p (%s) : %i\n", mem->mmap[i].addr, which_rgn(mem->mapped_rgn, mem->mmap[i].addr, NULL), mem->mmap[i].value);
                         else printf("%p: %i\n", mem->mmap[i].addr, mem->mmap[i].value);
                   }
             }
             else{
-                  if(!cont || strstr(mem->cp_mmap[i].value, contains)){
+                  if(!contains || strstr(mem->cp_mmap[i].value, contains)){
                         if(show_rgns)printf("%p (%s) : \"%s\"\n", mem->cp_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->cp_mmap[i].addr, NULL), mem->cp_mmap[i].value);
                         else printf("%p: \"%s\"\n", mem->cp_mmap[i].addr, mem->cp_mmap[i].value);
                   }
@@ -183,7 +181,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             if(strcmp(tmp_str, "u") == 0){
                   update_mem_map(vmem, integers);
                   fseek(stdin, 0, SEEK_END);
-                  print_mmap(vmem, "", integers, print_rgns);
+                  print_mmap(vmem, NULL, integers, print_rgns);
                   goto Find;
             }
             if(strcmp(tmp_str, "r") == 0){
@@ -265,7 +263,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         scanf(" %9[^ \t\n]%*c", v_loc_s);
                         if(strcmp(v_loc_s, "s") == 0){
                               fseek(stdin, 0, SEEK_END);
-                              print_mmap(vmem, "", integers, print_rgns);
+                              print_mmap(vmem, NULL, integers, print_rgns);
                               goto Find;
                         }
                         if(strcmp(v_loc_s, "q") == 0){
@@ -508,14 +506,14 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   printf("your search of %s has %i results\nresult_print_limit is set at %i. refusing to print\n", tmp_str_ptr, vmem->size, result_print_limit);
             else{
                   puts("matches are now:");
-                  print_mmap(vmem, "", integers, print_rgns);
+                  print_mmap(vmem, NULL, integers, print_rgns);
             }
             first = false;
       }
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.8";
+      char ver[] = "varedit 1.0.9";
       char help_str[1033] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -638,7 +636,7 @@ int main(int argc, char* argv[]){
             populate_mem_map(&vmem, pid, d_rgn, additional, integers, n_bytes);
             // TODO: allow escaped '-' in search string. -E, -S, -A and -U should not be counted as search strings unless they're escaped
             if(argc > args[0] && *argv[args[0]] != '-')print_mmap(&vmem, argv[args[0]], integers, print_rgns);
-            else print_mmap(&vmem, "", integers, print_rgns);
+            else print_mmap(&vmem, NULL, integers, print_rgns);
             free_mem_map(&vmem, integers);
       }
       if(not_run == 1 || not_run == 3)puts("enter a valid address");
