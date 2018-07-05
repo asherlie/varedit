@@ -383,7 +383,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     if(integers)memcpy(to_w_b, &to_w_i, int_mode_bytes);
                                     char* w = to_w;
                                     bool nul = null_char_parse(w);
-                                    if(nul)puts("null baby");
                                     while(1){ // child process will forever repeat this
                                           // sleeping to limit cpu usage
                                           usleep(1000);
@@ -515,7 +514,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.11";
+      char ver[] = "varedit 1.0.12";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -542,9 +541,9 @@ int main(int argc, char* argv[]){
       int d_rgn = NONE, n_bytes=4, result_print_limit=100;
       // stores argv index of previous value setting argument
       int p = -1;
-      // default to interactive
+      // default to interactive mode
       char mode = 'i';
-      // stores argument indices in argv for p, r, w modes
+      // stores argument indices of argv for p, r, w modes
       int args[2];
       pid_t pid;
       for(int i = 1; i < argc; ++i){
@@ -584,12 +583,11 @@ int main(int argc, char* argv[]){
             puts("enter a valid pid");
             return -1;
       }
-      // default to stack if no region specified
+      // default to stack, heap and additional if no region is specified
       if(d_rgn == NONE && !additional){
             d_rgn = BOTH;
             additional = true;
       }
-      // initializing vmem here extends scope to default behavior to avoid rescanning memory
       struct mem_map vmem;
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.c, too many regions are being recorded
       vmem.mapped_rgn = get_vmem_locations(pid, unmarked);
