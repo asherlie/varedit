@@ -18,7 +18,6 @@ bool strtop(const char* str, void** p){
       return !*res;
 }
 
-// TODO: possibly add bool silent parameter for silence during -r and -w modes
 bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional, bool silent){
       bool no_ad = (mem.n_remaining == 0 && additional);
       bool stack = true;
@@ -310,6 +309,9 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                                 kill(lock_pids[i].pid, SIGKILL);
                                                 wait(NULL);
                                                 ++l_removed;
+                                                /* TODO: store the initial lock value, when the user tries to overwrite
+                                                 * a locked string it will print the attempted new string on removal
+                                                 */
                                                 if(integers)printf("lock with value %i removed (%p)\n", lock_pids[i].i_value, lock_pids[i].m_addr);
                                                 else printf("lock with value \"%s\" removed (%p)\n", lock_pids[i].s_value, lock_pids[i].m_addr);
                                                 // setting to null as to not print it
@@ -381,6 +383,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     if(integers)memcpy(to_w_b, &to_w_i, int_mode_bytes);
                                     char* w = to_w;
                                     bool nul = null_char_parse(w);
+                                    if(nul)puts("null baby");
                                     while(1){ // child process will forever repeat this
                                           // sleeping to limit cpu usage
                                           usleep(1000);
@@ -391,12 +394,11 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                                             memcpy(to_w_b, &to_w_i, int_mode_bytes);
                                                       }
                                                       write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem_int_subset[i].addr, to_w_b);
-                                                      if(nul)write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+strlen(to_w)), (BYTE*)"");
                                                 }
                                                 else{
                                                       if(same)w = vmem_str_subset[i].value;
-                                                      // TODO: make it possible to lock strings containing \0
                                                       write_str_to_pid_mem(vmem->pid, vmem_str_subset[i].addr, w);
+                                                      if(nul)write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem_str_subset[i].addr)+strlen(to_w)), (BYTE*)"");
                                                 }
                                           }
                                     }
@@ -513,7 +515,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.10";
+      char ver[] = "varedit 1.0.11";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
