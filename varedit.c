@@ -37,7 +37,7 @@ bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional, bool silent){
       return true;
 }
 
-int remove_volatile_values(struct mem_map* vmem){
+int remove_volatile_ints(struct mem_map* vmem){
       int n = 0;
       for(unsigned int i = 0; i < vmem->size; ++i){
             for(int in = 0; in < 10; ++in){
@@ -475,7 +475,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             // tmp_str != "w"
             if(strcmp(tmp_str, "rv") == 0){ // rv for remove volatile - disqualifies all volatile vars
                   if(integers){
-                        printf("%i volatile variables removed\n", remove_volatile_values(vmem));
+                        printf("%i volatile variables removed\n", remove_volatile_ints(vmem));
                         goto Find;
                   }
             }
@@ -514,7 +514,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.12";
+      char ver[] = "varedit 1.0.13";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
