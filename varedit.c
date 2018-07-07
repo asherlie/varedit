@@ -121,12 +121,12 @@ void print_locks(struct lock_container* locks, unsigned char num_locks, unsigned
 }
 
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
-      char search_mode_help[650+123+116];
+      char search_mode_help[889];
       char* prog = search_mode_help;
       if(!integers)prog = stpcpy(search_mode_help, "NOTE: '^' marks the beginning of a target string of our search, it will only accept exact matches to the start of a string\nNOTE: \"\\0\" marks the end of a target string of our search, it will only accept exact matches to the end of a string\nsearch mode options:\n    r : reset mem map\n    wa <value> : write single value to all current results\n    <string> : enter a string to narrow results - end string with \"\\0\" to search for exact strings or use delimeter '\\' to search for '?', 'q', 'u', 'r', 'w'\n    ");
       else prog = stpcpy(prog, "<integer> : enter an integer to narrow results\n    rv : remove volatile variables\n    ");
       strcpy(prog, "u : update visible values\n    ? : show this\n    q : quit");
-      char write_mode_help[468+96];
+      char write_mode_help[564];
       prog = write_mode_help;
       if(!integers)prog = stpncpy(prog, "NOTE: a \"\\0\" in any write string will be replaced with a NUL character unless escaped with a \'\\\'\n", 124);
       strncpy(prog, "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)\n    rl <lock number> : remove specified lock\n    ? : show this\n    q : quit", 468);
@@ -155,7 +155,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       unsigned char l_removed = 0;
       struct lock_container* lock_pids = malloc(sizeof(struct lock_container)*lock_cap);
       pid_t temp_pid;
+      // TODO: possibly get rid of while loop in favor of goto Find for increased clarity
       while(1){
+            /* NOTE: each goto Find could be replaced by a continue to return to this point and the label Find could be removed
+             * gotos are used intentionally to make code clearer */
             Find:
             printf("enter current variable value to search");
             if(!first)printf(" or 'w' to enter write mode");
@@ -235,6 +238,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   }
             }
             if(strcmp(tmp_str, "w") == 0){
+                  if(first){
+                        puts("no memory locations available for writing. returning to search");
+                        goto Find;
+                  }
                   // to_w needs to be large enough to store any write string
                   // TODO: make to_w char* and use getline()
                   char v_loc_s[10], to_w[4096];
@@ -242,10 +249,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   unsigned short to_w_len = 0;
                   while(1){
                         Write:
-                        if(first){
-                              puts("no memory locations available for writing. returning to search");
-                              goto Find;
-                        }
                         // TODO: possibly update_mem_map here to print accurate values in write mode
                         // update_mem_map(vmem, integers);
                         if(integers)
@@ -463,7 +466,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                                 memset(vmem->cp_mmap[i].value, 1, to_w_len+5+1);
                                           }
                                     }
-                                    // TODO: possibly add option to zero entire string
                                     write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, to_w);
                                     // write terminated string if \0 found
                                     if(nul)write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+strlen(to_w)), (BYTE*)"");
@@ -514,7 +516,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.13";
+      char ver[] = "varedit 1.0.14";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
