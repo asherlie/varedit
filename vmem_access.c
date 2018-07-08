@@ -146,7 +146,16 @@ void resize_str_mmap(struct mem_map* c_mm, unsigned int* m_size, int factor){
       c_mm->cp_mmap = tmp;
 }
 
+// if mem == NULL a new struct mem_map is malloc'd
+struct mem_map* mem_map_init(struct mem_map* mem, pid_t pid, bool unmarked_additional){
+      if(!mem)mem = malloc(sizeof(struct mem_map));
+      mem->size = 0;
+      mem->mapped_rgn = get_vmem_locations(pid, unmarked_additional);
+      return mem;
+}
+
 void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_additional_rgns, bool integers, int bytes){
+      // TODO: possibly remove this because mem_map_init makes it redundant
       mmap->size = 0;
       mmap->int_mode_bytes = bytes;
       mmap->d_rgn = d_rgn;

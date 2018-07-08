@@ -516,7 +516,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.14";
+      char ver[] = "varedit 1.0.15";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -591,8 +591,8 @@ int main(int argc, char* argv[]){
             additional = true;
       }
       struct mem_map vmem;
+      mem_map_init(&vmem, pid, unmarked);
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.c, too many regions are being recorded
-      vmem.mapped_rgn = get_vmem_locations(pid, unmarked);
       // no warnings are printed unless we're in interactive mode
       if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional, verbose || mode != 'i')){
             puts("no usable memory regions found\nyou DO have root privileges, don't you");
