@@ -191,7 +191,7 @@ the remaining functions defined in vmem_access.h are used for creating and manip
 * `void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bool exact_e)`
 
 in order to use these functions, an initial `mem_map` struct must be created and initialized using `mem_map_init`.
-mem_map_init sets mem_map.size to 0 and populates mem.mapped_rgn.
+`mem_map_init` sets mem_map.size to 0 and populates mem_map.mapped_rgn.
 
 if `mem_map_init`'s `mem` parameter is `NULL`, a new malloc'd mem_map struct will be returned. otherwise `mem_map_init` will return a pointer to `mem`.
 
