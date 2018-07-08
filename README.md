@@ -184,7 +184,7 @@ pid_memcpy(getpid(), src_pid, &rgn, addr_mem_rgn, sizeof(struct mem_rgn));
 ```
 
 the remaining functions defined in vmem_access.h are used for creating and manipulating `mem_map` structs defined in vmem_access.h
-* `void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_additional_rgns, bool integers, int bytes)`
+* `void populate_mem_map(struct mem_map* mmap, int d_rgn, bool use_additional_rgns, bool integers, int bytes)`
 * `void update_mem_map(struct mem_map* mem, bool integers)`
 * `struct mem_map* mem_map_init(struct mem_map* mem, pid_t pid, bool unmarked_additional)`
 * `void narrow_mem_map_int(struct mem_map* mem, int match)`
@@ -203,7 +203,7 @@ The initialization and population of a `mem_map` struct is demonstrated below, p
 struct mem_map vmem;
 mem_map_init(&vmem, pid, true);
 // BOTH is a macro that indicates we will be searching both the stack and heap
-populate_mem_map(&vmem, pid, BOTH, true, true, sizeof(int));
+populate_mem_map(&vmem, BOTH, true, true, sizeof(int));
 free_mem_rgn(&vmem.mapped_rgn);
 free_mem_map(&vmem, true);
 ```
@@ -213,7 +213,7 @@ the same can be achieved with the following code
 // assuming pid_t pid = some valid process id 
 struct mem_map* vmem = mem_map_init(NULL, pid, true);
 // BOTH is a macro that indicates we will be searching both the stack and heap
-populate_mem_map(vmem, pid, BOTH, true, true, sizeof(int));
+populate_mem_map(vmem, BOTH, true, true, sizeof(int));
 free_mem_rgn(&vmem->mapped_rgn);
 free_mem_map(vmem, true);
 free(vmem);
