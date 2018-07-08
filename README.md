@@ -205,7 +205,7 @@ mem_map_init(&vmem, pid, true);
 // BOTH is a macro that indicates we will be searching both the stack and heap
 populate_mem_map(&vmem, pid, BOTH, true, true, sizeof(int));
 free_mem_rgn(&vmem.mapped_rgn);
-free_mem_map(&vmem);
+free_mem_map(&vmem, true);
 ```
 
 the same can be achieved with the following code
@@ -214,7 +214,7 @@ the same can be achieved with the following code
 struct mem_map* vmem = mem_map_init(NULL, pid, true);
 // BOTH is a macro that indicates we will be searching both the stack and heap
 populate_mem_map(vmem, pid, BOTH, true, true, sizeof(int));
-free_mem_rgn(vmem.mapped_rgn);
-free_mem_map(vmem);
+free_mem_rgn(&vmem->mapped_rgn);
+free_mem_map(vmem, true);
 free(vmem);
 ```
