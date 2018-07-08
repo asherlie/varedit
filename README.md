@@ -186,10 +186,14 @@ pid_memcpy(getpid(), src_pid, &rgn, addr_mem_rgn, sizeof(struct mem_rgn));
 the remaining functions defined in vmem_access.h are used for creating and manipulating `mem_map` structs defined in vmem_access.h
 * `void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_additional_rgns, bool integers, int bytes)`
 * `void update_mem_map(struct mem_map* mem, bool integers)`
+* `struct mem_map* mem_map_init(struct mem_map* mem, pid_t pid, bool unmarked_additional)`
 * `void narrow_mem_map_int(struct mem_map* mem, int match)`
 * `void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bool exact_e)`
 
-in order to use these functions, an initial `mem_map` struct must be created, and its attribute `mapped_rgn` must be set using `get_vmem_locations(pid_t, bool)` defined in vmem_parser.h
+in order to use these functions, an initial `mem_map` struct must be created and initialized using `mem_map_init`.
+mem_map_init sets mem_map.size to 0 and populates mem.mapped_rgn.
+
+if `mem_map_init`'s `mem` parameter is `NULL`, a new malloc'd mem_map struct will be returned. otherwise `mem_map_init` will return a pointer to `mem`.
 
 `mem_map.mapped_rgn` is of type `mem_rgn`, which is defined in vmem_parser.h and contains the virtual memory address ranges of each section of process memory.
 
@@ -197,9 +201,20 @@ The initialization and population of a `mem_map` struct is demonstrated below, p
 ```c
 // assuming pid_t pid = some valid process id 
 struct mem_map vmem;
-vmem.mapped_rgn = get_vmem_locations(pid, true);
+mem_map_init(&vmem, pid, true);
 // BOTH is a macro that indicates we will be searching both the stack and heap
-populate_mem_map(vmem, pid, BOTH, true, true, sizeof(int));
+populate_mem_map(&vmem, pid, BOTH, true, true, sizeof(int));
 free_mem_rgn(&vmem.mapped_rgn);
 free_mem_map(&vmem);
+```
+
+the same can be achieved with the following code
+```c
+// assuming pid_t pid = some valid process id 
+struct mem_map* vmem = mem_map_init(NULL, pid, true);
+// BOTH is a macro that indicates we will be searching both the stack and heap
+populate_mem_map(vmem, pid, BOTH, true, true, sizeof(int));
+free_mem_rgn(vmem.mapped_rgn);
+free_mem_map(vmem);
+free(vmem);
 ```
