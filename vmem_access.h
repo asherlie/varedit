@@ -53,7 +53,7 @@ bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, BYTE* value);
 bool write_int_to_pid_mem(pid_t pid, void* vm, int value);
 bool write_str_to_pid_mem(pid_t pid, void* vm, const char* str);
 struct mem_map* mem_map_init(struct mem_map* mem, pid_t pid, bool unmarked_additional);
-void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_additional_rgns, bool integers, int bytes);
+void populate_mem_map(struct mem_map* mmap, int d_rgn, bool use_additional_rgns, bool integers, int bytes);
 void update_mem_map(struct mem_map* mem, bool integers);
 void narrow_mem_map_int(struct mem_map* mem, int match);
 void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bool exact_e);

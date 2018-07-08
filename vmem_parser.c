@@ -50,6 +50,7 @@ struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional){
       char map_path[30];
       sprintf(map_path, "/proc/%i/maps", pid);
       struct mem_rgn vmem;
+      vmem.pid = pid;
       vmem.p_name = get_proc_name(pid);
       vmem.heap.end = vmem.heap.start = vmem.stack.end = vmem.stack.start = NULL;
       vmem.n_remaining = 0;

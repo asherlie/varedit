@@ -487,7 +487,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   else puts("enter a valid string to search");
                   goto Find;
             }
-            if(first)populate_mem_map(vmem, vmem->mapped_rgn.pid, d_rgn, additional, integers, int_mode_bytes);
+            if(first)populate_mem_map(vmem, d_rgn, additional, integers, int_mode_bytes);
             // tmp_str_ptr makes it easier to handle escaped searches of reserved varedit strings because it can be incremented
             char* tmp_str_ptr = tmp_str;
             // to deal with escaped \w, \u, \q, \r, \?, \rv, \rl
@@ -630,12 +630,11 @@ int main(int argc, char* argv[]){
             else if(!not_run)write_str_to_pid_mem(pid, addr, argv[args[1]]);
       }
       else if(mode == 'i'){
-            vmem.mapped_rgn.pid = pid;
             if(interactive_mode(&vmem, integers, n_bytes, d_rgn, additional, verbose, result_print_limit, print_rgns))
                   free_mem_map(&vmem, integers);
       }
       else if(mode == 'p'){
-            populate_mem_map(&vmem, pid, d_rgn, additional, integers, n_bytes);
+            populate_mem_map(&vmem, d_rgn, additional, integers, n_bytes);
             // TODO: allow escaped '-' in search string. -E, -S, -A and -U should not be counted as search strings unless they're escaped
             if(argc > args[0] && *argv[args[0]] != '-')print_mmap(&vmem, argv[args[0]], integers, print_rgns);
             else print_mmap(&vmem, NULL, integers, print_rgns);

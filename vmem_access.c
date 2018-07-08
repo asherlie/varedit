@@ -154,7 +154,7 @@ struct mem_map* mem_map_init(struct mem_map* mem, pid_t pid, bool unmarked_addit
       return mem;
 }
 
-void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_additional_rgns, bool integers, int bytes){
+void populate_mem_map(struct mem_map* mmap, int d_rgn, bool use_additional_rgns, bool integers, int bytes){
       // TODO: possibly remove this because mem_map_init makes it redundant
       mmap->size = 0;
       mmap->int_mode_bytes = bytes;
@@ -173,7 +173,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             m_size /= bytes;
             mmap->mmap = malloc(sizeof(struct addr_int_pair)*m_size);
             if(d_rgn == STACK || d_rgn == BOTH){
-                  BYTE* ints_in_stack = read_bytes_from_pid_mem(pid, bytes, mmap->mapped_rgn.stack.start, mmap->mapped_rgn.stack.end);
+                  BYTE* ints_in_stack = read_bytes_from_pid_mem(mmap->mapped_rgn.pid, bytes, mmap->mapped_rgn.stack.start, mmap->mapped_rgn.stack.end);
                   for(char* sp = mmap->mapped_rgn.stack.start; sp != mmap->mapped_rgn.stack.end; sp += bytes){
                         mmap->mmap[mmap->size].addr = (void*)sp; mmap->mmap[mmap->size].value = 0;
                         memcpy(&(mmap->mmap[mmap->size++].value), ints_in_stack+buf_s, bytes);
@@ -183,7 +183,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
                   buf_s = 0;
-                  BYTE* ints_in_heap = read_bytes_from_pid_mem(pid, bytes, mmap->mapped_rgn.heap.start, mmap->mapped_rgn.heap.end);
+                  BYTE* ints_in_heap = read_bytes_from_pid_mem(mmap->mapped_rgn.pid, bytes, mmap->mapped_rgn.heap.start, mmap->mapped_rgn.heap.end);
                   for(char* hp = mmap->mapped_rgn.heap.start; hp != mmap->mapped_rgn.heap.end; hp += bytes){
                         mmap->mmap[mmap->size].addr = (void*)hp; mmap->mmap[mmap->size].value = 0;
                         memcpy(&(mmap->mmap[mmap->size++].value), ints_in_heap+buf_s, bytes);
@@ -193,7 +193,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             }
             if(use_additional_rgns){
                   for(int i = 0; i < mmap->mapped_rgn.n_remaining; ++i){
-                        BYTE* ints_in_addtnl = read_bytes_from_pid_mem(pid, bytes, mmap->mapped_rgn.remaining_addr[i].start,
+                        BYTE* ints_in_addtnl = read_bytes_from_pid_mem(mmap->mapped_rgn.pid, bytes, mmap->mapped_rgn.remaining_addr[i].start,
                                                                                    mmap->mapped_rgn.remaining_addr[i].end);
                         buf_s = 0;
                         for(char* ap = mmap->mapped_rgn.remaining_addr[i].start;
@@ -219,7 +219,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
             mmap->blk->n_ad = 0;
             int len;
             if(d_rgn == STACK || d_rgn == BOTH){
-                  char* chars_in_stack = (char*)read_bytes_from_pid_mem(pid, 1, mmap->mapped_rgn.stack.start, mmap->mapped_rgn.stack.end);
+                  char* chars_in_stack = (char*)read_bytes_from_pid_mem(mmap->mapped_rgn.pid, 1, mmap->mapped_rgn.stack.start, mmap->mapped_rgn.stack.end);
                   mmap->blk->stack = chars_in_stack;
                   int n_addr = (char*)mmap->mapped_rgn.stack.end-(char*)mmap->mapped_rgn.stack.start;
                   for(char* cis_p = chars_in_stack; cis_p != chars_in_stack+n_addr; ++cis_p){
@@ -234,7 +234,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   }
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
-                  char* chars_in_heap = (char*)read_bytes_from_pid_mem(pid, 1, mmap->mapped_rgn.heap.start, mmap->mapped_rgn.heap.end);
+                  char* chars_in_heap = (char*)read_bytes_from_pid_mem(mmap->mapped_rgn.pid, 1, mmap->mapped_rgn.heap.start, mmap->mapped_rgn.heap.end);
                   mmap->blk->heap = chars_in_heap;
                   int n_addr = (char*)mmap->mapped_rgn.heap.end-(char*)mmap->mapped_rgn.heap.start;
                   len = 0;
@@ -255,7 +255,7 @@ void populate_mem_map(struct mem_map* mmap, pid_t pid, int d_rgn, bool use_addit
                   mmap->blk->addtnl = malloc(sizeof(char*)*mmap->blk->n_ad);
                   len = 0;
                   for(int i = 0; i < mmap->mapped_rgn.n_remaining; ++i){
-                        chars_in_addtnl = (char*)read_bytes_from_pid_mem(pid, 1, mmap->mapped_rgn.remaining_addr[i].start, mmap->mapped_rgn.remaining_addr[i].end);
+                        chars_in_addtnl = (char*)read_bytes_from_pid_mem(mmap->mapped_rgn.pid, 1, mmap->mapped_rgn.remaining_addr[i].start, mmap->mapped_rgn.remaining_addr[i].end);
                         mmap->blk->addtnl[i] = chars_in_addtnl;
                         n_addr = (char*)mmap->mapped_rgn.remaining_addr[i].end-(char*)mmap->mapped_rgn.remaining_addr[i].start;
                         for(char* cia_p = chars_in_addtnl; cia_p != chars_in_addtnl+n_addr; ++cia_p){
@@ -296,7 +296,7 @@ void update_mem_map(struct mem_map* mem, bool integers){
             if(integers){
                   struct mem_map tmp_mm;
                   tmp_mm.mapped_rgn = mem->mapped_rgn;
-                  populate_mem_map(&tmp_mm, mem->mapped_rgn.pid, mem->d_rgn, mem->use_addtnl, integers, mem->int_mode_bytes);
+                  populate_mem_map(&tmp_mm, mem->d_rgn, mem->use_addtnl, integers, mem->int_mode_bytes);
                   for(unsigned int i = 0; i < mem->size; ++i){
                         if(mem->mmap[i].addr == tmp_mm.mmap[i].addr)mem->mmap[i].value = tmp_mm.mmap[i].value;
                         else{
