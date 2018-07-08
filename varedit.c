@@ -41,7 +41,7 @@ int remove_volatile_ints(struct mem_map* vmem){
       int n = 0;
       for(unsigned int i = 0; i < vmem->size; ++i){
             for(int in = 0; in < 10; ++in){
-                  if(vmem->mmap[i].value != read_single_val_from_pid_mem(vmem->pid, 4, vmem->mmap[i].addr)){
+                  if(vmem->mmap[i].value != read_single_val_from_pid_mem(vmem->mapped_rgn.pid, 4, vmem->mmap[i].addr)){
                         vmem->mmap[i--] = vmem->mmap[--vmem->size];
                         ++n;
                   }
@@ -130,7 +130,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       prog = write_mode_help;
       if(!integers)prog = stpncpy(prog, "NOTE: a \"\\0\" in any write string will be replaced with a NUL character unless escaped with a \'\\\'\n", 124);
       strncpy(prog, "NOTE: <memory location reference #> can be replaced with <start reference #>-<end reference #>\nwrite mode options:\n    <memory location reference #> <value to write> : writes value to memory location(s)\n    l <memory location reference #> <value to write> : locks memory location(s) to provided value\n    l <memory location reference #> _ : locks memory location(s) to their current value(s)\n    rl <lock number> : remove specified lock\n    ? : show this\n    q : quit", 468);
-      printf("in interactive mode on process %i (%s)\nusing ", vmem->pid, vmem->mapped_rgn.p_name);
+      printf("in interactive mode on process %i (%s)\nusing ", vmem->mapped_rgn.pid, vmem->mapped_rgn.p_name);
       if(d_rgn == STACK)printf("stack");
       if(d_rgn == HEAP)printf("heap");
       if(d_rgn == BOTH)printf("both stack and heap");
@@ -213,7 +213,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         else nul = null_char_parse(tmp_str+3);
                         for(unsigned int i = 0; i < vmem->size; ++i){
-                              if(integers)write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, write);
+                              if(integers)write_bytes_to_pid_mem(vmem->mapped_rgn.pid, int_mode_bytes, vmem->mmap[i].addr, write);
                               else{
                                     // if our write string is larger than destination string, resize destination string
                                     if(tmp_strlen-3 > (int)strlen(vmem->cp_mmap[i].value)){
@@ -228,8 +228,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                           }
                                     }
                                     // writing adjusted tmp_str with corrected length
-                                    write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, tmp_str+3);
-                                    if(nul)write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+strlen(tmp_str+3)), (BYTE*)"");
+                                    write_str_to_pid_mem(vmem->mapped_rgn.pid, vmem->cp_mmap[i].addr, tmp_str+3);
+                                    if(nul)write_bytes_to_pid_mem(vmem->mapped_rgn.pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+strlen(tmp_str+3)), (BYTE*)"");
                               }
                         }
                         if(integers)printf("wrote %s to %i memory locations\n", tmp_str+3, vmem->size);
@@ -395,12 +395,12 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                                             to_w_i = vmem_int_subset[i].value;
                                                             memcpy(to_w_b, &to_w_i, int_mode_bytes);
                                                       }
-                                                      write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem_int_subset[i].addr, to_w_b);
+                                                      write_bytes_to_pid_mem(vmem->mapped_rgn.pid, int_mode_bytes, vmem_int_subset[i].addr, to_w_b);
                                                 }
                                                 else{
                                                       if(same)w = vmem_str_subset[i].value;
-                                                      write_str_to_pid_mem(vmem->pid, vmem_str_subset[i].addr, w);
-                                                      if(nul)write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem_str_subset[i].addr)+strlen(to_w)), (BYTE*)"");
+                                                      write_str_to_pid_mem(vmem->mapped_rgn.pid, vmem_str_subset[i].addr, w);
+                                                      if(nul)write_bytes_to_pid_mem(vmem->mapped_rgn.pid, 1, (void*)(((char*)vmem_str_subset[i].addr)+strlen(to_w)), (BYTE*)"");
                                                 }
                                           }
                                     }
@@ -437,11 +437,11 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         for(unsigned int i = v_loc[0]; i <= v_loc[1]; ++i){
                               if(integers){
                                     memcpy(to_w_b, &to_w_i, int_mode_bytes);
-                                    write_bytes_to_pid_mem(vmem->pid, int_mode_bytes, vmem->mmap[i].addr, to_w_b);
+                                    write_bytes_to_pid_mem(vmem->mapped_rgn.pid, int_mode_bytes, vmem->mmap[i].addr, to_w_b);
                               }
                               else{
                                     if(to_w_len > strlen(vmem->cp_mmap[i].value)){
-                                          fprintf(stderr, "WARNING (%i: %p): writing a string that is larger than the original string in its memory location causes undefined behavior\n", vmem->pid, vmem->cp_mmap[i].addr);
+                                          fprintf(stderr, "WARNING (%i: %p): writing a string that is larger than the original string in its memory location causes undefined behavior\n", vmem->mapped_rgn.pid, vmem->cp_mmap[i].addr);
                                           // TODO: confirm that writing of MUCH larger strings than destination is supported
                                           if(vmem->blk->in_place){
                                                /* TODO: add bounds checking to make sure we're not writing past BYTE* - blk + rgn.end-rgn.start
@@ -466,9 +466,9 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                                 memset(vmem->cp_mmap[i].value, 1, to_w_len+5+1);
                                           }
                                     }
-                                    write_str_to_pid_mem(vmem->pid, vmem->cp_mmap[i].addr, to_w);
+                                    write_str_to_pid_mem(vmem->mapped_rgn.pid, vmem->cp_mmap[i].addr, to_w);
                                     // write terminated string if \0 found
-                                    if(nul)write_bytes_to_pid_mem(vmem->pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+strlen(to_w)), (BYTE*)"");
+                                    if(nul)write_bytes_to_pid_mem(vmem->mapped_rgn.pid, 1, (void*)(((char*)vmem->cp_mmap[i].addr)+strlen(to_w)), (BYTE*)"");
                               }
                         }
                         update_mem_map(vmem, integers); // to make sure accurate values are printed
@@ -487,7 +487,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   else puts("enter a valid string to search");
                   goto Find;
             }
-            if(first)populate_mem_map(vmem, vmem->pid, d_rgn, additional, integers, int_mode_bytes);
+            if(first)populate_mem_map(vmem, vmem->mapped_rgn.pid, d_rgn, additional, integers, int_mode_bytes);
             // tmp_str_ptr makes it easier to handle escaped searches of reserved varedit strings because it can be incremented
             char* tmp_str_ptr = tmp_str;
             // to deal with escaped \w, \u, \q, \r, \?, \rv, \rl
@@ -516,7 +516,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.15";
+      char ver[] = "varedit 1.0.16";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -630,7 +630,7 @@ int main(int argc, char* argv[]){
             else if(!not_run)write_str_to_pid_mem(pid, addr, argv[args[1]]);
       }
       else if(mode == 'i'){
-            vmem.pid = pid;
+            vmem.mapped_rgn.pid = pid;
             if(interactive_mode(&vmem, integers, n_bytes, d_rgn, additional, verbose, result_print_limit, print_rgns))
                   free_mem_map(&vmem, integers);
       }

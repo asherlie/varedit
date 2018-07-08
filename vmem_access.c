@@ -284,23 +284,23 @@ void update_mem_map(struct mem_map* mem, bool integers){
       if(LOW_MEM || (!integers && (!mem->blk->in_place || mem->size < RELOAD_CUTOFF/10000)) || (integers && mem->size < RELOAD_CUTOFF)){
             if(integers){
                   for(unsigned int i = 0; i < mem->size; ++i)
-                        mem->mmap[i].value = read_single_val_from_pid_mem(mem->pid, mem->int_mode_bytes, mem->mmap[i].addr);
+                        mem->mmap[i].value = read_single_val_from_pid_mem(mem->mapped_rgn.pid, mem->int_mode_bytes, mem->mmap[i].addr);
             }
             else{
                   for(unsigned int i = 0; i < mem->size; ++i)
                         // this method works for both blkstr mode and individually alloc'd strings
-                        read_bytes_from_pid_mem_dir(mem->cp_mmap[i].value, mem->pid, strlen(mem->cp_mmap[i].value), mem->cp_mmap[i].addr, NULL);
+                        read_bytes_from_pid_mem_dir(mem->cp_mmap[i].value, mem->mapped_rgn.pid, strlen(mem->cp_mmap[i].value), mem->cp_mmap[i].addr, NULL);
             }
       }
       else{ // faster but more memory intensive update methods
             if(integers){
                   struct mem_map tmp_mm;
                   tmp_mm.mapped_rgn = mem->mapped_rgn;
-                  populate_mem_map(&tmp_mm, mem->pid, mem->d_rgn, mem->use_addtnl, integers, mem->int_mode_bytes);
+                  populate_mem_map(&tmp_mm, mem->mapped_rgn.pid, mem->d_rgn, mem->use_addtnl, integers, mem->int_mode_bytes);
                   for(unsigned int i = 0; i < mem->size; ++i){
                         if(mem->mmap[i].addr == tmp_mm.mmap[i].addr)mem->mmap[i].value = tmp_mm.mmap[i].value;
                         else{
-                              mem->mmap[i].value = read_single_val_from_pid_mem(mem->pid, mem->int_mode_bytes, mem->mmap[i].addr);
+                              mem->mmap[i].value = read_single_val_from_pid_mem(mem->mapped_rgn.pid, mem->int_mode_bytes, mem->mmap[i].addr);
                               ++i;
                         }
                   }
@@ -308,12 +308,12 @@ void update_mem_map(struct mem_map* mem, bool integers){
             }
             else{
                   if(mem->blk->stack)
-                        read_bytes_from_pid_mem_dir(mem->blk->stack, mem->pid, 1, mem->mapped_rgn.stack.start, mem->mapped_rgn.stack.end);
+                        read_bytes_from_pid_mem_dir(mem->blk->stack, mem->mapped_rgn.pid, 1, mem->mapped_rgn.stack.start, mem->mapped_rgn.stack.end);
                   if(mem->blk->heap)
-                        read_bytes_from_pid_mem_dir(mem->blk->heap, mem->pid, 1, mem->mapped_rgn.heap.start, mem->mapped_rgn.heap.end);
+                        read_bytes_from_pid_mem_dir(mem->blk->heap, mem->mapped_rgn.pid, 1, mem->mapped_rgn.heap.start, mem->mapped_rgn.heap.end);
                   for(unsigned char i = 0; i < mem->blk->n_ad; ++i){
                         if(mem->blk->addtnl[i])
-                        read_bytes_from_pid_mem_dir(mem->blk->addtnl[i], mem->pid, 1, mem->mapped_rgn.remaining_addr[i].start, mem->mapped_rgn.remaining_addr[i].end);
+                        read_bytes_from_pid_mem_dir(mem->blk->addtnl[i], mem->mapped_rgn.pid, 1, mem->mapped_rgn.remaining_addr[i].start, mem->mapped_rgn.remaining_addr[i].end);
                   }
             }
       }

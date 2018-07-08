@@ -15,6 +15,7 @@ struct m_addr_pair{
 
 // keeps track of virtual memory address ranges for heap, stack and remaining memory
 struct mem_rgn{
+      pid_t pid;
       char* p_name;
       struct m_addr_pair heap;
       struct m_addr_pair stack;

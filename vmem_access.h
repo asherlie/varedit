@@ -35,7 +35,6 @@ struct mem_map{
       struct str_blk* blk;
       // only one will be initialized at any given moment
       // both are included in this struct to simplify code
-      pid_t pid;
       int d_rgn;
       unsigned int size;
       int int_mode_bytes;
