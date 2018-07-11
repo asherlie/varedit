@@ -3,6 +3,9 @@
 #include <string.h>
 #include <sys/uio.h>
 
+#include <signal.h> // kill()
+#include <sys/wait.h> // wait()
+
 // with less than 1000000 values, it's faster to do individual reads for integers when updating mem_map
 #define RELOAD_CUTOFF 1000000
 /* 
@@ -427,7 +430,7 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bo
       }
 }
 
-// TODO: possibly move all lock functions and struct definitions to separate files
+// TODO: possibly move all lock functions and struct definitions to separate files mem_lock.{c,h}
 void print_locks(struct lock_container* lc, bool integers){
       if(lc->n-lc->n_removed == 0){
             puts("no locks are currently in place");
@@ -441,6 +444,38 @@ void print_locks(struct lock_container* lc, bool integers){
             if(lc->locks[i].rng)puts(" (multiple locks)"); else puts("");
             ++r_i;
       }
+}
+
+int remove_lock(struct lock_container* lc, int rm_s){
+      if(lc->n-lc->n_removed == 0)return -1;
+      else{
+            int r_i = 0;
+            for(int i = 0; i < lc->n; ++i){
+                  if(lc->locks[i].m_addr == NULL)continue;
+                  if(r_i == rm_s){
+                        kill(lc->locks[i].pid, SIGKILL);
+                        wait(NULL);
+                        ++lc->n_removed;
+                        // setting to null as to not print it later
+                        lc->locks[i].m_addr = NULL;
+                        return i;
+                  }
+                  ++r_i;
+            }
+      }
+      return -1;
+}
+
+// returns number of locks removed before freeing
+int free_locks(struct lock_container* lc){
+      unsigned char i;
+      for(i = 0; i < lc->n; ++i){
+            if(lc->locks[i].m_addr == NULL)continue;
+            kill(lc->locks[i].pid, SIGKILL);
+            wait(NULL);
+      }
+      free(lc->locks);
+      return i;
 }
 
 struct lock_container* lock_container_init(unsigned char initial_sz){
