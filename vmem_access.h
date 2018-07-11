@@ -3,6 +3,13 @@
 typedef unsigned char BYTE;
 
 struct lock_container{
+      unsigned char cap;
+      unsigned char n;
+      unsigned char n_removed;
+      struct lock_entry* locks;
+};
+
+struct lock_entry{
       pid_t pid;
       bool rng;
       void* m_addr;
@@ -57,3 +64,5 @@ void populate_mem_map(struct mem_map* mmap, int d_rgn, bool use_additional_rgns,
 void update_mem_map(struct mem_map* mem, bool integers);
 void narrow_mem_map_int(struct mem_map* mem, int match);
 void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bool exact_e);
+struct lock_container* lock_container_init(unsigned char initial_sz);
+struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, int n_addr, bool mul_val, bool integers);

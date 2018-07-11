@@ -105,17 +105,17 @@ bool caret_parse(char* str){
       return ch_p("^", str, true);
 }
 
-void print_locks(struct lock_container* locks, unsigned char num_locks, unsigned char l_removed, bool integers){
-      if(num_locks-l_removed == 0){
+void print_locks(struct lock_container* lc, bool integers){
+      if(lc->n-lc->n_removed == 0){
             puts("no locks are currently in place");
             return;
       }
       int r_i = 0;
-      for(unsigned char i = 0; i < num_locks; ++i){
-            if(locks[i].m_addr == NULL)continue;
-            if(integers)printf("(%i) %p: %i", r_i, locks[i].m_addr, locks[i].i_value);
-            else printf("(%i) %p: \"%s\"", r_i, locks[i].m_addr, locks[i].s_value);
-            if(locks[i].rng)puts(" (multiple locks)"); else puts("");
+      for(unsigned char i = 0; i < lc->n; ++i){
+            if(lc->locks[i].m_addr == NULL)continue;
+            if(integers)printf("(%i) %p: %i", r_i, lc->locks[i].m_addr, lc->locks[i].i_value);
+            else printf("(%i) %p: \"%s\"", r_i, lc->locks[i].m_addr, lc->locks[i].s_value);
+            if(lc->locks[i].rng)puts(" (multiple locks)"); else puts("");
             ++r_i;
       }
 }
@@ -150,11 +150,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       bool first = true;
       bool lock_mode;
       // the five variables below are used to keep track of var locks
-      unsigned char lock_cap = 1;
-      unsigned char num_locks = 0;
-      unsigned char l_removed = 0;
-      struct lock_container* lock_pids = malloc(sizeof(struct lock_container)*lock_cap);
-      pid_t temp_pid;
+      struct lock_container* lock_pids = lock_container_init(1);
+      /*pid_t temp_pid;*/
       // TODO: possibly get rid of while loop in favor of goto Find for increased clarity
       while(1){
             /* NOTE: each goto Find could be replaced by a continue to return to this point and the label Find could be removed
@@ -166,13 +163,14 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             fgets(tmp_str, 4096, stdin);
             tmp_strlen = strlen(tmp_str);
             tmp_str[tmp_strlen-1]='\0';
+            // TODO: abstract to function --- LOCKS
             if(strcmp(tmp_str, "q") == 0){
-                  for(unsigned char i = 0; i < num_locks; ++i){
-                        if(lock_pids[i].m_addr == NULL)continue;
-                        kill(lock_pids[i].pid, SIGKILL);
+                  for(unsigned char i = 0; i < lock_pids->n; ++i){
+                        if(lock_pids->locks[i].m_addr == NULL)continue;
+                        kill(lock_pids->locks[i].pid, SIGKILL);
                         wait(NULL);
                   }
-                  free(lock_pids);
+                  free(lock_pids->locks);
                   return !first;
             }
             // TODO: add ability to rescan memory regions and update vmem->mapped_rgn
@@ -269,12 +267,12 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               goto Find;
                         }
                         if(strcmp(v_loc_s, "q") == 0){
-                              for(unsigned char i = 0; i < num_locks; ++i){
-                                    if(lock_pids[i].m_addr == NULL)continue;
-                                    kill(lock_pids[i].pid, SIGKILL);
+                              for(unsigned char i = 0; i < lock_pids->n; ++i){
+                                    if(lock_pids->locks[i].m_addr == NULL)continue;
+                                    kill(lock_pids->locks[i].pid, SIGKILL);
                                     wait(NULL);
                               }
-                              free(lock_pids);
+                              free(lock_pids->locks);
                               return !first;
                         }
                         if(strcmp(v_loc_s, "?") == 0){
@@ -288,37 +286,37 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               goto Write;
                         }
                         if(strcmp(v_loc_s, "pl") == 0){
-                              print_locks(lock_pids, num_locks, l_removed, integers);
+                              print_locks(lock_pids, integers);
                               fseek(stdin, 0, SEEK_END);
                               goto Write;
                         }
                         if(strcmp(v_loc_s, "rl") == 0){
-                              if(num_locks-l_removed == 0)puts("no locks are currently in place");
+                              if(lock_pids->n-lock_pids->n_removed == 0)puts("no locks are currently in place");
                               else{
-                                    print_locks(lock_pids, num_locks, l_removed, integers);
+                                    print_locks(lock_pids, integers);
                                     // TODO: abstract lock removal to a function so it can be easily used in find mode
-                                    // TODO: possibly add built in lock functionality to vmem_access with updated lock struct that contains l_removed, num_locks, etc.
+                                    // TODO: possibly add built in lock functionality to vmem_access with updated lock struct that contains lock_pids->n_removed, lock_pids->n, etc.
                                     fgets(v_loc_s, 10, stdin);
                                     if(v_loc_s[strlen(v_loc_s)-1] == '\n')v_loc_s[strlen(v_loc_s)-1] = '\0';
                                     int rm_s;
-                                    if(!strtoi(v_loc_s, &rm_s) || rm_s >= num_locks-l_removed || rm_s < 0){
+                                    if(!strtoi(v_loc_s, &rm_s) || rm_s >= lock_pids->n-lock_pids->n_removed || rm_s < 0){
                                           puts("enter a valid integer");
                                           goto Write;
                                     }
                                     int r_i = 0;
-                                    for(int i = 0; i < num_locks; ++i){
-                                          if(lock_pids[i].m_addr == NULL)continue;
+                                    for(int i = 0; i < lock_pids->n; ++i){
+                                          if(lock_pids->locks[i].m_addr == NULL)continue;
                                           if(r_i == rm_s){
-                                                kill(lock_pids[i].pid, SIGKILL);
+                                                kill(lock_pids->locks[i].pid, SIGKILL);
                                                 wait(NULL);
-                                                ++l_removed;
+                                                ++lock_pids->n_removed;
                                                 /* TODO: store the initial lock value, when the user tries to overwrite
                                                  * a locked string it will print the attempted new string on removal
                                                  */
-                                                if(integers)printf("lock with value %i removed (%p)\n", lock_pids[i].i_value, lock_pids[i].m_addr);
-                                                else printf("lock with value \"%s\" removed (%p)\n", lock_pids[i].s_value, lock_pids[i].m_addr);
+                                                if(integers)printf("lock with value %i removed (%p)\n", lock_pids->locks[i].i_value, lock_pids->locks[i].m_addr);
+                                                else printf("lock with value \"%s\" removed (%p)\n", lock_pids->locks[i].s_value, lock_pids->locks[i].m_addr);
                                                 // setting to null as to not print it
-                                                lock_pids[i].m_addr = NULL;
+                                                lock_pids->locks[i].m_addr = NULL;
                                           }
                                           ++r_i;
                                     }
@@ -359,74 +357,29 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               if(v_loc[0] >= vmem->size || v_loc[1] >= vmem->size)goto Int_err;
                        }
                         if(lock_mode){
-                              temp_pid = fork();
-                              if(temp_pid == 0){
-                                    bool same = false;
-                                    if(strcmp(to_w, "_") == 0)same = true;
-                                    // creating pair arrays to store relevant addresses and values so i can free up memory
-                                    struct addr_int_pair vmem_int_subset [v_loc[1]-v_loc[0]+1];
-                                    struct addr_str_pair vmem_str_subset[v_loc[1]-v_loc[0]+1];
-                                   { // creating a scope to limit c's lifetime
-                                          int c = 0;
-                                          for(unsigned int i = v_loc[0]; i <= v_loc[1]; ++i){
-                                                // setting vmem subsets regardless of same
-                                                // if !same, these are just used for addr
-                                                if(integers)vmem_int_subset[c++] = vmem->mmap[i];
-                                                else{
-                                                      vmem_str_subset[c] = vmem->cp_mmap[i];
-                                                      // need to copy string to new char* to avoid it being freed by free_mem_map
-                                                      vmem_str_subset[c].value = strdup(vmem_str_subset[c].value);
-                                                      ++c;
-                                                }
-                                          }
-                                   }
-                                    // this will run for a long time so we might as well free up whatever memory we can
-                                    free_mem_map(vmem, integers);
-                                    BYTE to_w_b[int_mode_bytes];
-                                    if(integers)memcpy(to_w_b, &to_w_i, int_mode_bytes);
-                                    char* w = to_w;
-                                    bool nul = null_char_parse(w);
-                                    while(1){ // child process will forever repeat this
-                                          // sleeping to limit cpu usage
-                                          usleep(1000);
-                                          for(unsigned int i = 0; i <= v_loc[1]-v_loc[0]; ++i){
-                                                if(integers){
-                                                      if(same){
-                                                            to_w_i = vmem_int_subset[i].value;
-                                                            memcpy(to_w_b, &to_w_i, int_mode_bytes);
-                                                      }
-                                                      write_bytes_to_pid_mem(vmem->mapped_rgn.pid, int_mode_bytes, vmem_int_subset[i].addr, to_w_b);
-                                                }
-                                                else{
-                                                      if(same)w = vmem_str_subset[i].value;
-                                                      write_str_to_pid_mem(vmem->mapped_rgn.pid, vmem_str_subset[i].addr, w);
-                                                      if(nul)write_bytes_to_pid_mem(vmem->mapped_rgn.pid, 1, (void*)(((char*)vmem_str_subset[i].addr)+strlen(to_w)), (BYTE*)"");
-                                                }
-                                          }
+                              unsigned int n_addr = v_loc[1]-v_loc[0]+1;
+                              void** addrs = malloc(sizeof(void*)*n_addr); unsigned int addr_s = 0;
+                              char** chars; int* ints;
+                              if(integers)ints = malloc(sizeof(int)*n_addr);
+                              else chars = malloc(sizeof(char*)*n_addr);
+                              bool same = strncmp(to_w, "_", 2) == 0;
+                              bool mul_val = false;
+                              if(n_addr > 1)mul_val = same;
+                              if(!same){
+                                    if(integers)*ints = to_w_i;
+                                    else *chars = strdup(to_w);
+                              }
+                              for(unsigned int i =  v_loc[0]; i <= v_loc[1]; ++i){
+                                    if(integers){
+                                          addrs[addr_s++] = vmem->mmap[i].addr;
+                                          if(same)ints[i] = vmem->mmap[i].value;
+                                    }
+                                    else{
+                                          addrs[addr_s++] = vmem->cp_mmap[i].addr;
+                                          if(same)chars[i] = strdup(vmem->cp_mmap[i].value);
                                     }
                               }
-                              // writing raw string to lock_pids regardless of string/int mode - this avoids the need to handle strings separately from ints
-                              if(num_locks == lock_cap){
-                                    lock_cap *= 2;
-                                    struct lock_container* tmp_lock = malloc(sizeof(struct lock_container)*lock_cap);
-                                    memcpy(tmp_lock, lock_pids, sizeof(struct lock_container)*num_locks);
-                                    free(lock_pids);
-                                    lock_pids = tmp_lock;
-                              }
-                              ++num_locks;
-                              // TODO: possibly remove locks already in vmem->mmap[v_loc[0]].addr
-                              // TODO: possibly make lock_pids->m_addr a *, with every mem loc in it
-                              // although it might add complexity for no reason
-                              lock_pids[num_locks-1].s_value = to_w;
-                              lock_pids[num_locks-1].pid = temp_pid;
-                              lock_pids[num_locks-1].rng = !(v_loc[0] == v_loc[1]);
-                              if(integers){
-                                    lock_pids[num_locks-1].m_addr = vmem->mmap[v_loc[0]].addr;
-                                    // if we're locking values using "_" notation don't try to convert to_w to int
-                                    if(strcmp(to_w, "_") != 0)lock_pids[num_locks-1].i_value = to_w_i;
-                                    else lock_pids[num_locks-1].i_value = vmem->mmap[v_loc[0]].value;
-                              }
-                              else lock_pids[num_locks-1].m_addr = vmem->cp_mmap[v_loc[0]].addr;
+                              create_lock(lock_pids, vmem->mapped_rgn.pid, addrs, ints, chars, n_addr, mul_val, integers);
                               puts("variable(s) locked");
                               update_mem_map(vmem, integers);
                               continue;

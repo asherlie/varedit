@@ -426,3 +426,94 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bo
             mem->cp_mmap = tmp_cp_mmap;
       }
 }
+
+struct lock_container* lock_container_init(unsigned char initial_sz){
+      struct lock_container* lc = malloc(sizeof(struct lock_container));
+      lc->n = lc->n_removed = 0;
+      lc->cap = initial_sz;
+      lc->locks = malloc(sizeof(struct lock_entry)*lc->cap);
+      return lc;
+}
+
+// TODO: could take in a BYTE** to write
+struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, int n_addr, bool mul_val, bool integers){
+      if(lc->n == lc->cap){
+            lc->cap *= 2;
+            struct lock_entry* tmp_l = malloc(sizeof(struct lock_entry)*lc->cap);
+            memcpy(tmp_l, lc->locks, sizeof(struct lock_entry)*lc->n);
+            free(lc->locks);
+            lc->locks = tmp_l;
+      }
+      pid_t fpid = fork();
+      if(fpid == 0){
+            int int_mode_bytes = 4;
+            // TODO: this is ugly, combine some loops
+            if(n_addr == 1){
+                  if(integers){
+                        BYTE to_w_b[int_mode_bytes];
+                        memcpy(to_w_b, i_val, int_mode_bytes);
+                        while(1){
+                              usleep(1000);
+                              // if n_addrs == 1, n_vals must also == 1
+                              write_bytes_to_pid_mem(pid, int_mode_bytes, *addr, to_w_b);
+                        }
+                  }
+                  else{
+                        while(1){
+                              usleep(1000);
+                              write_bytes_to_pid_mem(pid, int_mode_bytes, *addr, (BYTE*)s_val);
+                        }
+                  }
+            }
+            else{
+                  // if(n_vals > 1){
+                  if(mul_val){
+                        if(integers){
+                              BYTE to_w_b[n_addr][int_mode_bytes];
+                              for(int i = 0; i < n_addr; ++i)memcpy(to_w_b[i], &i_val[i], int_mode_bytes);
+                              while(1){
+                                    usleep(1000);
+                                    for(int i = 0; i < n_addr; ++i){
+                                          write_bytes_to_pid_mem(pid, int_mode_bytes, addr[i], to_w_b[i]);
+                                    }
+                              }
+                        }
+                        else{
+                              while(1){
+                                    usleep(1000);
+                                    for(int i = 0; i < n_addr; ++i){
+                                          write_bytes_to_pid_mem(pid, int_mode_bytes, addr[i], (BYTE*)s_val[i]);
+                                    }
+                              }
+                        }
+                  }
+                  else{
+                        if(integers){
+                              BYTE to_w_b[int_mode_bytes];
+                              memcpy(to_w_b, i_val, int_mode_bytes);
+                              while(1){
+                                    usleep(1000);
+                                    for(int i = 0; i < n_addr; ++i){
+                                          write_bytes_to_pid_mem(pid, int_mode_bytes, addr[i], to_w_b);
+                                    }
+                              }
+                        }
+                        else{
+                              while(1){
+                                    usleep(1000);
+                                    for(int i = 0; i < n_addr; ++i){
+                                          write_bytes_to_pid_mem(pid, int_mode_bytes, addr[i], (BYTE*)s_val);
+                                    }
+                              }
+                        }
+                  }
+            }
+      }
+      if(!integers)lc->locks[lc->n].s_value = *s_val;
+      else lc->locks[lc->n].i_value = *i_val;
+      lc->locks[lc->n].pid = fpid;
+      lc->locks[lc->n].rng = n_addr != 1;
+      lc->locks[lc->n].m_addr = *addr;
+      ++lc->n;
+      return lc;
+}
