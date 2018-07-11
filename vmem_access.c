@@ -435,8 +435,8 @@ struct lock_container* lock_container_init(unsigned char initial_sz){
       return lc;
 }
 
-// TODO: could take in a BYTE** to write
-struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, int n_addr, bool mul_val, bool integers){
+// TODO add int_mode_bytes functionality
+struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers){
       if(lc->n == lc->cap){
             lc->cap *= 2;
             struct lock_entry* tmp_l = malloc(sizeof(struct lock_entry)*lc->cap);
@@ -446,65 +446,18 @@ struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** 
       }
       pid_t fpid = fork();
       if(fpid == 0){
-            int int_mode_bytes = 4;
             // TODO: this is ugly, combine some loops
-            if(n_addr == 1){
-                  if(integers){
-                        BYTE to_w_b[int_mode_bytes];
-                        memcpy(to_w_b, i_val, int_mode_bytes);
-                        while(1){
-                              usleep(1000);
-                              // if n_addrs == 1, n_vals must also == 1
-                              write_bytes_to_pid_mem(pid, int_mode_bytes, *addr, to_w_b);
-                        }
-                  }
-                  else{
-                        while(1){
-                              usleep(1000);
-                              write_bytes_to_pid_mem(pid, int_mode_bytes, *addr, (BYTE*)s_val);
-                        }
-                  }
-            }
-            else{
-                  // if(n_vals > 1){
-                  if(mul_val){
+            while(1){
+                  usleep(1000);
+                  for(unsigned int i = 0; i < n_addr; ++i){
                         if(integers){
-                              BYTE to_w_b[n_addr][int_mode_bytes];
-                              for(int i = 0; i < n_addr; ++i)memcpy(to_w_b[i], &i_val[i], int_mode_bytes);
-                              while(1){
-                                    usleep(1000);
-                                    for(int i = 0; i < n_addr; ++i){
-                                          write_bytes_to_pid_mem(pid, int_mode_bytes, addr[i], to_w_b[i]);
-                                    }
-                              }
+                              // TODO: use write_bytes_to_pid_mem and build the BYTE[] outside of loop to optimize
+                              if(mul_val)write_int_to_pid_mem(pid, addr[i], i_val[i]);
+                              else write_int_to_pid_mem(pid, addr[i], *i_val);
                         }
                         else{
-                              while(1){
-                                    usleep(1000);
-                                    for(int i = 0; i < n_addr; ++i){
-                                          write_bytes_to_pid_mem(pid, int_mode_bytes, addr[i], (BYTE*)s_val[i]);
-                                    }
-                              }
-                        }
-                  }
-                  else{
-                        if(integers){
-                              BYTE to_w_b[int_mode_bytes];
-                              memcpy(to_w_b, i_val, int_mode_bytes);
-                              while(1){
-                                    usleep(1000);
-                                    for(int i = 0; i < n_addr; ++i){
-                                          write_bytes_to_pid_mem(pid, int_mode_bytes, addr[i], to_w_b);
-                                    }
-                              }
-                        }
-                        else{
-                              while(1){
-                                    usleep(1000);
-                                    for(int i = 0; i < n_addr; ++i){
-                                          write_bytes_to_pid_mem(pid, int_mode_bytes, addr[i], (BYTE*)s_val);
-                                    }
-                              }
+                              if(mul_val)write_str_to_pid_mem(pid, addr[i], s_val[i]);
+                              else write_str_to_pid_mem(pid, addr[i], *s_val);
                         }
                   }
             }
