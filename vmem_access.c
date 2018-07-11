@@ -453,6 +453,10 @@ int remove_lock(struct lock_container* lc, int rm_s){
             for(int i = 0; i < lc->n; ++i){
                   if(lc->locks[i].m_addr == NULL)continue;
                   if(r_i == rm_s){
+                        if(lc->locks[i].to_free != NULL){
+                              free(lc->locks[i].to_free);
+                              lc->locks[i].to_free = NULL;
+                        }
                         kill(lc->locks[i].pid, SIGKILL);
                         wait(NULL);
                         ++lc->n_removed;
@@ -471,6 +475,7 @@ int free_locks(struct lock_container* lc){
       unsigned char i;
       for(i = 0; i < lc->n; ++i){
             if(lc->locks[i].m_addr == NULL)continue;
+            if(lc->locks[i].to_free != NULL)free(lc->locks[i].to_free);
             kill(lc->locks[i].pid, SIGKILL);
             wait(NULL);
       }
@@ -487,7 +492,8 @@ struct lock_container* lock_container_init(unsigned char initial_sz){
 }
 
 // TODO add int_mode_bytes functionality
-struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers){
+// if f_o_r is not null, it'll be freed on removal
+struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r){
       if(lc->n == lc->cap){
             lc->cap *= 2;
             struct lock_entry* tmp_l = malloc(sizeof(struct lock_entry)*lc->cap);
@@ -518,6 +524,7 @@ struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** 
       lc->locks[lc->n].pid = fpid;
       lc->locks[lc->n].rng = n_addr != 1;
       lc->locks[lc->n].m_addr = *addr;
+      lc->locks[lc->n].to_free = f_o_r;
       ++lc->n;
       return lc;
 }

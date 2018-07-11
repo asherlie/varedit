@@ -135,6 +135,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             // TODO: abstract to function --- LOCKS
             if(strcmp(tmp_str, "q") == 0){
                   free_locks(lock_pids);
+                  free(lock_pids);
                   return !first;
             }
             // TODO: add ability to rescan memory regions and update vmem->mapped_rgn
@@ -232,6 +233,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         if(strcmp(v_loc_s, "q") == 0){
                               free_locks(lock_pids);
+                              free(lock_pids);
                               return !first;
                         }
                         if(strcmp(v_loc_s, "?") == 0){
@@ -301,12 +303,12 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                        }
                         if(lock_mode){
                               unsigned int n_addr = v_loc[1]-v_loc[0]+1;
-                              /*void** addrs = malloc(sizeof(void*)*n_addr);*/
+                              void* to_f;
                               void* addrs[n_addr]; unsigned int addr_s = 0;
                               // TODO: what if these aren't malloc'd
                               char** chars; int* ints;
-                              if(integers)ints = malloc(sizeof(int)*n_addr);
-                              else chars = malloc(sizeof(char*)*n_addr);
+                              if(integers)to_f = ints = malloc(sizeof(int)*n_addr);
+                              else to_f = chars = malloc(sizeof(char*)*n_addr);
                               bool same = strncmp(to_w, "_", 2) == 0;
                               bool mul_val = false;
                               if(n_addr > 1)mul_val = same;
@@ -324,7 +326,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                           if(same)chars[i] = strdup(vmem->cp_mmap[i].value);
                                     }
                               }
-                              create_lock(lock_pids, vmem->mapped_rgn.pid, addrs, ints, chars, n_addr, mul_val, integers);
+                              create_lock(lock_pids, vmem->mapped_rgn.pid, addrs, ints, chars, n_addr, mul_val, integers, to_f);
                               puts("variable(s) locked");
                               update_mem_map(vmem, integers);
                               continue;

@@ -15,6 +15,7 @@ struct lock_entry{
       void* m_addr;
       int i_value;
       char* s_value;
+      void* to_free;
 };
 
 struct addr_int_pair{
@@ -68,4 +69,4 @@ void print_locks(struct lock_container* lc, bool integers);
 int remove_lock(struct lock_container* lc, int rm_s);
 int free_locks(struct lock_container* lc);
 struct lock_container* lock_container_init(unsigned char initial_sz);
-struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers);
+struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r);
