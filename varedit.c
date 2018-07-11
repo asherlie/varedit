@@ -35,19 +35,6 @@ bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional, bool silent){
       return true;
 }
 
-int remove_volatile_ints(struct mem_map* vmem){
-      int n = 0;
-      for(unsigned int i = 0; i < vmem->size; ++i){
-            for(int in = 0; in < 10; ++in){
-                  if(vmem->mmap[i].value != read_single_val_from_pid_mem(vmem->mapped_rgn.pid, 4, vmem->mmap[i].addr)){
-                        vmem->mmap[i--] = vmem->mmap[--vmem->size];
-                        ++n;
-                  }
-            }
-      }
-      return n;
-}
-
 void print_mmap(const struct mem_map* mem, const char* contains, bool integers, bool show_rgns){
       int i_cont = 0;
       if(integers && contains)strtoi(contains, &i_cont);
@@ -106,6 +93,7 @@ bool caret_parse(char* str){
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
       char search_mode_help[889];
       char* prog = search_mode_help;
+      // TODO: remove rv from this help screen
       if(!integers)prog = stpcpy(search_mode_help, "NOTE: '^' marks the beginning of a target string of our search, it will only accept exact matches to the start of a string\nNOTE: \"\\0\" marks the end of a target string of our search, it will only accept exact matches to the end of a string\nsearch mode options:\n    r : reset mem map\n    wa <value> : write single value to all current results\n    <string> : enter a string to narrow results - end string with \"\\0\" to search for exact strings or use delimeter '\\' to search for '?', 'q', 'u', 'r', 'w'\n    ");
       else prog = stpcpy(prog, "<integer> : enter an integer to narrow results\n    rv : remove volatile variables\n    ");
       strcpy(prog, "u : update visible values\n    ? : show this\n    q : quit");
@@ -385,12 +373,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   }
             }
             // tmp_str != "w"
-            if(strcmp(tmp_str, "rv") == 0){ // rv for remove volatile - disqualifies all volatile vars
-                  if(integers){
-                        printf("%i volatile variables removed\n", remove_volatile_ints(vmem));
-                        goto Find;
-                  }
-            }
             // checking if input is valid before calling populating mem_map
             if(!*tmp_str || (integers && !strtoi(tmp_str, NULL))){
                   if(integers)puts("enter a valid integer to search");
@@ -400,7 +382,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             if(first)populate_mem_map(vmem, d_rgn, additional, integers, int_mode_bytes);
             // tmp_str_ptr makes it easier to handle escaped searches of reserved varedit strings because it can be incremented
             char* tmp_str_ptr = tmp_str;
-            // to deal with escaped \w, \u, \q, \r, \?, \rv, \rl
+            // to deal with escaped \w, \u, \q, \r, \?, \rl
             if(tmp_str[0] == '\\')++tmp_str_ptr;
             if(!first)update_mem_map(vmem, integers);
             if(integers){
