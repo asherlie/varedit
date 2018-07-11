@@ -454,6 +454,9 @@ int remove_lock(struct lock_container* lc, int rm_s){
                   if(lc->locks[i].m_addr == NULL)continue;
                   if(r_i == rm_s){
                         if(lc->locks[i].to_free != NULL){
+                              // will only be > 0 if !integers
+                              for(int f = 0; f < lc->locks[i].n_to_free; ++f)
+                                    free(((char**)lc->locks[i].to_free)[f]);
                               free(lc->locks[i].to_free);
                               lc->locks[i].to_free = NULL;
                         }
@@ -475,7 +478,11 @@ int free_locks(struct lock_container* lc){
       unsigned char i;
       for(i = 0; i < lc->n; ++i){
             if(lc->locks[i].m_addr == NULL)continue;
-            if(lc->locks[i].to_free != NULL)free(lc->locks[i].to_free);
+            if(lc->locks[i].to_free != NULL){
+                  for(int f = 0; f < lc->locks[i].n_to_free; ++f)
+                        free(((char**)lc->locks[i].to_free)[f]);
+                  free(lc->locks[i].to_free);
+            }
             kill(lc->locks[i].pid, SIGKILL);
             wait(NULL);
       }
@@ -525,6 +532,12 @@ struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** 
       lc->locks[lc->n].rng = n_addr != 1;
       lc->locks[lc->n].m_addr = *addr;
       lc->locks[lc->n].to_free = f_o_r;
+      lc->locks[lc->n].n_to_free = 0;
+      // if we have many 
+      if(!integers){
+            if(mul_val)lc->locks[lc->n].n_to_free = n_addr;
+            else lc->locks[lc->n].n_to_free = 1;
+      }
       ++lc->n;
       return lc;
 }

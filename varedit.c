@@ -305,7 +305,6 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               unsigned int n_addr = v_loc[1]-v_loc[0]+1;
                               void* to_f;
                               void* addrs[n_addr]; unsigned int addr_s = 0;
-                              // TODO: what if these aren't malloc'd
                               char** chars; int* ints;
                               if(integers)to_f = ints = malloc(sizeof(int)*n_addr);
                               else to_f = chars = malloc(sizeof(char*)*n_addr);

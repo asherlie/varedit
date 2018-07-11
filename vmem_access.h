@@ -16,6 +16,7 @@ struct lock_entry{
       int i_value;
       char* s_value;
       void* to_free;
+      int n_to_free;
 };
 
 struct addr_int_pair{
