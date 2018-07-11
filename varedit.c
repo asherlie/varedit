@@ -105,21 +105,6 @@ bool caret_parse(char* str){
       return ch_p("^", str, true);
 }
 
-void print_locks(struct lock_container* lc, bool integers){
-      if(lc->n-lc->n_removed == 0){
-            puts("no locks are currently in place");
-            return;
-      }
-      int r_i = 0;
-      for(unsigned char i = 0; i < lc->n; ++i){
-            if(lc->locks[i].m_addr == NULL)continue;
-            if(integers)printf("(%i) %p: %i", r_i, lc->locks[i].m_addr, lc->locks[i].i_value);
-            else printf("(%i) %p: \"%s\"", r_i, lc->locks[i].m_addr, lc->locks[i].s_value);
-            if(lc->locks[i].rng)puts(" (multiple locks)"); else puts("");
-            ++r_i;
-      }
-}
-
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
       char search_mode_help[889];
       char* prog = search_mode_help;
@@ -358,7 +343,9 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                        }
                         if(lock_mode){
                               unsigned int n_addr = v_loc[1]-v_loc[0]+1;
-                              void** addrs = malloc(sizeof(void*)*n_addr); unsigned int addr_s = 0;
+                              /*void** addrs = malloc(sizeof(void*)*n_addr);*/
+                              void* addrs[n_addr]; unsigned int addr_s = 0;
+                              // TODO: what if these aren't malloc'd
                               char** chars; int* ints;
                               if(integers)ints = malloc(sizeof(int)*n_addr);
                               else chars = malloc(sizeof(char*)*n_addr);

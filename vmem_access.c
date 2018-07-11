@@ -427,6 +427,22 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bo
       }
 }
 
+// TODO: possibly move all lock functions and struct definitions to separate files
+void print_locks(struct lock_container* lc, bool integers){
+      if(lc->n-lc->n_removed == 0){
+            puts("no locks are currently in place");
+            return;
+      }
+      int r_i = 0;
+      for(unsigned char i = 0; i < lc->n; ++i){
+            if(lc->locks[i].m_addr == NULL)continue;
+            if(integers)printf("(%i) %p: %i", r_i, lc->locks[i].m_addr, lc->locks[i].i_value);
+            else printf("(%i) %p: \"%s\"", r_i, lc->locks[i].m_addr, lc->locks[i].s_value);
+            if(lc->locks[i].rng)puts(" (multiple locks)"); else puts("");
+            ++r_i;
+      }
+}
+
 struct lock_container* lock_container_init(unsigned char initial_sz){
       struct lock_container* lc = malloc(sizeof(struct lock_container));
       lc->n = lc->n_removed = 0;
