@@ -475,16 +475,10 @@ int remove_lock(struct lock_container* lc, int rm_s){
 
 // returns number of locks removed before freeing
 int free_locks(struct lock_container* lc){
-      unsigned char i;
-      for(i = 0; i < lc->n; ++i){
-            if(lc->locks[i].m_addr == NULL)continue;
-            if(lc->locks[i].to_free != NULL){
-                  for(int f = 0; f < lc->locks[i].n_to_free; ++f)
-                        free(((char**)lc->locks[i].to_free)[f]);
-                  free(lc->locks[i].to_free);
-            }
-            kill(lc->locks[i].pid, SIGKILL);
-            wait(NULL);
+      unsigned char i = 0;
+      while(lc->n - lc->n_removed != 0){
+            ++i;
+            remove_lock(lc, 0);
       }
       free(lc->locks);
       return i;
