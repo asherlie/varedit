@@ -91,12 +91,11 @@ bool caret_parse(char* str){
 }
 
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
-      char search_mode_help[889];
+      char search_mode_help[600];
       char* prog = search_mode_help;
-      // TODO: remove rv from this help screen
-      if(!integers)prog = stpcpy(search_mode_help, "NOTE: '^' marks the beginning of a target string of our search, it will only accept exact matches to the start of a string\nNOTE: \"\\0\" marks the end of a target string of our search, it will only accept exact matches to the end of a string\nsearch mode options:\n    r : reset mem map\n    wa <value> : write single value to all current results\n    <string> : enter a string to narrow results - end string with \"\\0\" to search for exact strings or use delimeter '\\' to search for '?', 'q', 'u', 'r', 'w'\n    ");
-      else prog = stpcpy(prog, "<integer> : enter an integer to narrow results\n    rv : remove volatile variables\n    ");
-      strcpy(prog, "u : update visible values\n    ? : show this\n    q : quit");
+      if(!integers)prog = stpcpy(search_mode_help, "NOTE: '^' marks the beginning of a target string of our search, it will only accept exact matches to the start of a string\nNOTE: \"\\0\" marks the end of a target string of our search, it will only accept exact matches to the end of a string\nsearch mode options:\n    wa <value> : write single value to all current results\n    <string> : enter a string to narrow results - begin string with \"^\" to match beginning exactly, end string with \"\\0\" to match end exactly or use delimeter '\\' to search for '?', 'q', 'u', 'r', 'w'\n    ");
+      else prog = stpcpy(prog, "    <integer> : enter an integer to narrow results\n    ");
+      strcpy(prog, "r : reset mem map\nu : update visible values\n    ? : show this\n    q : quit");
       char write_mode_help[564];
       prog = write_mode_help;
       if(!integers)prog = stpncpy(prog, "NOTE: a \"\\0\" in any write string will be replaced with a NUL character unless escaped with a \'\\\'\n", 124);
@@ -408,7 +407,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.19";
+      char ver[] = "varedit 1.0.20";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
