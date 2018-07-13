@@ -110,10 +110,8 @@ char* read_str_from_mem_range_slow(pid_t pid, void* mb_start, void* mb_end){
 
 bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_bytes){
       bool ret = true;
-      BYTE* bytes;
       // don't use read_bytes_from_pid_mem to read from current process
-      if(src_pid == getpid())bytes = (BYTE*)src;
-      else bytes = read_bytes_from_pid_mem(src_pid, n_bytes, src, NULL);
+      BYTE* bytes = (src_pid == getpid()) ? (BYTE*)src : read_bytes_from_pid_mem(src_pid, n_bytes, src, NULL);
       // don't use write_bytes_to_pid_mem to write to current process
       if(dest_pid == getpid())memcpy(dest, bytes, n_bytes);
       else ret = write_bytes_to_pid_mem(dest_pid, n_bytes, dest, bytes);
