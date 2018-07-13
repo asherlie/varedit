@@ -246,24 +246,24 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               goto Write;
                         }
                         if(strcmp(v_loc_s, "pl") == 0){
-                              print_locks(&lock_pids, integers);
+                              if(!print_locks(&lock_pids, integers))puts("no locks are currently in place");
                               fseek(stdin, 0, SEEK_END);
                               goto Write;
                         }
                         if(strcmp(v_loc_s, "rl") == 0){
-                              print_locks(&lock_pids, integers);
-                              fgets(v_loc_s, 10, stdin);
-                              if(v_loc_s[strlen(v_loc_s)-1] == '\n')v_loc_s[strlen(v_loc_s)-1] = '\0';
-                              int rm_s;
-                              if(!strtoi(v_loc_s, &rm_s) || rm_s >= lock_pids.n-lock_pids.n_removed || rm_s < 0)puts("enter a valid integer");
-                              int i;
-                              switch(i = remove_lock(&lock_pids, rm_s)){
-                                    case -1: puts("no locks are currently in place"); break;
-                                    default:
-                                          if(integers)
-                                                printf("lock with value %i removed\n", lock_pids.locks[i].i_value);
-                                          else 
-                                                printf("lock with value \"%s\" removed\n", lock_pids.locks[i].s_value);
+                              // TODO: eat extra chars if they exist - chars following rl should not be processed
+                              // if no locks are in place
+                              if(!print_locks(&lock_pids, integers))puts("no locks are currently in place");
+                              else{
+                                    fgets(v_loc_s, 10, stdin);
+                                    if(v_loc_s[strlen(v_loc_s)-1] == '\n')v_loc_s[strlen(v_loc_s)-1] = '\0';
+                                    int rm_s;
+                                    if(!strtoi(v_loc_s, &rm_s) || rm_s >= lock_pids.n-lock_pids.n_removed || rm_s < 0)
+                                          puts("enter a valid integer");
+                                    int i = remove_lock(&lock_pids, rm_s);
+                                    if(integers)printf("lock with value %i removed\n", lock_pids.locks[i].i_value);
+                                    // TODO: s_value is freed by the time it's supposed to be printed
+                                    else printf("lock with value \"%s\" removed\n", lock_pids.locks[i].s_value);
                               }
                               fseek(stdin, 0, SEEK_END);
                               goto Write;
@@ -408,7 +408,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.18";
+      char ver[] = "varedit 1.0.19";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"

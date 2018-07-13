@@ -66,7 +66,7 @@ void populate_mem_map(struct mem_map* mmap, int d_rgn, bool use_additional_rgns,
 void update_mem_map(struct mem_map* mem, bool integers);
 void narrow_mem_map_int(struct mem_map* mem, int match);
 void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bool exact_e);
-void print_locks(struct lock_container* lc, bool integers);
+bool print_locks(struct lock_container* lc, bool integers);
 int remove_lock(struct lock_container* lc, int rm_s);
 int free_locks(struct lock_container* lc);
 struct lock_container* lock_container_init(struct lock_container* lc, unsigned char initial_sz);
