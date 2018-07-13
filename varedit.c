@@ -250,9 +250,12 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               goto Write;
                         }
                         if(strcmp(v_loc_s, "rl") == 0){
-                              // TODO: eat extra chars if they exist - chars following rl should not be processed
                               // if no locks are in place
-                              if(!print_locks(&lock_pids, integers))puts("no locks are currently in place");
+                              if(!print_locks(&lock_pids, integers)){
+                                    puts("no locks are currently in place");
+                                    // flushing in case a number has been entered after "rl"
+                                    fflush(stdin);
+                              }
                               else{
                                     fgets(v_loc_s, 10, stdin);
                                     if(v_loc_s[strlen(v_loc_s)-1] == '\n')v_loc_s[strlen(v_loc_s)-1] = '\0';
@@ -407,7 +410,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.20";
+      char ver[] = "varedit 1.0.21";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
