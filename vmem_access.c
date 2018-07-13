@@ -476,7 +476,7 @@ int remove_lock(struct lock_container* lc, int rm_s){
 // returns number of locks removed before freeing
 int free_locks(struct lock_container* lc){
       unsigned char i = 0;
-      while(lc->n - lc->n_removed != 0){
+      while(lc->n-lc->n_removed != 0){
             ++i;
             remove_lock(lc, 0);
       }
@@ -484,8 +484,9 @@ int free_locks(struct lock_container* lc){
       return i;
 }
 
-struct lock_container* lock_container_init(unsigned char initial_sz){
-      struct lock_container* lc = malloc(sizeof(struct lock_container));
+// if lc == NULL, a new lock_container struct is malloc'd
+struct lock_container* lock_container_init(struct lock_container* lc, unsigned char initial_sz){
+      if(lc == NULL)lc = malloc(sizeof(struct lock_container));
       lc->n = lc->n_removed = 0;
       lc->cap = initial_sz;
       lc->locks = malloc(sizeof(struct lock_entry)*lc->cap);

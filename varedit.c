@@ -120,7 +120,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       int tmp_val;
       bool first = true;
       bool lock_mode;
-      struct lock_container* lock_pids = lock_container_init(1);
+      struct lock_container lock_pids;
+      lock_container_init(&lock_pids, 1);
       // TODO: possibly get rid of while loop in favor of goto Find for increased clarity
       while(1){
             /* NOTE: each goto Find could be replaced by a continue to return to this point and the label Find could be removed
@@ -134,8 +135,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             tmp_str[tmp_strlen-1]='\0';
             // TODO: abstract to function --- LOCKS
             if(strcmp(tmp_str, "q") == 0){
-                  free_locks(lock_pids);
-                  free(lock_pids);
+                  free_locks(&lock_pids);
                   return !first;
             }
             // TODO: add ability to rescan memory regions and update vmem->mapped_rgn
@@ -232,8 +232,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               goto Find;
                         }
                         if(strcmp(v_loc_s, "q") == 0){
-                              free_locks(lock_pids);
-                              free(lock_pids);
+                              free_locks(&lock_pids);
                               return !first;
                         }
                         if(strcmp(v_loc_s, "?") == 0){
@@ -247,24 +246,24 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               goto Write;
                         }
                         if(strcmp(v_loc_s, "pl") == 0){
-                              print_locks(lock_pids, integers);
+                              print_locks(&lock_pids, integers);
                               fseek(stdin, 0, SEEK_END);
                               goto Write;
                         }
                         if(strcmp(v_loc_s, "rl") == 0){
-                              print_locks(lock_pids, integers);
+                              print_locks(&lock_pids, integers);
                               fgets(v_loc_s, 10, stdin);
                               if(v_loc_s[strlen(v_loc_s)-1] == '\n')v_loc_s[strlen(v_loc_s)-1] = '\0';
                               int rm_s;
-                              if(!strtoi(v_loc_s, &rm_s) || rm_s >= lock_pids->n-lock_pids->n_removed || rm_s < 0)puts("enter a valid integer");
+                              if(!strtoi(v_loc_s, &rm_s) || rm_s >= lock_pids.n-lock_pids.n_removed || rm_s < 0)puts("enter a valid integer");
                               int i;
-                              switch(i = remove_lock(lock_pids, rm_s)){
+                              switch(i = remove_lock(&lock_pids, rm_s)){
                                     case -1: puts("no locks are currently in place"); break;
                                     default:
                                           if(integers)
-                                                printf("lock with value %i removed\n", lock_pids->locks[i].i_value);
+                                                printf("lock with value %i removed\n", lock_pids.locks[i].i_value);
                                           else 
-                                                printf("lock with value \"%s\" removed\n", lock_pids->locks[i].s_value);
+                                                printf("lock with value \"%s\" removed\n", lock_pids.locks[i].s_value);
                               }
                               fseek(stdin, 0, SEEK_END);
                               goto Write;
@@ -325,7 +324,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                           if(same)chars[i] = strdup(vmem->cp_mmap[i].value);
                                     }
                               }
-                              create_lock(lock_pids, vmem->mapped_rgn.pid, addrs, ints, chars, n_addr, mul_val, integers, to_f);
+                              create_lock(&lock_pids, vmem->mapped_rgn.pid, addrs, ints, chars, n_addr, mul_val, integers, to_f);
                               puts("variable(s) locked");
                               update_mem_map(vmem, integers);
                               continue;
