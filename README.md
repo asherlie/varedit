@@ -183,7 +183,7 @@ struct mem_rgn rgn;
 pid_memcpy(getpid(), src_pid, &rgn, addr_mem_rgn, sizeof(struct mem_rgn));
 ```
 
-the remaining functions defined in vmem_access.h are used for creating and manipulating `mem_map` structs defined in vmem_access.h
+the following functions defined in vmem_access.h are used for creating and manipulating `mem_map` structs defined in vmem_access.h
 * `void populate_mem_map(struct mem_map* mmap, int d_rgn, bool use_additional_rgns, bool integers, int bytes)`
 * `void update_mem_map(struct mem_map* mem, bool integers)`
 * `struct mem_map* mem_map_init(struct mem_map* mem, pid_t pid, bool unmarked_additional)`
@@ -217,4 +217,28 @@ populate_mem_map(vmem, BOTH, true, true, sizeof(int));
 free_mem_rgn(&vmem->mapped_rgn);
 free_mem_map(vmem, true);
 free(vmem);
+```
+
+the remaining functions defined in vmem_access.h are used for creating, removing, and keeping track of locks
+* `bool print_locks(struct lock_container* lc, bool integers)`
+* `int remove_lock(struct lock_container* lc, int rm_s, bool keep_first)`
+* `int free_locks(struct lock_container* lc)`
+* `struct lock_container* lock_container_init(struct lock_container* lc, unsigned char initial_sz)`
+* `pid_t create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r)`
+
+to use these, an initial `lock_container` struct must be created and initialized using `lock_container_init`.
+if `lock_container_init`'s `lc` parameter is `NULL`, a new malloc'd lock_container struct will be returned. otherwise `lock_container_init` will return a pointer to `lc`.
+
+the initialization of a `lock_container` struct and the creation of a lock is demonstrated below
+```c
+struct lock_container lc;
+lock_container_init(&lc, 1);
+// assuming pid_t pid = some valid process id 
+// assuming void* addr = a memory address pointing to a value in pid's memory
+// assuming int i_val = an integer value
+create_lock(&lc, pid, &addr, &i_val, NULL, 1, false, true, NULL);
+/* indices of items in the lock_container struct are adjusted so that
+   remove_lock with 0 as its rm_s parameter will always be valid for a non empty lock_container */
+// to remove this lock
+remove_lock(&lc, 0, false);
 ```
