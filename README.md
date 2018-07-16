@@ -229,6 +229,10 @@ the remaining functions defined in vmem_access.h are used for creating, removing
 to use these, an initial `lock_container` struct must be created and initialized using `lock_container_init`.
 if `lock_container_init`'s `lc` parameter is `NULL`, a new malloc'd lock_container struct will be returned. otherwise `lock_container_init` will return a pointer to `lc`.
 
+### notes on `create_lock` behavior
+to lock a list of addresses at once, `create_lock`'s `addr` parameter should be a void* array of size `n_addr`
+if the `mul_val` parameter is `true`, then an array of write values of size `n_addr` is expected in `i_val` or `s_val`
+
 the initialization of a `lock_container` struct and the creation of a lock on address 0xffff17 of process 2819 to the value 62 is demonstrated below
 ```c
 pid_t pid = 2819;
