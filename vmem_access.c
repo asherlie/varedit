@@ -445,7 +445,7 @@ bool print_locks(struct lock_container* lc, bool integers){
 /* if keep_first, the s_value in the rm_s of lc will not be freed
    every other string in to_free that requires freeing will still be freed */
 int remove_lock(struct lock_container* lc, int rm_s, bool keep_first){
-      if(lc->n-lc->n_removed == 0)return -1;
+      if(lc->n-lc->n_removed == 0)return 0;
       else{
             int r_i = 0;
             for(int i = 0; i < lc->n; ++i){
@@ -453,7 +453,7 @@ int remove_lock(struct lock_container* lc, int rm_s, bool keep_first){
                   if(r_i == rm_s){
                         if(lc->locks[i].to_free != NULL){
                               // will only be > 0 if !integers
-                              for(int f = (keep_first) ? 1 : 0; f < lc->locks[i].n_to_free; ++f)
+                              for(int f = keep_first; f < lc->locks[i].n_to_free; ++f)
                                     free(((char**)lc->locks[i].to_free)[f]);
                               free(lc->locks[i].to_free);
                               lc->locks[i].to_free = NULL;
@@ -468,16 +468,13 @@ int remove_lock(struct lock_container* lc, int rm_s, bool keep_first){
                   ++r_i;
             }
       }
-      return -1;
+      return 0;
 }
 
 // returns number of locks removed before freeing
 int free_locks(struct lock_container* lc){
-      unsigned char i = 0;
-      while(lc->n-lc->n_removed != 0){
-            ++i;
-            remove_lock(lc, 0, false);
-      }
+      unsigned char i;
+      for(i = 0; remove_lock(lc, 0, false); ++i);
       free(lc->locks);
       return i;
 }
@@ -503,7 +500,6 @@ struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** 
       }
       pid_t fpid = fork();
       if(fpid == 0){
-            // TODO: this is ugly, combine some loops
             while(1){
                   usleep(1000);
                   for(unsigned int i = 0; i < n_addr; ++i){
