@@ -232,7 +232,7 @@ if `lock_container_init`'s `lc` parameter is `NULL`, a new malloc'd lock_contain
 the initialization of a `lock_container` struct and the creation of a lock on address 0xffff17 of process 2819 to the value 62 is demonstrated below
 ```c
 pid_t pid = 2819;
-void* addr = 0xffff17;
+void* addr = (void*)0xffff17;
 // i_val can also be an array of integers
 int i_val = 62;
 struct lock_container lc;
@@ -243,4 +243,7 @@ create_lock(&lc, pid, &addr, &i_val, NULL, 1, false, true, NULL);
    remove_lock with 0 as its rm_s parameter will always be valid for a non empty lock_container */
 // to remove this lock
 remove_lock(&lc, 0, false);
+// to free any memory malloc'd by locking process
+// free_locks will not only free any malloc'd memory, but will remove any locks still in place
+free_locks(&lc);
 ```
