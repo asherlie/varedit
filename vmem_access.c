@@ -445,7 +445,7 @@ bool print_locks(struct lock_container* lc, bool integers){
 /* if keep_first, the s_value in the rm_s of lc will not be freed
    every other string in to_free that requires freeing will still be freed */
 int remove_lock(struct lock_container* lc, int rm_s, bool keep_first){
-      if(lc->n-lc->n_removed == 0)return 0;
+      if(lc->n-lc->n_removed == 0)return -1;
       else{
             int r_i = 0;
             for(int i = 0; i < lc->n; ++i){
@@ -468,13 +468,13 @@ int remove_lock(struct lock_container* lc, int rm_s, bool keep_first){
                   ++r_i;
             }
       }
-      return 0;
+      return -1;
 }
 
 // returns number of locks removed before freeing
 int free_locks(struct lock_container* lc){
-      unsigned char i;
-      for(i = 0; remove_lock(lc, 0, false); ++i);
+      unsigned char i = 0;
+      for(i = 0; remove_lock(lc, 0, false) != -1; ++i);
       free(lc->locks);
       return i;
 }
@@ -490,7 +490,7 @@ struct lock_container* lock_container_init(struct lock_container* lc, unsigned c
 
 // TODO add int_mode_bytes functionality
 // if f_o_r is not null, it'll be freed on removal
-struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r){
+int create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r){
       if(lc->n == lc->cap){
             lc->cap *= 2;
             struct lock_entry* tmp_l = malloc(sizeof(struct lock_entry)*lc->cap);
@@ -527,5 +527,5 @@ struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** 
             else lc->locks[lc->n].n_to_free = 1;
       }
       ++lc->n;
-      return lc;
+      return fpid;
 }

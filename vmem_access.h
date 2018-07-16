@@ -70,4 +70,4 @@ bool print_locks(struct lock_container* lc, bool integers);
 int remove_lock(struct lock_container* lc, int rm_s, bool keep_first);
 int free_locks(struct lock_container* lc);
 struct lock_container* lock_container_init(struct lock_container* lc, unsigned char initial_sz);
-struct lock_container* create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r);
+pid_t create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r);
