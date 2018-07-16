@@ -446,27 +446,25 @@ bool print_locks(struct lock_container* lc, bool integers){
    every other string in to_free that requires freeing will still be freed */
 int remove_lock(struct lock_container* lc, int rm_s, bool keep_first){
       if(lc->n-lc->n_removed == 0)return -1;
-      else{
-            int r_i = 0;
-            for(int i = 0; i < lc->n; ++i){
-                  if(lc->locks[i].m_addr == NULL)continue;
-                  if(r_i == rm_s){
-                        if(lc->locks[i].to_free != NULL){
-                              // will only be > 0 if !integers
-                              for(int f = keep_first; f < lc->locks[i].n_to_free; ++f)
-                                    free(((char**)lc->locks[i].to_free)[f]);
-                              free(lc->locks[i].to_free);
-                              lc->locks[i].to_free = NULL;
-                        }
-                        kill(lc->locks[i].pid, SIGKILL);
-                        wait(NULL);
-                        ++lc->n_removed;
-                        // setting to null as to not print it later
-                        lc->locks[i].m_addr = NULL;
-                        return i;
+      int r_i = 0;
+      for(int i = 0; i < lc->n; ++i){
+            if(lc->locks[i].m_addr == NULL)continue;
+            if(r_i == rm_s){
+                  if(lc->locks[i].to_free != NULL){
+                        // will only be > 0 if !integers
+                        for(int f = keep_first; f < lc->locks[i].n_to_free; ++f)
+                              free(((char**)lc->locks[i].to_free)[f]);
+                        free(lc->locks[i].to_free);
+                        lc->locks[i].to_free = NULL;
                   }
-                  ++r_i;
+                  kill(lc->locks[i].pid, SIGKILL);
+                  wait(NULL);
+                  ++lc->n_removed;
+                  // setting to null as to not print it later
+                  lc->locks[i].m_addr = NULL;
+                  return i;
             }
+            ++r_i;
       }
       return -1;
 }
@@ -491,13 +489,6 @@ struct lock_container* lock_container_init(struct lock_container* lc, unsigned c
 // TODO add int_mode_bytes functionality
 // if f_o_r is not null, it'll be freed on removal
 int create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r){
-      if(lc->n == lc->cap){
-            lc->cap *= 2;
-            struct lock_entry* tmp_l = malloc(sizeof(struct lock_entry)*lc->cap);
-            memcpy(tmp_l, lc->locks, sizeof(struct lock_entry)*lc->n);
-            free(lc->locks);
-            lc->locks = tmp_l;
-      }
       pid_t fpid = fork();
       if(fpid == 0){
             while(1){
@@ -514,6 +505,13 @@ int create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, c
                         }
                   }
             }
+      }
+      if(lc->n == lc->cap){
+            lc->cap *= 2;
+            struct lock_entry* tmp_l = malloc(sizeof(struct lock_entry)*lc->cap);
+            memcpy(tmp_l, lc->locks, sizeof(struct lock_entry)*lc->n);
+            free(lc->locks);
+            lc->locks = tmp_l;
       }
       if(!integers)lc->locks[lc->n].s_value = *s_val;
       else lc->locks[lc->n].i_value = *i_val;
