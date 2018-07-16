@@ -219,6 +219,7 @@ free_mem_map(vmem, true);
 free(vmem);
 ```
 
+# memory locking
 the remaining functions defined in vmem_access.h are used for creating, removing, and keeping track of locks
 * `bool print_locks(struct lock_container* lc, bool integers)`
 * `int remove_lock(struct lock_container* lc, int rm_s, bool keep_first)`
