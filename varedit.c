@@ -413,7 +413,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.27";
+      char ver[] = "varedit 1.0.28";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -459,7 +459,7 @@ int main(int argc, char* argv[]){
                               case 'C': integers = false; break;
                               case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], &n_bytes) || n_bytes == 0 || n_bytes > 4)n_bytes = 4; else if(p != -2)p = i+1; break;
                               case 'V': verbose = true; print_rgns = true; break;
-                              case 'v': puts(ver); return -1;
+                              case 'v': printf("%s using %s\n", ver, MEMCARVE_VER); return -1;
                               // TODO: -p will sometimes be used without a filter str
                               case 'p': mode = 'p'; if(p != -2)p = i+1; args[0] = i+1; break; 
                               case 'r': mode = 'r'; if(p != -2)p = i+1; args[0] = i+1; break;
