@@ -431,12 +431,13 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bo
 // TODO: possibly move all lock functions and struct definitions to separate files mem_lock.{c,h}
 bool print_locks(struct lock_container* lc, bool integers){
       if(lc->n-lc->n_removed == 0)return false;
-      int r_i = 0;
+      unsigned char r_i = 0;
       for(unsigned char i = 0; i < lc->n; ++i){
             if(lc->locks[i].m_addr == NULL)continue;
             if(integers)printf("(%i) %p: %i", r_i, lc->locks[i].m_addr, lc->locks[i].i_value);
             else printf("(%i) %p: \"%s\"", r_i, lc->locks[i].m_addr, lc->locks[i].s_value);
-            if(lc->locks[i].rng)puts(" (multiple locks)"); else puts("");
+            if(lc->locks[i].rng)fputs(" (multiple locks)", stdout);
+            puts("");
             ++r_i;
       }
       return true;
@@ -444,10 +445,10 @@ bool print_locks(struct lock_container* lc, bool integers){
 
 /* if keep_first, the s_value in the rm_s of lc will not be freed
    every other string in to_free that requires freeing will still be freed */
-int remove_lock(struct lock_container* lc, int rm_s, bool keep_first){
+int remove_lock(struct lock_container* lc, unsigned char rm_s, bool keep_first){
       if(lc->n-lc->n_removed == 0)return -1;
-      int r_i = 0;
-      for(int i = 0; i < lc->n; ++i){
+      unsigned char r_i = 0;
+      for(unsigned char i = 0; i < lc->n; ++i){
             if(lc->locks[i].m_addr == NULL)continue;
             if(r_i == rm_s){
                   if(lc->locks[i].to_free != NULL){
