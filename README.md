@@ -72,32 +72,6 @@ vmem_access is a library created to make programs like varedit easier to write
 vmem_access relies on linux specific system calls and will not work on any other platform. all code using this library must be compiled with the flag -D_GNU_SOURCE
 
 
-
-the boolean macros `LOW_MEM` and `FORCE_BLOCK_STR` change the behavior of functions that interact with `mem_map`s
-### FORCE_BLOCK_STR
-
-`FORCE_BLOCK_STR` defaults to true
-
-`FORCE_BLOCK_STR` should be set to false only if you are using a computer with very little memory
-
-the block string representation of strings is much faster than individually allocated strings but sacrifices memory
-
-#### if FORCE_BLOCK_STR is enabled:
-* strings are never individually allocated, instead, they are kept in large blocks by memory region and freed when possible
-* `FORCE_BLOCK_STR` takes precedence over `LOW_MEM`. even if `LOW_MEM` is enabled, strings will never be individually allocated
-
-### LOW_MEM
-
-`LOW_MEM` defaults to false
-
-`LOW_MEM` should be set to true only if you are using a computer with very little memory
-
-#### if LOW_MEM is enabled:
-* memory intensive integer mem_map optimizations are disabled
-* if `FORCE_BLOCK_STR` is not enabled, strings are individually allocated
-* otherwise, unused memory blocks containing strings are freed as soon as possible, sacrificing speed
-
-
 #### vmem_access.h contains the following functions for reading and writing to virtual memory
 * `bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e)`
 * `BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e)` // BYTE* is unsigned char
@@ -191,7 +165,31 @@ the following functions defined in vmem_access.h are used for creating and manip
 * `void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bool exact_e)`
 
 in order to use these functions, an initial `mem_map` struct must be created and initialized using `mem_map_init`.
-`mem_map_init` sets mem_map.size to 0 and populates mem_map.mapped_rgn.
+`mem_map_init` sets mem_map.size to 0, populates mem_map.mapped_rgn, sets mem_map.low_mem to false and, mem_map.force_block_str to true.
+
+mem_map.low_mem and mem_map.force_block_str can be adjusted manually
+
+`low_mem` and `force_block_str` change the behavior of functions that interact with `mem_map`s
+
+### force_block_str
+
+`force_block_str` should be set to false only if you are using a computer with very little memory
+
+the block string representation of strings is much faster than individually allocated strings but sacrifices memory
+
+#### if force_block_str is enabled:
+* strings are never individually allocated, instead, they are kept in large blocks by memory region and freed when possible
+* `force_block_str` takes precedence over `low_mem`. even if `low_mem` is enabled, strings will never be individually allocated
+
+### low_mem
+
+`low_mem` should be set to true only if you are using a computer with very little memory
+
+#### if low_mem is enabled:
+* memory intensive integer mem_map optimizations are disabled
+* if `force_block_str` is not enabled, strings are individually allocated
+* otherwise, unused memory blocks containing strings are freed as soon as possible, sacrificing speed
+
 
 if `mem_map_init`'s `mem` parameter is `NULL`, a new malloc'd mem_map struct will be returned. otherwise `mem_map_init` will return a pointer to `mem`.
 
