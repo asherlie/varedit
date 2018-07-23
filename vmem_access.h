@@ -1,9 +1,10 @@
 #include "vmem_parser.h"
 
-#define MEMCARVE_VER "libmemcarve 1.0.0"
+#define MEMCARVE_VER "libmemcarve 1.0.1"
 
 typedef unsigned char BYTE;
 
+// TODO: lock containters should not be limited to the width of an unsigned char
 struct lock_container{
       unsigned char cap;
       unsigned char n;
@@ -49,6 +50,8 @@ struct mem_map{
       int d_rgn;
       unsigned int size;
       int int_mode_bytes;
+      bool low_mem;
+      bool force_block_str;
       bool use_addtnl;
 };
 

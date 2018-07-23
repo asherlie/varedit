@@ -8,17 +8,6 @@
 
 // with less than 1000000 values, it's faster to do individual reads for integers when updating mem_map
 #define RELOAD_CUTOFF 1000000
-/* 
- * if(LOW_MEM):
- *    update_mem_map optimizations for integers are turned off
- *    strings in cp_mmap are individually allocated as early as possible to save memory
- */
-#define LOW_MEM false
-#define FORCE_BLOCK_STR true
-/*
- * if(FORCE_BLOCK_STR):
- *    strings in cp_mmap will never be individually allocated 
- */
 
 void free_blkstr(struct str_blk* blk){
       if(!blk->in_place)return;
@@ -152,6 +141,8 @@ struct mem_map* mem_map_init(struct mem_map* mem, pid_t pid, bool unmarked_addit
       if(!mem)mem = malloc(sizeof(struct mem_map));
       mem->size = 0;
       mem->mapped_rgn = get_vmem_locations(pid, unmarked_additional);
+      mem->low_mem = false;
+      mem->force_block_str = true;
       return mem;
 }
 
@@ -211,7 +202,7 @@ void populate_mem_map(struct mem_map* mmap, int d_rgn, bool use_additional_rgns,
             m_size /= 10;
             mmap->cp_mmap = malloc(sizeof(struct addr_str_pair)*m_size);
             /* populate_mem_map will always result in in_place strs
-             * even in case of LOW_MEM, strings are malloc'd in narrow_mem_map_str */
+             * even in case of low_mem, strings are malloc'd in narrow_mem_map_str */
             // these must be initialized to NULL to avoid free errors in free_mem_map
             mmap->blk = malloc(sizeof(struct str_blk));
             mmap->blk->stack = mmap->blk->heap = NULL;
@@ -282,7 +273,7 @@ void populate_mem_map(struct mem_map* mmap, int d_rgn, bool use_additional_rgns,
 void update_mem_map(struct mem_map* mem, bool integers){
       if(mem->size == 0)return;
       // TODO: should string update optimization always be used? it's much faster
-      if(LOW_MEM || (!integers && (!mem->blk->in_place || mem->size < RELOAD_CUTOFF/10000)) || (integers && mem->size < RELOAD_CUTOFF)){
+      if(mem->low_mem || (!integers && (!mem->blk->in_place || mem->size < RELOAD_CUTOFF/10000)) || (integers && mem->size < RELOAD_CUTOFF)){
             if(integers){
                   for(unsigned int i = 0; i < mem->size; ++i)
                         mem->mmap[i].value = read_single_val_from_pid_mem(mem->mapped_rgn.pid, mem->int_mode_bytes, mem->mmap[i].addr);
@@ -382,10 +373,10 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bo
             /* if we have low memory, or have narrowed sufficiently, it's worthwhile to indiviually allocate strings
              * this is trivial because we are realloc'ing anyway for a resize and need to copy entries */
             // TODO: test usage of RELOAD_CUTOFF for this condition 
-            if(mem->blk->in_place && (LOW_MEM || mem->size < (initial/1000) || mem->size < 1000)){
+            if(mem->blk->in_place && (mem->low_mem || mem->size < (initial/1000) || mem->size < 1000)){
                   // if we have very few values, it's likely that they are not from a diverse group of regions
                   // we'll try to free any unused region blocks
-                  if(FORCE_BLOCK_STR){
+                  if(mem->force_block_str){
                         int rgn;
                         bool s = false, h = false;
                         // +1 in case of n_ad == 0
@@ -436,7 +427,7 @@ bool print_locks(struct lock_container* lc, bool integers){
             if(lc->locks[i].m_addr == NULL)continue;
             if(integers)printf("(%i) %p: %i", r_i, lc->locks[i].m_addr, lc->locks[i].i_value);
             else printf("(%i) %p: \"%s\"", r_i, lc->locks[i].m_addr, lc->locks[i].s_value);
-            if(lc->locks[i].rng)fputs(" (multiple locks)", stdout);
+            if(lc->locks[i].rng)fputs(" (multiple locks)", stdout); 
             puts("");
             ++r_i;
       }
