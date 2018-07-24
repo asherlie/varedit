@@ -422,8 +422,8 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bo
 // TODO: possibly move all lock functions and struct definitions to separate files mem_lock.{c,h}
 bool print_locks(struct lock_container* lc, bool integers){
       if(lc->n-lc->n_removed == 0)return false;
-      unsigned char r_i = 0;
-      for(unsigned char i = 0; i < lc->n; ++i){
+      unsigned int r_i = 0;
+      for(unsigned int i = 0; i < lc->n; ++i){
             if(lc->locks[i].m_addr == NULL)continue;
             if(integers)printf("(%i) %p: %i", r_i, lc->locks[i].m_addr, lc->locks[i].i_value);
             else printf("(%i) %p: \"%s\"", r_i, lc->locks[i].m_addr, lc->locks[i].s_value);
@@ -436,10 +436,10 @@ bool print_locks(struct lock_container* lc, bool integers){
 
 /* if keep_first, the s_value in the rm_s of lc will not be freed
    every other string in to_free that requires freeing will still be freed */
-int remove_lock(struct lock_container* lc, unsigned char rm_s, bool keep_first){
+int remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first){
       if(lc->n-lc->n_removed == 0)return -1;
-      unsigned char r_i = 0;
-      for(unsigned char i = 0; i < lc->n; ++i){
+      unsigned int r_i = 0;
+      for(unsigned int i = 0; i < lc->n; ++i){
             if(lc->locks[i].m_addr == NULL)continue;
             if(r_i == rm_s){
                   if(lc->locks[i].to_free != NULL){
@@ -462,15 +462,15 @@ int remove_lock(struct lock_container* lc, unsigned char rm_s, bool keep_first){
 }
 
 // returns number of locks removed before freeing
-int free_locks(struct lock_container* lc){
-      unsigned char i = 0;
+unsigned int free_locks(struct lock_container* lc){
+      unsigned int i = 0;
       for(i = 0; remove_lock(lc, 0, false) != -1; ++i);
       free(lc->locks);
       return i;
 }
 
 // if lc == NULL, a new lock_container struct is malloc'd
-struct lock_container* lock_container_init(struct lock_container* lc, unsigned char initial_sz){
+struct lock_container* lock_container_init(struct lock_container* lc, unsigned int initial_sz){
       if(lc == NULL)lc = malloc(sizeof(struct lock_container));
       lc->n = lc->n_removed = 0;
       lc->cap = initial_sz;

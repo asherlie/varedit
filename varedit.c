@@ -2,9 +2,10 @@
 
 #include "vmem_access.h"
 
-bool strtoi(const char* str, int* i){
+bool strtoi(const char* str, unsigned int* ui, int* i){
       char* res;
       if(i)*i = (int)strtol(str, &res, 10);
+      if(ui)*ui = (unsigned int)strtol(str, &res, 10);
       else strtol(str, &res, 10);
       return !*res;
 }
@@ -37,7 +38,7 @@ bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional, bool silent){
 
 void print_mmap(const struct mem_map* mem, const char* contains, bool integers, bool show_rgns){
       int i_cont = 0;
-      if(integers && contains)strtoi(contains, &i_cont);
+      if(integers && contains)strtoi(contains, NULL, &i_cont);
       for(unsigned int i = 0; i < mem->size; ++i){
             if(integers){
                   if(!contains || mem->mmap[i].value == i_cont){
@@ -166,7 +167,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
                         bool nul;
                         if(integers){
-                              if(!strtoi(tmp_str+3, &tmp_val)){
+                              if(!strtoi(tmp_str+3, NULL, &tmp_val)){
                                     printf("\"%s\" is not a valid integer\n", tmp_str+3);
                                     goto Find;
                               }
@@ -259,8 +260,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               else{
                                     fgets(v_loc_s, 10, stdin);
                                     if(v_loc_s[strlen(v_loc_s)-1] == '\n')v_loc_s[strlen(v_loc_s)-1] = '\0';
-                                    int rm_s;
-                                    if(!strtoi(v_loc_s, &rm_s) || rm_s >= lock_pids.n-lock_pids.n_removed || rm_s < 0)
+                                    unsigned int rm_s;
+                                    if(!strtoi(v_loc_s, &rm_s, NULL) || rm_s >= lock_pids.n-lock_pids.n_removed)
                                           puts("enter a valid integer");
                                     int i = remove_lock(&lock_pids, rm_s, true);
                                     if(integers)printf("lock with value %i removed\n", lock_pids.locks[i].i_value);
@@ -280,7 +281,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         scanf("%4095[^\t\n]%*c", to_w);
                         int to_w_i;
-                        if(integers && !strtoi(to_w, &to_w_i) && !(lock_mode && strcmp(to_w, "_") == 0)){
+                        if(integers && !strtoi(to_w, NULL, &to_w_i) && !(lock_mode && strcmp(to_w, "_") == 0)){
                               puts("enter a valid integer to write");
                               goto Write;
                         }
@@ -379,7 +380,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             }
             // tmp_str != "w"
             // checking if input is valid before calling populating mem_map
-            if(!*tmp_str || (integers && !strtoi(tmp_str, NULL))){
+            if(!*tmp_str || (integers && !strtoi(tmp_str, NULL, NULL))){
                   if(integers)puts("enter a valid integer to search");
                   else puts("enter a valid string to search");
                   goto Find;
@@ -413,7 +414,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.28";
+      char ver[] = "varedit 1.0.29";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -457,7 +458,7 @@ int main(int argc, char* argv[]){
                               case 'E': additional = true; d_rgn = BOTH; break;
                               case 'U': unmarked = true; break;
                               case 'C': integers = false; break;
-                              case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], &n_bytes) || n_bytes == 0 || n_bytes > 4)n_bytes = 4; else if(p != -2)p = i+1; break;
+                              case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], NULL, &n_bytes) || n_bytes == 0 || n_bytes > 4)n_bytes = 4; else if(p != -2)p = i+1; break;
                               case 'V': verbose = true; print_rgns = true; break;
                               case 'v': printf("%s using %s\n", ver, MEMCARVE_VER); return -1;
                               // TODO: -p will sometimes be used without a filter str
@@ -471,12 +472,12 @@ int main(int argc, char* argv[]){
                   else if(argv[i][1] == 'p' && argv[i][2] && !argv[i][3]){
                         switch(argv[i][2]){
                               case 'r': print_rgns = true; break;
-                              case 'l': if(!(argc > i+1) || !strtoi(argv[i+1], &result_print_limit))result_print_limit = 100; else if(p != -2)p = i+1; break;
+                              case 'l': if(!(argc > i+1) || !strtoi(argv[i+1], NULL, &result_print_limit))result_print_limit = 100; else if(p != -2)p = i+1; break;
                         }
                   }
             }
             // p == -2 when pid has been set, >= i when used as an argument for a flag
-            else if(p != -2 && p < i && strtoi(argv[i], &pid))p = -2;
+            else if(p != -2 && p < i && strtoi(argv[i], NULL, &pid))p = -2;
       }
       if(p != -2){
             puts("enter a valid pid");
@@ -517,7 +518,7 @@ int main(int argc, char* argv[]){
             if(argc <= args[0] || !strtop(argv[args[0]], &addr))not_run = 1;
             if(integers){
                   int tmp_i;
-                  if(argc <= args[1] || !strtoi(argv[args[1]], &tmp_i))not_run += 2;
+                  if(argc <= args[1] || !strtoi(argv[args[1]], NULL, &tmp_i))not_run += 2;
                   else if(!not_run){
                         BYTE to_w[n_bytes];
                         memcpy(to_w, &tmp_i, n_bytes);
