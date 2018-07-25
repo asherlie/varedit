@@ -437,7 +437,7 @@ bool print_locks(struct lock_container* lc, bool integers){
 /* if keep_first, the s_value in the rm_s of lc will not be freed
    every other string in to_free that requires freeing will still be freed */
 int remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first){
-      if(lc->n-lc->n_removed == 0)return -1;
+      if(lc->n-lc->n_removed == 0 || rm_s >= lc->n-lc->n_removed)return -1;
       unsigned int r_i = 0;
       for(unsigned int i = 0; i < lc->n; ++i){
             if(lc->locks[i].m_addr == NULL)continue;

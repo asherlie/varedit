@@ -264,11 +264,14 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     if(!strtoi(v_loc_s, &rm_s, NULL) || rm_s >= lock_pids.n-lock_pids.n_removed)
                                           puts("enter a valid integer");
                                     int i = remove_lock(&lock_pids, rm_s, true);
-                                    if(integers)printf("lock with value %i removed\n", lock_pids.locks[i].i_value);
-                                    else{
-                                          printf("lock with value \"%s\" removed\n", lock_pids.locks[i].s_value);
-                                          // s_value must be freed because we used keep_first so we could print s_value
-                                          free(lock_pids.locks[i].s_value);
+                                    // remove_lock returns -1 if rm_s is out of bounds
+                                    if(i >= 0){
+                                          if(integers)printf("lock with value %i removed\n", lock_pids.locks[i].i_value);
+                                          else{
+                                                printf("lock with value \"%s\" removed\n", lock_pids.locks[i].s_value);
+                                                // s_value must be freed because we used keep_first so we could print s_value
+                                                free(lock_pids.locks[i].s_value);
+                                          }
                                     }
                               }
                               fseek(stdin, 0, SEEK_END);
@@ -414,7 +417,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.29";
+      char ver[] = "varedit 1.0.30";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
