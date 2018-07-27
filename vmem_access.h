@@ -1,6 +1,6 @@
 #include "vmem_parser.h"
 
-#define MEMCARVE_VER "libmemcarve 1.1.1"
+#define MEMCARVE_VER "libmemcarve 1.1.2"
 
 typedef unsigned char BYTE;
 
@@ -41,8 +41,8 @@ struct str_blk{
 
 struct mem_map{
       struct mem_rgn mapped_rgn;
-      struct addr_int_pair* mmap;
-      struct addr_str_pair* cp_mmap;
+      struct addr_int_pair* i_mmap;
+      struct addr_str_pair* s_mmap;
       struct str_blk* blk;
       // only one will be initialized at any given moment
       // both are included in this struct to simplify code
