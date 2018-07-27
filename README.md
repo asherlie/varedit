@@ -195,7 +195,10 @@ if `mem_map_init`'s `mem` parameter is `NULL`, a new malloc'd mem_map struct wil
 
 `mem_map.mapped_rgn` is of type `mem_rgn`, which is defined in vmem_parser.h and contains the virtual memory address ranges of each section of process memory.
 
-The initialization and population of a `mem_map` struct is demonstrated below, populating it with integers from both the stack and heap, as well as any additional memory regions that are found
+the initialization and population of a `mem_map` struct is demonstrated below, populating it with integers from both the stack and heap, as well as any additional memory regions that are found
+
+### NOTE: a mem_map can be populated with both integers and strings simultaneously. it is up to the user to do this responsibly by keeping track of the size of the original mem_map before populating with a different setting and by ensuring that mem_map.size is correct before using any function that operates on the mem_map
+
 ```c
 // assuming pid_t pid = some valid process id 
 struct mem_map vmem;
