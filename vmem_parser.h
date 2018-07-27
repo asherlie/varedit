@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/types.h>
 
 struct m_addr_pair{
       void* start;
