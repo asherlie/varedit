@@ -8,10 +8,11 @@
 
 bool strtoi(const char* str, unsigned int* ui, int* i){
       char* res;
-      if(i)*i = (int)strtol(str, &res, 10);
-      if(ui)*ui = (unsigned int)strtol(str, &res, 10);
-      else strtol(str, &res, 10);
-      return !*res;
+      unsigned int r = (unsigned int)strtol(str, &res, 10);
+      if(*res)return false;
+      if(i)*i = (int)r;
+      if(ui)*ui = r;
+      return true;
 }
 
 bool strtop(const char* str, void** p){
@@ -264,7 +265,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               else{
                                     fgets(v_loc_s, 10, stdin);
                                     if(v_loc_s[strlen(v_loc_s)-1] == '\n')v_loc_s[strlen(v_loc_s)-1] = '\0';
-                                    unsigned int rm_s;
+                                    // lock_pids.n + 1 will always be out of bounds - this is to make sure that no lock will be removed after invalid input
+                                    unsigned int rm_s = lock_pids.n + 1;
                                     if(!strtoi(v_loc_s, &rm_s, NULL) || rm_s >= lock_pids.n-lock_pids.n_removed)
                                           puts("enter a valid integer");
                                     int i = remove_lock(&lock_pids, rm_s, true);
