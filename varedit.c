@@ -148,14 +148,14 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   goto Find;
             }
             if(strcmp(tmp_str, "u") == 0){
-                  update_mem_map(vmem, integers);
+                  update_mem_map(vmem);
                   fseek(stdin, 0, SEEK_END);
                   print_mmap(vmem, NULL, integers, print_rgns);
                   goto Find;
             }
             if(strcmp(tmp_str, "r") == 0){
                   if(vmem->size != 0){
-                        free_mem_map(vmem, integers);
+                        free_mem_map(vmem);
                         vmem->size = 0;
                         first = true;
                   }
@@ -217,7 +217,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   while(1){
                         Write:
                         // TODO: possibly update_mem_map here to print accurate values in write mode
-                        // update_mem_map(vmem, integers);
+                        // update_mem_map(vmem);
                         if(integers)
                               for(unsigned int i = 0; i < vmem->size; ++i){
                                     printf("%i: (%p: %i)\n", i, vmem->i_mmap[i].addr, vmem->i_mmap[i].value);
@@ -245,7 +245,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               goto Write;
                         }
                         if(strcmp(v_loc_s, "u") == 0){
-                              update_mem_map(vmem, integers);
+                              update_mem_map(vmem);
                               fseek(stdin, 0, SEEK_END);
                               goto Write;
                         }
@@ -341,7 +341,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               }
                               create_lock(&lock_pids, vmem->mapped_rgn.pid, addrs, ints, chars, n_addr, mul_val, integers, to_f);
                               puts("variable(s) locked");
-                              update_mem_map(vmem, integers);
+                              update_mem_map(vmem);
                               continue;
                         }
                         BYTE to_w_b[int_mode_bytes];
@@ -384,7 +384,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     if(nul)write_bytes_to_pid_mem(vmem->mapped_rgn.pid, 1, (void*)(((char*)vmem->s_mmap[i].addr)+strlen(to_w)), (BYTE*)"");
                               }
                         }
-                        update_mem_map(vmem, integers); // to make sure accurate values are printed
+                        update_mem_map(vmem); // to make sure accurate values are printed
                   }
             }
             // tmp_str != "w"
@@ -399,7 +399,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             char* tmp_str_ptr = tmp_str;
             // to deal with escaped \w, \u, \q, \r, \?, \rl
             if(tmp_str[0] == '\\')++tmp_str_ptr;
-            if(!first)update_mem_map(vmem, integers);
+            if(!first)update_mem_map(vmem);
             if(integers){
                   tmp_val = atoi(tmp_str_ptr);
                   narrow_mem_map_int(vmem, tmp_val);
@@ -423,7 +423,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.30";
+      char ver[] = "varedit 1.0.31";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -538,14 +538,14 @@ int main(int argc, char* argv[]){
       }
       else if(mode == 'i'){
             if(interactive_mode(&vmem, integers, n_bytes, d_rgn, additional, verbose, result_print_limit, print_rgns))
-                  free_mem_map(&vmem, integers);
+                  free_mem_map(&vmem);
       }
       else if(mode == 'p'){
             populate_mem_map(&vmem, d_rgn, additional, integers, n_bytes);
             // TODO: allow escaped '-' in search string. -E, -S, -A and -U should not be counted as search strings unless they're escaped
             if(argc > args[0] && *argv[args[0]] != '-')print_mmap(&vmem, argv[args[0]], integers, print_rgns);
             else print_mmap(&vmem, NULL, integers, print_rgns);
-            free_mem_map(&vmem, integers);
+            free_mem_map(&vmem);
       }
       if(not_run == 1 || not_run == 3)puts("enter a valid address");
       if(not_run == 2 || not_run == 3)puts("enter a valid integer to write");
