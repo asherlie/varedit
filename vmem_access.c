@@ -136,13 +136,15 @@ void resize_str_mmap(struct mem_map* c_mm, unsigned int* m_size, int factor){
       c_mm->s_mmap = tmp;
 }
 
-// if mem == NULL a new struct mem_map is malloc'd
+// if mem == NULL, a pointer to a malloc'd mem_map struct is returned
 struct mem_map* mem_map_init(struct mem_map* mem, pid_t pid, bool unmarked_additional){
       if(!mem)mem = malloc(sizeof(struct mem_map));
       mem->size = mem->i_size = mem->s_size = 0;
       mem->mapped_rgn = get_vmem_locations(pid, unmarked_additional);
       mem->low_mem = false;
       mem->force_block_str = true;
+      // to silence valgrind errors, overwritten by populate_mem_map's set_mode_mem_map call
+      mem->integers = true;
       return mem;
 }
 
@@ -479,7 +481,7 @@ unsigned int free_locks(struct lock_container* lc){
       return i;
 }
 
-// if lc == NULL, a new lock_container struct is malloc'd
+// if lc == NULL, a pointer to a malloc'd lock_container struct is returned
 struct lock_container* lock_container_init(struct lock_container* lc, unsigned int initial_sz){
       if(lc == NULL)lc = malloc(sizeof(struct lock_container));
       lc->n = lc->n_removed = 0;
