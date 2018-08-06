@@ -432,15 +432,15 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bo
 }
 
 // TODO: possibly move all lock functions and struct definitions to separate files mem_lock.{c,h}
-bool print_locks(struct lock_container* lc, bool integers){
+bool print_locks(struct lock_container* lc){
       if(lc->n-lc->n_removed == 0)return false;
       unsigned int r_i = 0;
       for(unsigned int i = 0; i < lc->n; ++i){
             if(lc->locks[i].m_addr == NULL)continue;
-            if(integers)printf("(%i) %p: %i", r_i, lc->locks[i].m_addr, lc->locks[i].i_value);
-            else printf("(%i) %p: \"%s\"", r_i, lc->locks[i].m_addr, lc->locks[i].s_value);
+            // strings
+            if(lc->locks[i].s_value != NULL)printf("(%i) %p: \"%s\"", r_i, lc->locks[i].m_addr, lc->locks[i].s_value);
+            else printf("(%i) %p: %i", r_i, lc->locks[i].m_addr, lc->locks[i].i_value);
             if(lc->locks[i].rng)fputs(" (multiple locks)", stdout); 
-            puts("");
             ++r_i;
       }
       return true;
@@ -518,16 +518,16 @@ int create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, c
             lc->locks = tmp_l;
       }
       if(!integers)lc->locks[lc->n].s_value = *s_val;
-      else lc->locks[lc->n].i_value = *i_val;
+      else{
+            lc->locks[lc->n].s_value = NULL;
+            lc->locks[lc->n].i_value = *i_val;
+      }
       lc->locks[lc->n].pid = fpid;
       lc->locks[lc->n].rng = n_addr != 1;
       lc->locks[lc->n].m_addr = *addr;
       lc->locks[lc->n].to_free = f_o_r;
-      lc->locks[lc->n].n_to_free = 0;
-      if(!integers){
-            if(mul_val)lc->locks[lc->n].n_to_free = n_addr;
-            else lc->locks[lc->n].n_to_free = 1;
-      }
+      lc->locks[lc->n].n_to_free = !integers;
+      if(!integers && mul_val)lc->locks[lc->n].n_to_free = n_addr;
       ++lc->n;
       return fpid;
 }

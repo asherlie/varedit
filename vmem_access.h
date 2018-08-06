@@ -1,6 +1,6 @@
 #include "vmem_parser.h"
 
-#define MEMCARVE_VER "libmemcarve 1.2.2"
+#define MEMCARVE_VER "libmemcarve 1.3.0"
 
 typedef unsigned char BYTE;
 
@@ -63,7 +63,7 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
 void update_mem_map(struct mem_map* mem);
 void narrow_mem_map_int(struct mem_map* mem, int match);
 void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bool exact_e);
-bool print_locks(struct lock_container* lc, bool integers);
+bool print_locks(struct lock_container* lc);
 int remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first);
 unsigned int free_locks(struct lock_container* lc);
 struct lock_container* lock_container_init(struct lock_container* lc, unsigned int initial_sz);
