@@ -1,6 +1,6 @@
 #include "vmem_parser.h"
 
-#define MEMCARVE_VER "libmemcarve 1.3.0"
+#define MEMCARVE_VER "libmemcarve 1.3.1"
 
 typedef unsigned char BYTE;
 

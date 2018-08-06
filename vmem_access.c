@@ -441,6 +441,7 @@ bool print_locks(struct lock_container* lc){
             if(lc->locks[i].s_value != NULL)printf("(%i) %p: \"%s\"", r_i, lc->locks[i].m_addr, lc->locks[i].s_value);
             else printf("(%i) %p: %i", r_i, lc->locks[i].m_addr, lc->locks[i].i_value);
             if(lc->locks[i].rng)fputs(" (multiple locks)", stdout); 
+            puts("");
             ++r_i;
       }
       return true;
