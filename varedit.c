@@ -423,7 +423,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.35";
+      char ver[] = "varedit 1.0.36";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -544,10 +544,11 @@ int main(int argc, char* argv[]){
             populate_mem_map(&vmem, d_rgn, additional, integers, n_bytes);
             // search strings beginning with '-' must be escaped with '\'
             // TODO: document this
-            // TODO: enable ^ and \0 in search strings
+            // TODO: beginning and end markers should be consistent with regex - ^ and $
             char* filt = NULL;
             if(argc > args[0] && *argv[args[0]] != '-' && (filt = argv[args[0]]))filt+=(*filt == '\\');
-            print_mmap(&vmem, filt, integers, print_rgns);
+            if(!integers)narrow_mem_map_str(&vmem, filt, caret_parse(filt), null_char_parse(filt));
+            print_mmap(&vmem, NULL, integers, print_rgns);
             free_mem_map(&vmem);
       }
       if(not_run == 1 || not_run == 3)puts("enter a valid address");
