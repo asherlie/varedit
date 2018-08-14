@@ -41,21 +41,15 @@ bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional, bool silent){
       return true;
 }
 
-void print_mmap(const struct mem_map* mem, const char* contains, bool integers, bool show_rgns){
-      int i_cont = 0;
-      if(integers && contains)strtoi(contains, NULL, &i_cont);
+void print_mmap(const struct mem_map* mem, bool show_rgns){
       for(unsigned int i = 0; i < mem->size; ++i){
-            if(integers){
-                  if(!contains || mem->i_mmap[i].value == i_cont){
-                        if(show_rgns)printf("%p (%s) : %i\n", mem->i_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->i_mmap[i].addr, NULL), mem->i_mmap[i].value);
-                        else printf("%p: %i\n", mem->i_mmap[i].addr, mem->i_mmap[i].value);
-                  }
+            if(mem->integers){
+                  if(show_rgns)printf("%p (%s) : %i\n", mem->i_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->i_mmap[i].addr, NULL), mem->i_mmap[i].value);
+                  else printf("%p: %i\n", mem->i_mmap[i].addr, mem->i_mmap[i].value);
             }
             else{
-                  if(!contains || strstr(mem->s_mmap[i].value, contains)){
-                        if(show_rgns)printf("%p (%s) : \"%s\"\n", mem->s_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->s_mmap[i].addr, NULL), mem->s_mmap[i].value);
-                        else printf("%p: \"%s\"\n", mem->s_mmap[i].addr, mem->s_mmap[i].value);
-                  }
+                  if(show_rgns)printf("%p (%s) : \"%s\"\n", mem->s_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->s_mmap[i].addr, NULL), mem->s_mmap[i].value);
+                  else printf("%p: \"%s\"\n", mem->s_mmap[i].addr, mem->s_mmap[i].value);
             }
       }
 }
@@ -150,7 +144,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             if(strcmp(tmp_str, "u") == 0){
                   update_mem_map(vmem);
                   fseek(stdin, 0, SEEK_END);
-                  print_mmap(vmem, NULL, integers, print_rgns);
+                  print_mmap(vmem, print_rgns);
                   goto Find;
             }
             if(strcmp(tmp_str, "r") == 0){
@@ -232,7 +226,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         scanf(" %9[^ \t\n]%*c", v_loc_s);
                         if(strcmp(v_loc_s, "s") == 0){
                               fseek(stdin, 0, SEEK_END);
-                              print_mmap(vmem, NULL, integers, print_rgns);
+                              print_mmap(vmem, print_rgns);
                               goto Find;
                         }
                         if(strcmp(v_loc_s, "q") == 0){
@@ -416,14 +410,14 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   printf("your search of %s has %i results\nresult_print_limit is set at %i. refusing to print\n", tmp_str_ptr, vmem->size, result_print_limit);
             else{
                   puts("matches are now:");
-                  print_mmap(vmem, NULL, integers, print_rgns);
+                  print_mmap(vmem, print_rgns);
             }
             first = false;
       }
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.36";
+      char ver[] = "varedit 1.0.37";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -548,8 +542,12 @@ int main(int argc, char* argv[]){
             char* filt = NULL;
             if(argc > args[0] && *argv[args[0]] != '-' && (filt = argv[args[0]]))filt+=(*filt == '\\');
             if(!integers)narrow_mem_map_str(&vmem, filt, caret_parse(filt), null_char_parse(filt));
-            print_mmap(&vmem, NULL, integers, print_rgns);
-            free_mem_map(&vmem);
+            else{
+                  int i_f;
+                  if(strtoi(filt, NULL, &i_f))narrow_mem_map_int(&vmem, i_f);
+            }
+            print_mmap(&vmem, print_rgns);
+            if(vmem.size != 0)free_mem_map(&vmem);
       }
       if(not_run == 1 || not_run == 3)puts("enter a valid address");
       if(not_run == 2 || not_run == 3)puts("enter a valid integer to write");
