@@ -423,7 +423,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.32";
+      char ver[] = "varedit 1.0.33";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -542,9 +542,12 @@ int main(int argc, char* argv[]){
       }
       else if(mode == 'p'){
             populate_mem_map(&vmem, d_rgn, additional, integers, n_bytes);
-            // TODO: allow escaped '-' in search string. -E, -S, -A and -U should not be counted as search strings unless they're escaped
-            if(argc > args[0] && *argv[args[0]] != '-')print_mmap(&vmem, argv[args[0]], integers, print_rgns);
-            else print_mmap(&vmem, NULL, integers, print_rgns);
+            // search strings beginning with '-' must be escaped with '\'
+            // TODO: document this
+            // TODO: enable ^ and \0 in search strings
+            // TODO: check if argv[args[0]] has been used as a flag
+            if(argc <= args[0] || *argv[args[0]] == '-')print_mmap(&vmem, NULL, integers, print_rgns);
+            else if(*argv[args[0]] == '\\')print_mmap(&vmem, argv[args[0]]+1, integers, print_rgns);
             free_mem_map(&vmem);
       }
       if(not_run == 1 || not_run == 3)puts("enter a valid address");
