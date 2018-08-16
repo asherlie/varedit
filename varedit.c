@@ -417,7 +417,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.1.1";
+      char ver[] = "varedit 1.1.2";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -540,10 +540,12 @@ int main(int argc, char* argv[]){
             // TODO: document this
             char* filt = NULL;
             if(argc > args[0] && *argv[args[0]] != '-' && (filt = argv[args[0]]))filt+=(*filt == '\\');
-            if(!integers)narrow_mem_map_str(&vmem, filt, caret_parse(filt), ch_p("$", filt, false));
-            else{
-                  int i_f;
-                  if(strtoi(filt, NULL, &i_f))narrow_mem_map_int(&vmem, i_f);
+            if(filt != NULL){
+                  if(!integers)narrow_mem_map_str(&vmem, filt, caret_parse(filt), ch_p("$", filt, false));
+                  else{
+                        int i_f;
+                        if(strtoi(filt, NULL, &i_f))narrow_mem_map_int(&vmem, i_f);
+                  }
             }
             print_mmap(&vmem, print_rgns);
             if(vmem.size != 0)free_mem_map(&vmem);
