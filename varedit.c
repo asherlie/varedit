@@ -91,11 +91,11 @@ bool caret_parse(char* str){
 }
 
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
-      char search_mode_help[600];
+      char search_mode_help[620];
       char* prog = search_mode_help;
-      if(!integers)prog = stpcpy(search_mode_help, "NOTE: '^' marks the beginning of a target string of our search, it will only accept exact matches to the start of a string\nNOTE: \"\\0\" marks the end of a target string of our search, it will only accept exact matches to the end of a string\nsearch mode options:\n    wa <value> : write single value to all current results\n    <string> : enter a string to narrow results - begin string with \"^\" to match beginning exactly, end string with \"\\0\" to match end exactly or use delimeter '\\' to search for '?', 'q', 'u', 'r', 'w'\n    ");
+      if(!integers)prog = stpcpy(search_mode_help, "NOTE: '^' marks the beginning of a target string of our search, it will only accept exact matches to the start of a string\nNOTE: '$' marks the end of a target string of our search, it will only accept exact matches to the end of a string\nsearch mode options:\n    wa <value> : write single value to all current results\n    <string> : enter a string to narrow results - begin string with \"^\" to match beginning exactly,\n               end string with \"$\" to match end exactly or use delimeter '\\' to search for '?', 'q', 'u', 'r', 'w'\n    ");
       else prog = stpcpy(prog, "    <integer> : enter an integer to narrow results\n    ");
-      strcpy(prog, "r : reset mem map\nu : update visible values\n    ? : show this\n    q : quit");
+      strcpy(prog, "r : reset mem map\n    u : update visible values\n    ? : show this\n    q : quit");
       char write_mode_help[564];
       prog = write_mode_help;
       if(!integers)prog = stpncpy(prog, "NOTE: a \"\\0\" in any write string will be replaced with a NUL character unless escaped with a \'\\\'\n", 124);
@@ -398,8 +398,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   tmp_val = atoi(tmp_str_ptr);
                   narrow_mem_map_int(vmem, tmp_val);
             }
-            // if caret_parse evaluates to true, exact_s, if null_char_parse, exact_e
-            else narrow_mem_map_str(vmem, tmp_str_ptr, caret_parse(tmp_str_ptr), null_char_parse(tmp_str_ptr));
+            // if caret_parse evaluates to true, exact_s, if ch_p $, exact_e
+            else narrow_mem_map_str(vmem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
             if(vmem->size == 0){
                   printf("nothing matches your search of: %s\nresetting mem map\n", tmp_str_ptr);
                   // setting first to true to imitate behavior of first search and load, reducing space complexity by waiting to repopulate mem_map
@@ -417,7 +417,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.0.37";
+      char ver[] = "varedit 1.1.1";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -538,10 +538,9 @@ int main(int argc, char* argv[]){
             populate_mem_map(&vmem, d_rgn, additional, integers, n_bytes);
             // search strings beginning with '-' must be escaped with '\'
             // TODO: document this
-            // TODO: beginning and end markers should be consistent with regex - ^ and $
             char* filt = NULL;
             if(argc > args[0] && *argv[args[0]] != '-' && (filt = argv[args[0]]))filt+=(*filt == '\\');
-            if(!integers)narrow_mem_map_str(&vmem, filt, caret_parse(filt), null_char_parse(filt));
+            if(!integers)narrow_mem_map_str(&vmem, filt, caret_parse(filt), ch_p("$", filt, false));
             else{
                   int i_f;
                   if(strtoi(filt, NULL, &i_f))narrow_mem_map_int(&vmem, i_f);
