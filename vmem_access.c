@@ -356,14 +356,13 @@ char* adj_m(char* haystack, const char* needle, bool exact_s){
       if(exact_s)return haystack;
       char* c = haystack;
       char* p;
-      while((p = strstr(c, needle))){
-            ++p;
-            c = p;
-      }
+      while((p = strstr(c, needle)))c = ++p;
       return c-1;
 }
 
 void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bool exact_e){
+      // if match string is a malformed string
+      if(!match || !*match)return;
       unsigned int initial = mem->size;
       int mlen = strlen(match);
       for(unsigned int i = 0; i < mem->size; ++i){

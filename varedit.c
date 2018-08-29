@@ -399,6 +399,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   narrow_mem_map_int(vmem, tmp_val);
             }
             // if caret_parse evaluates to true, exact_s, if ch_p $, exact_e
+            // if search string contains escaped ^ as well as escaped $, only one set will be found because escape chars are stripped with each ch_p call
+            // TODO: add param to ch_p - bool rm_escape_char
             else narrow_mem_map_str(vmem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
             if(vmem->size == 0){
                   printf("nothing matches your search of: %s\nresetting mem map\n", tmp_str_ptr);
