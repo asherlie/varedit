@@ -112,10 +112,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       if(integers)puts("integers");
       else puts("strings");
       puts("enter 'u' at any time to update visible values, 'q' to exit or '?' for help");
-      // tmp_str needs to be large enough for any search string
-      // TODO: read in chunks/use getline to assure large enough string/not to overuse memory
-      char tmp_str[4096];
-      unsigned short tmp_strlen = 0;
+      char* tmp_str;
+      int tmp_strlen = 0;
       int tmp_val;
       bool first = true;
       bool lock_mode;
@@ -126,28 +124,30 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             /* NOTE: each goto Find could be replaced by a continue to return to this point and the label Find could be removed
              * gotos are used intentionally to make code clearer */
             Find:
-            printf("enter current variable value to search");
-            if(!first)printf(" or 'w' to enter write mode");
+            fputs("enter current variable value to search", stdout);
+            if(!first)fputs(" or 'w' to enter write mode", stdout);
             puts("");
-            fgets(tmp_str, 4096, stdin);
-            tmp_strlen = strlen(tmp_str);
-            tmp_str[tmp_strlen-1]='\0';
-            if(strcmp(tmp_str, "q") == 0){
+            size_t sz = 0;
+            tmp_str = NULL;
+            tmp_strlen = getline(&tmp_str, &sz, stdin)-1;
+            tmp_str[tmp_strlen]='\0';
+            if(strncmp(tmp_str, "q", 2) == 0){
                   free_locks(&lock_pids);
+                  free(tmp_str);
                   return !first;
             }
             // TODO: add ability to rescan memory regions and update vmem->mapped_rgn
-            if(strcmp(tmp_str, "?") == 0){
+            if(strncmp(tmp_str, "?", 2) == 0){
                   puts(search_mode_help);
                   goto Find;
             }
-            if(strcmp(tmp_str, "u") == 0){
+            if(strncmp(tmp_str, "u", 2) == 0){
                   update_mem_map(vmem);
                   fseek(stdin, 0, SEEK_END);
                   print_mmap(vmem, print_rgns);
                   goto Find;
             }
-            if(strcmp(tmp_str, "r") == 0){
+            if(strncmp(tmp_str, "r", 2) == 0){
                   if(vmem->size != 0){
                         free_mem_map(vmem);
                         vmem->size = 0;
@@ -198,7 +198,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         goto Find;
                   }
             }
-            if(strcmp(tmp_str, "w") == 0){
+            if(strncmp(tmp_str, "w", 2) == 0){
                   if(first){
                         puts("no memory locations available for writing. returning to search");
                         goto Find;
@@ -224,31 +224,32 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         // width is 1 less than length of length of v_loc_s to avoid overwriting '\0'
                         // ignore leading whitespace
                         scanf(" %9[^ \t\n]%*c", v_loc_s);
-                        if(strcmp(v_loc_s, "s") == 0){
+                        if(strncmp(v_loc_s, "s", 2) == 0){
                               fseek(stdin, 0, SEEK_END);
                               print_mmap(vmem, print_rgns);
                               goto Find;
                         }
-                        if(strcmp(v_loc_s, "q") == 0){
+                        if(strncmp(v_loc_s, "q", 2) == 0){
                               free_locks(&lock_pids);
+                              free(tmp_str);
                               return !first;
                         }
-                        if(strcmp(v_loc_s, "?") == 0){
+                        if(strncmp(v_loc_s, "?", 2) == 0){
                               puts(write_mode_help);
                               fseek(stdin, 0, SEEK_END);
                               goto Write;
                         }
-                        if(strcmp(v_loc_s, "u") == 0){
+                        if(strncmp(v_loc_s, "u", 2) == 0){
                               update_mem_map(vmem);
                               fseek(stdin, 0, SEEK_END);
                               goto Write;
                         }
-                        if(strcmp(v_loc_s, "pl") == 0){
+                        if(strncmp(v_loc_s, "pl", 3) == 0){
                               if(!print_locks(&lock_pids))puts("no locks are currently in place");
                               fseek(stdin, 0, SEEK_END);
                               goto Write;
                         }
-                        if(strcmp(v_loc_s, "rl") == 0){
+                        if(strncmp(v_loc_s, "rl", 3) == 0){
                               // if no locks are in place
                               if(!print_locks(&lock_pids)){
                                     puts("no locks are currently in place");
@@ -278,13 +279,13 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               goto Write;
                         }
                         lock_mode = false;
-                        if(strcmp(v_loc_s, "l") == 0){
+                        if(strncmp(v_loc_s, "l", 2) == 0){
                               lock_mode = true;
                               scanf(" %9[^ \t\n]%*c", v_loc_s);
                         }
                         scanf("%4095[^\t\n]%*c", to_w);
                         int to_w_i;
-                        if(integers && !strtoi(to_w, NULL, &to_w_i) && !(lock_mode && strcmp(to_w, "_") == 0)){
+                        if(integers && !strtoi(to_w, NULL, &to_w_i) && !(lock_mode && strncmp(to_w, "_", 2) == 0)){
                               puts("enter a valid integer to write");
                               goto Write;
                         }
@@ -415,11 +416,12 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   print_mmap(vmem, print_rgns);
             }
             first = false;
+            free(tmp_str);
       }
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.1.3";
+      char ver[] = "varedit 1.1.4";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -437,7 +439,7 @@ int main(int argc, char* argv[]){
       "    -pr : print region that memory addresses are found in\n"
       "    -pl : set print limit for search results (only affects interactive mode, can be useful for small screens)";
       strncpy(help_str+966, "\x66\x6f\x72\x20\x6d\x65\x65\x6e\x61\x20\x61\x6e\x64\x20\x68\x61\x73\x6b\x65\x6c\x6c\x2c\x20\x6d\x79\x20\x73\x65\x63\x6f\x6e\x64\x20\x61\x6e\x64\x20\x66\x69\x72\x73\x74\x20\x6c\x6f\x76\x65\x73\x0", 50);
-      if(argc == 1 || (argc > 1 && strcmp(argv[1], "-h") == 0)){
+      if(argc == 1 || (argc > 1 && strncmp(argv[1], "-h", 3) == 0)){
             printf("usage: %s", argv[0]);
             puts(help_str);
             return -1;
