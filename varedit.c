@@ -112,12 +112,13 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       if(integers)puts("integers");
       else puts("strings");
       puts("enter 'u' at any time to update visible values, 'q' to exit or '?' for help");
-      char* tmp_str;
+      char* tmp_str = NULL;
       int tmp_strlen = 0;
       int tmp_val;
       bool first = true;
       bool lock_mode;
       struct lock_container lock_pids;
+      size_t sz = 0;
       lock_container_init(&lock_pids, 1);
       // TODO: possibly get rid of while loop in favor of goto Find for increased clarity
       while(1){
@@ -126,9 +127,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             Find:
             fputs("enter current variable value to search", stdout);
             if(!first)fputs(" or 'w' to enter write mode", stdout);
-            puts("");
-            size_t sz = 0;
-            tmp_str = NULL;
+            fputs("\n", stdout);
             tmp_strlen = getline(&tmp_str, &sz, stdin)-1;
             tmp_str[tmp_strlen]='\0';
             if(strncmp(tmp_str, "q", 2) == 0){
@@ -416,12 +415,11 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   print_mmap(vmem, print_rgns);
             }
             first = false;
-            free(tmp_str);
       }
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.1.4";
+      char ver[] = "varedit 1.1.5";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
