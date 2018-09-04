@@ -203,7 +203,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         goto Find;
                   }
                   // to_w needs to be large enough to store any write string
-                  // TODO: make to_w char* and use getline()
+                  // TODO: make to_w char* and use getline() to support write strings the same size as possible read strings
                   char v_loc_s[10], to_w[4096];
                   unsigned int v_loc[2]; // v_loc stores start and end of range
                   unsigned short to_w_len = 0;
@@ -212,13 +212,11 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         // TODO: possibly update_mem_map here to print accurate values in write mode
                         // update_mem_map(vmem);
                         if(integers)
-                              for(unsigned int i = 0; i < vmem->size; ++i){
+                              for(unsigned int i = 0; i < vmem->size; ++i)
                                     printf("%i: (%p: %i)\n", i, vmem->i_mmap[i].addr, vmem->i_mmap[i].value);
-                        }
-                        else{
+                        else
                               for(unsigned int i = 0; i < vmem->size; ++i)
                                     printf("%i: (%p: \"%s\")\n", i, vmem->s_mmap[i].addr, vmem->s_mmap[i].value);
-                        }
                         printf("enter a number from [0-%i] or a range with a '-' followed by a value to write OR 's' to continue searching\n", vmem->size-1);
                         // width is 1 less than length of length of v_loc_s to avoid overwriting '\0'
                         // ignore leading whitespace
