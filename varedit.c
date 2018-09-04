@@ -332,7 +332,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     }
                               }
                               create_lock(&lock_pids, vmem->mapped_rgn.pid, addrs, ints, chars, n_addr, mul_val, integers, to_f);
-                              puts("variable(s) locked");
+                              puts((n_addr > 1) ? "variables locked" : "variable locked");
                               update_mem_map(vmem);
                               continue;
                         }
@@ -417,7 +417,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.1.5";
+      char ver[] = "varedit 1.1.6";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
