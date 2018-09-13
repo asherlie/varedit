@@ -3,8 +3,7 @@
 #include <string.h>
 #include <sys/uio.h>
 
-#include <signal.h> // kill()
-#include <sys/wait.h> // wait()
+#include <pthread.h>
 
 // with less than 1000000 values, it's faster to do individual reads for integers when updating mem_map
 #define RELOAD_CUTOFF 1000000
@@ -435,10 +434,10 @@ bool print_locks(struct lock_container* lc){
       if(lc->n-lc->n_removed == 0)return false;
       unsigned int r_i = 0;
       for(unsigned int i = 0; i < lc->n; ++i){
-            if(lc->locks[i].m_addr == NULL)continue;
+            if(*lc->locks[i].m_addr == NULL)continue;
             // strings
-            if(lc->locks[i].s_value != NULL)printf("(%i) %p: \"%s\"", r_i, lc->locks[i].m_addr, lc->locks[i].s_value);
-            else printf("(%i) %p: %i", r_i, lc->locks[i].m_addr, lc->locks[i].i_value);
+            if(lc->locks[i].s_value != NULL)printf("(%i) %p: \"%s\"", r_i, *lc->locks[i].m_addr, lc->locks[i].s_value);
+            else printf("(%i) %p: %i", r_i, *lc->locks[i].m_addr, lc->locks[i].i_value);
             if(lc->locks[i].rng)fputs(" (multiple locks)", stdout); 
             puts("");
             ++r_i;
@@ -452,8 +451,17 @@ int remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first){
       if(lc->n-lc->n_removed == 0 || rm_s >= lc->n-lc->n_removed)return -1;
       unsigned int r_i = 0;
       for(unsigned int i = 0; i < lc->n; ++i){
-            if(lc->locks[i].m_addr == NULL)continue;
+            if(*lc->locks[i].m_addr == NULL)continue;
             if(r_i == rm_s){
+                  *lc->locks[i].alive = false;
+                  pthread_join(lc->locks[i].thread, NULL);
+                  free(lc->locks[i].alive);
+                  ++lc->n_removed;
+                  puts("entering m");
+                  free(lc->locks[i].m_addr);
+                  puts("exitingjlm");
+                  // setting to null as to not print it later
+                  *lc->locks[i].m_addr = NULL;
                   if(lc->locks[i].to_free != NULL){
                         // will only be > 0 if !integers
                         for(int f = keep_first; f < lc->locks[i].n_to_free; ++f)
@@ -461,11 +469,6 @@ int remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first){
                         free(lc->locks[i].to_free);
                         lc->locks[i].to_free = NULL;
                   }
-                  kill(lc->locks[i].pid, SIGKILL);
-                  wait(NULL);
-                  ++lc->n_removed;
-                  // setting to null as to not print it later
-                  lc->locks[i].m_addr = NULL;
                   return i;
             }
             ++r_i;
@@ -490,26 +493,47 @@ struct lock_container* lock_container_init(struct lock_container* lc, unsigned i
       return lc;
 }
 
-// TODO add int_mode_bytes functionality
-// if f_o_r is not null, it'll be freed on removal
-int create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r){
-      pid_t fpid = fork();
-      if(fpid == 0){
-            while(1){
-                  usleep(1000);
-                  for(unsigned int i = 0; i < n_addr; ++i){
-                        if(integers){
-                              // TODO: use write_bytes_to_pid_mem and build the BYTE[] outside of loop to optimize
-                              if(mul_val)write_int_to_pid_mem(pid, addr[i], i_val[i]);
-                              else write_int_to_pid_mem(pid, addr[i], *i_val);
-                        }
-                        else{
-                              if(mul_val)write_str_to_pid_mem(pid, addr[i], s_val[i]);
-                              else write_str_to_pid_mem(pid, addr[i], *s_val);
-                        }
+bool* lock_th(struct lock_arg* arg){
+      *arg->alive = true;
+      while(*arg->alive){
+            usleep(1000);
+            // TODO: SOLUTION IS TO USE THREADS AND TO HAVE struct lock_arg contain struct lock_container and iterate through, writing to each
+            // this will make the thread model worth it, because of ease of sharing data through threads
+            // when new info is added to or removed from the lc, no new thread will be created
+            // why pass all this data through all these functions if i can just use the lock_container
+            /*for(int n = 0; n < arg->lc->sz; */
+            // plan as of now is to commit changes from fork -> pthread with all the same structs and functions in place
+            // then slowly expand the breadth of struct lock_container to contain the contents of struct lock_arg, maybe add a lock_arg* entry?
+            for(unsigned int i = 0; i < arg->n_addr; ++i){
+                  if(arg->integers){
+                        // TODO: use write_bytes_to_pid_mem and build the BYTE[] outside of loop to optimize
+                        if(arg->mul_val)write_int_to_pid_mem(arg->pid, arg->addr[i], arg->i_val[i]);
+                        else write_int_to_pid_mem(arg->pid, arg->addr[i], *arg->i_val);
+                  }
+                  else{
+                        if(arg->mul_val)write_str_to_pid_mem(arg->pid, arg->addr[i], arg->s_val[i]);
+                        else write_str_to_pid_mem(arg->pid, arg->addr[i], *arg->s_val);
                   }
             }
       }
+      return arg->alive;
+}
+
+void* lock_pthread(void* arg){
+      return lock_th((struct lock_arg*)arg);
+}
+
+// TODO add int_mode_bytes functionality
+// if f_o_r is not null, it'll be freed on removal
+bool* create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r){
+      pthread_t lock_th;
+      struct lock_arg* arg = malloc(sizeof(struct lock_arg));
+      arg->pid = pid; arg->addr = addr; arg->i_val = i_val;
+      arg->s_val = s_val; 
+      arg->n_addr = n_addr; arg->mul_val = mul_val; arg->integers = integers;
+      arg->f_o_r = f_o_r;
+      arg->alive = malloc(sizeof(bool));
+      pthread_create(&lock_th, NULL, &lock_pthread, arg);
       if(lc->n == lc->cap){
             lc->cap *= 2;
             struct lock_entry* tmp_l = malloc(sizeof(struct lock_entry)*lc->cap);
@@ -522,12 +546,15 @@ int create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, c
             lc->locks[lc->n].s_value = NULL;
             lc->locks[lc->n].i_value = *i_val;
       }
-      lc->locks[lc->n].pid = fpid;
+      // TODO: does this need to be malloc'd?
+      // free lc->locks[i].alive, arg->addr
+      lc->locks[lc->n].alive = arg->alive;
+      lc->locks[lc->n].thread = lock_th;
       lc->locks[lc->n].rng = n_addr != 1;
-      lc->locks[lc->n].m_addr = *addr;
+      lc->locks[lc->n].m_addr = addr;
       lc->locks[lc->n].to_free = f_o_r;
       lc->locks[lc->n].n_to_free = !integers;
       if(!integers && mul_val)lc->locks[lc->n].n_to_free = n_addr;
       ++lc->n;
-      return fpid;
+      return arg->alive;
 }

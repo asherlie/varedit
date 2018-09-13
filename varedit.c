@@ -310,7 +310,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         if(lock_mode){
                               unsigned int n_addr = v_loc[1]-v_loc[0]+1;
                               void* to_f;
-                              void* addrs[n_addr]; unsigned int addr_s = 0;
+                              // TODO: free addrs
+                              void** addrs = malloc(sizeof(void*)*n_addr); unsigned int addr_s = 0;
                               char** chars; int* ints;
                               if(integers)to_f = ints = malloc(sizeof(int)*n_addr);
                               else to_f = chars = malloc(sizeof(char*)*n_addr);
@@ -417,7 +418,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.1.6";
+      char ver[] = "varedit 1.1.7";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"

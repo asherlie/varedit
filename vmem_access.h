@@ -1,6 +1,6 @@
 #include "vmem_parser.h"
 
-#define MEMCARVE_VER "libmemcarve 1.3.2"
+#define MEMCARVE_VER "libmemcarve 1.3.3"
 
 typedef unsigned char BYTE;
 
@@ -10,12 +10,25 @@ struct lock_container{
 };
 
 struct lock_entry{
-      pid_t pid;
+      pthread_t thread;
+      bool* alive;
       bool rng;
-      void* m_addr;
+      void** m_addr;
       int i_value, n_to_free;
       char* s_value;
       void* to_free;
+};
+
+struct lock_arg{
+      bool* alive;
+      pid_t pid;
+      void** addr;
+      int* i_val;
+      char** s_val;
+      unsigned int n_addr;
+      bool mul_val;
+      bool integers;
+      void* f_o_r;
 };
 
 struct addr_int_pair{
@@ -67,4 +80,4 @@ bool print_locks(struct lock_container* lc);
 int remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first);
 unsigned int free_locks(struct lock_container* lc);
 struct lock_container* lock_container_init(struct lock_container* lc, unsigned int initial_sz);
-pid_t create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r);
+bool* create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r);
