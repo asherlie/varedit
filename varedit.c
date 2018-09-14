@@ -264,12 +264,14 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     int i = remove_lock(&lock_pids, rm_s, true);
                                     // remove_lock returns -1 if rm_s is out of bounds
                                     if(i >= 0){
-                                          if(integers)printf("lock with value %i removed\n", lock_pids.locks[i].i_value);
+                                          if(integers)printf("lock with value %i removed\n", *lock_pids.locks[i].i_val);
                                           else{
-                                                printf("lock with value \"%s\" removed\n", lock_pids.locks[i].s_value);
+                                                printf("lock with value \"%s\" removed\n", *lock_pids.locks[i].s_val);
                                                 // s_value must be freed because we used keep_first so we could print s_value
-                                                free(lock_pids.locks[i].s_value);
+                                                free(*lock_pids.locks[i].s_val);
                                           }
+                                          if(integers)free(lock_pids.locks[i].i_val);
+                                          else free(lock_pids.locks[i].s_val);
                                     }
                               }
                               fseek(stdin, 0, SEEK_END);
@@ -309,12 +311,11 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                        }
                         if(lock_mode){
                               unsigned int n_addr = v_loc[1]-v_loc[0]+1;
-                              void* to_f;
                               // TODO: free addrs
                               void** addrs = malloc(sizeof(void*)*n_addr); unsigned int addr_s = 0;
                               char** chars; int* ints;
-                              if(integers)to_f = ints = malloc(sizeof(int)*n_addr);
-                              else to_f = chars = malloc(sizeof(char*)*n_addr);
+                              if(integers)ints = malloc(sizeof(int)*n_addr);
+                              else chars = malloc(sizeof(char*)*n_addr);
                               bool same = strncmp(to_w, "_", 2) == 0;
                               bool mul_val = false;
                               if(n_addr > 1)mul_val = same;
@@ -332,7 +333,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                           if(same)chars[i] = strdup(vmem->s_mmap[i].value);
                                     }
                               }
-                              create_lock(&lock_pids, vmem->mapped_rgn.pid, addrs, ints, chars, n_addr, mul_val, integers, to_f);
+                              create_lock(&lock_pids, vmem->mapped_rgn.pid, addrs, ints, chars, n_addr, mul_val, integers);
                               puts((n_addr > 1) ? "variables locked" : "variable locked");
                               update_mem_map(vmem);
                               continue;
@@ -418,7 +419,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.1.7";
+      char ver[] = "varedit 1.1.8";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"

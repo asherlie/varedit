@@ -436,8 +436,8 @@ bool print_locks(struct lock_container* lc){
       for(unsigned int i = 0; i < lc->n; ++i){
             if(lc->locks[i].m_addr == NULL)continue;
             // strings
-            if(lc->locks[i].s_value != NULL)printf("(%i) %p: \"%s\"", r_i, *lc->locks[i].m_addr, lc->locks[i].s_value);
-            else printf("(%i) %p: %i", r_i, *lc->locks[i].m_addr, lc->locks[i].i_value);
+            if(!lc->locks[i].integers)printf("(%i) %p: \"%s\"", r_i, *lc->locks[i].m_addr, *lc->locks[i].s_val);
+            else printf("(%i) %p: %i", r_i, *lc->locks[i].m_addr, *lc->locks[i].i_val);
             if(lc->locks[i].rng)fputs(" (multiple locks)", stdout); 
             puts("");
             ++r_i;
@@ -446,7 +446,8 @@ bool print_locks(struct lock_container* lc){
 }
 
 /* if keep_first, the s_value in the rm_s of lc will not be freed
-   every other string in to_free that requires freeing will still be freed */
+   every other string in to_free that requires freeing will still be freed
+   if keep_first, no i_val and s_val will still need to be freed */
 int remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first){
       if(lc->n == lc->n_removed || rm_s >= lc->n-lc->n_removed)return -1;
       unsigned int r_i = 0;
@@ -460,12 +461,13 @@ int remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first){
                   free(lc->locks[i].m_addr);
                   // setting to null as to not print it later
                   lc->locks[i].m_addr = NULL;
-                  if(lc->locks[i].to_free != NULL){
-                        // will only be > 0 if !integers
-                        for(int f = keep_first; f < lc->locks[i].n_to_free; ++f)
-                              free(((char**)lc->locks[i].to_free)[f]);
-                        free(lc->locks[i].to_free);
-                        lc->locks[i].to_free = NULL;
+                  if(!lc->locks[i].integers){
+                        for(unsigned int f = keep_first; f < (lc->locks[i].mul_val) ? lc->locks[i].n_addr : 1; ++f)
+                              free(lc->locks[i].s_val[f]);
+                  }
+                  if(!keep_first){
+                        if(lc->locks[i].integers)free(lc->locks[i].i_val);
+                        else free(lc->locks[i].s_val);
                   }
                   return i;
             }
@@ -523,7 +525,7 @@ void* lock_pthread(void* lc){
 // TODO add int_mode_bytes functionality
 // if f_o_r is not null, it'll be freed on removal
 // returns true if thread was created, false if thread not created
-bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r){
+bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers){
       pthread_t lock_th;
       pthread_mutex_t lck_mut;
       pthread_mutex_init(&lck_mut, NULL);
@@ -535,11 +537,7 @@ bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, 
             free(lc->locks);
             lc->locks = tmp_l;
       }
-      if(!integers)lc->locks[lc->n].s_value = *s_val;
-      else{
-            lc->locks[lc->n].s_value = NULL;
-            lc->locks[lc->n].i_value = *i_val;
-      }
+      if(integers)lc->locks[lc->n].s_val = NULL;
       lc->locks[lc->n].pid = pid;
       lc->locks[lc->n].integers = integers;
       lc->locks[lc->n].mul_val = mul_val;
@@ -548,9 +546,6 @@ bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, 
       lc->locks[lc->n].i_val = i_val;
       lc->locks[lc->n].rng = n_addr != 1;
       lc->locks[lc->n].m_addr = addr;
-      lc->locks[lc->n].to_free = f_o_r;
-      lc->locks[lc->n].n_to_free = !integers;
-      if(!integers && mul_val)lc->locks[lc->n].n_to_free = n_addr;
       ++lc->n;
       pthread_mutex_unlock(&lck_mut);
       // if we have one lock after adding one - if we just added the first lock
