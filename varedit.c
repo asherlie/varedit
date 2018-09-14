@@ -261,7 +261,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     unsigned int rm_s = lock_pids.n + 1;
                                     if(!strtoi(v_loc_s, &rm_s, NULL) || rm_s >= lock_pids.n-lock_pids.n_removed)
                                           puts("enter a valid integer");
-                                    int i = remove_lock(&lock_pids, rm_s, true);
+                                    long i = remove_lock(&lock_pids, rm_s, true);
                                     // remove_lock returns -1 if rm_s is out of bounds
                                     if(i >= 0){
                                           if(integers)printf("lock with value %i removed\n", *lock_pids.locks[i].i_val);
@@ -419,7 +419,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.1.8";
+      char ver[] = "varedit 1.1.9";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"

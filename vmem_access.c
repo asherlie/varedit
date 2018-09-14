@@ -446,12 +446,14 @@ bool print_locks(struct lock_container* lc){
 /* if keep_first, the s_value in the rm_s of lc will not be freed
    every other string in to_free that requires freeing will still be freed
    if keep_first, no i_val and s_val will still need to be freed */
-int remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first){
+// remove_lock returns long as to not truncate unsigned int - must be signed to return -1 when lock not found
+long remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first){
       if(lc->n == lc->n_removed || rm_s >= lc->n-lc->n_removed)return -1;
       unsigned int r_i = 0;
       pthread_mutex_t lck_mut;
       pthread_mutex_init(&lck_mut, NULL);
       pthread_mutex_lock(&lck_mut);
+      long ret = -1;
       for(unsigned int i = 0; i < lc->n; ++i){
             if(lc->locks[i].m_addr == NULL)continue;
             if(r_i == rm_s){
@@ -467,13 +469,15 @@ int remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first){
                         if(lc->locks[i].integers)free(lc->locks[i].i_val);
                         else free(lc->locks[i].s_val);
                   }
-                  return i;
+                  ret = i;
+                  break;
             }
             ++r_i;
       }
       pthread_mutex_unlock(&lck_mut);
+      // thread isn't joined if succesfully removed
       if(lc->n == lc->n_removed)pthread_join(lc->thread, NULL);
-      return -1;
+      return ret;
 }
 
 // returns number of locks removed before freeing
