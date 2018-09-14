@@ -244,7 +244,7 @@ int i_val = 62;
 struct lock_container lc;
 lock_container_init(&lc, 1);
 // to lock a string value, the s_val parameter is set to a char**, and i_val to NULL
-create_lock(&lc, pid, &addr, &i_val, NULL, 1, false, true, NULL);
+create_lock(&lc, pid, &addr, &i_val, NULL, 1, false, true);
 /* indices of items in the lock_container struct are adjusted so that
    remove_lock with 0 as its rm_s parameter will always be valid for a non empty lock_container */
 // to remove this lock
