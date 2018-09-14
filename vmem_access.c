@@ -434,7 +434,7 @@ bool print_locks(struct lock_container* lc){
       if(lc->n == lc->n_removed)return false;
       unsigned int r_i = 0;
       for(unsigned int i = 0; i < lc->n; ++i){
-            if(*lc->locks[i].m_addr == NULL)continue;
+            if(lc->locks[i].m_addr == NULL)continue;
             // strings
             if(lc->locks[i].s_value != NULL)printf("(%i) %p: \"%s\"", r_i, *lc->locks[i].m_addr, lc->locks[i].s_value);
             else printf("(%i) %p: %i", r_i, *lc->locks[i].m_addr, lc->locks[i].i_value);
@@ -454,12 +454,12 @@ int remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first){
       pthread_mutex_init(&lck_mut, NULL);
       pthread_mutex_lock(&lck_mut);
       for(unsigned int i = 0; i < lc->n; ++i){
-            if(*lc->locks[i].m_addr == NULL)continue;
+            if(lc->locks[i].m_addr == NULL)continue;
             if(r_i == rm_s){
                   ++lc->n_removed;
                   free(lc->locks[i].m_addr);
                   // setting to null as to not print it later
-                  *lc->locks[i].m_addr = NULL;
+                  lc->locks[i].m_addr = NULL;
                   if(lc->locks[i].to_free != NULL){
                         // will only be > 0 if !integers
                         for(int f = keep_first; f < lc->locks[i].n_to_free; ++f)
@@ -499,7 +499,7 @@ unsigned long long lock_th(struct lock_arg* arg){
             ++iter;
             usleep(1000);
             for(unsigned int i = 0; i < arg->lc->n; ++i){
-                  if(*arg->lc->locks[i].m_addr != NULL){
+                  if(arg->lc->locks[i].m_addr != NULL){
                         for(unsigned int j = 0; j < arg->lc->locks[i].n_addr; ++j){
                               if(arg->lc->locks[i].integers){
                                     if(arg->lc->locks[i].mul_val)write_int_to_pid_mem(arg->pid, arg->lc->locks[i].m_addr[j], arg->lc->locks[i].i_val[j]);
@@ -555,7 +555,7 @@ bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, 
       ++lc->n;
       pthread_mutex_unlock(&lck_mut);
       // if we have one lock after adding one - if we just added the first lock
-      if(lc->n-1 == lc->n_removed || lc->n == 1){
+      if(lc->n-1 == lc->n_removed){
             pthread_create(&lock_th, NULL, &lock_pthread, arg);
             lc->thread = lock_th;
             return true;
