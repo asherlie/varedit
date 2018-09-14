@@ -1,13 +1,13 @@
-#define NONE  -1
-#define STACK  0
-#define HEAP   1
-#define BOTH   2
-
 #include <stdio.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/types.h>
+
+#define NONE  -1
+#define STACK  0
+#define HEAP   1
+#define BOTH   2
 
 struct m_addr_pair{
       void* start;

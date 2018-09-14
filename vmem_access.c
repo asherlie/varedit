@@ -3,9 +3,7 @@
 #include <string.h>
 #include <sys/uio.h>
 
-#include <pthread.h>
-
-// with less than 1000000 values, it's faster to do individual reads for integers when updating mem_map
+// with less than RELOAD_CUTOFF values, it's faster to do individual reads for integers when updating mem_map
 #define RELOAD_CUTOFF 1000000
 
 void free_blkstr(struct str_blk* blk){
