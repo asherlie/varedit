@@ -493,21 +493,21 @@ struct lock_container* lock_container_init(struct lock_container* lc, unsigned i
       return lc;
 }
 
-unsigned long long lock_th(struct lock_arg* arg){
+unsigned long long lock_th(struct lock_container* lc){
       unsigned long long iter = 0;
-      while(arg->lc->n != arg->lc->n_removed){
+      while(lc->n != lc->n_removed){
             ++iter;
             usleep(1000);
-            for(unsigned int i = 0; i < arg->lc->n; ++i){
-                  if(arg->lc->locks[i].m_addr != NULL){
-                        for(unsigned int j = 0; j < arg->lc->locks[i].n_addr; ++j){
-                              if(arg->lc->locks[i].integers){
-                                    if(arg->lc->locks[i].mul_val)write_int_to_pid_mem(arg->pid, arg->lc->locks[i].m_addr[j], arg->lc->locks[i].i_val[j]);
-                                    else write_int_to_pid_mem(arg->pid, arg->lc->locks[i].m_addr[j], *arg->lc->locks[i].i_val);
+            for(unsigned int i = 0; i < lc->n; ++i){
+                  if(lc->locks[i].m_addr != NULL){
+                        for(unsigned int j = 0; j < lc->locks[i].n_addr; ++j){
+                              if(lc->locks[i].integers){
+                                    if(lc->locks[i].mul_val)write_int_to_pid_mem(lc->locks[i].pid, lc->locks[i].m_addr[j], lc->locks[i].i_val[j]);
+                                    else write_int_to_pid_mem(lc->locks[i].pid, lc->locks[i].m_addr[j], *lc->locks[i].i_val);
                               }
                               else{
-                                    if(arg->lc->locks[i].mul_val)write_str_to_pid_mem(arg->pid, arg->lc->locks[i].m_addr[j], arg->lc->locks[i].s_val[j]);
-                                    else write_str_to_pid_mem(arg->pid, arg->lc->locks[i].m_addr[j], *arg->lc->locks[i].s_val);
+                                    if(lc->locks[i].mul_val)write_str_to_pid_mem(lc->locks[i].pid, lc->locks[i].m_addr[j], lc->locks[i].s_val[j]);
+                                    else write_str_to_pid_mem(lc->locks[i].pid, lc->locks[i].m_addr[j], *lc->locks[i].s_val);
                               }
                         }
                   }
@@ -516,8 +516,8 @@ unsigned long long lock_th(struct lock_arg* arg){
       return iter;
 }
 
-void* lock_pthread(void* arg){
-      return (void*)lock_th((struct lock_arg*)arg);
+void* lock_pthread(void* lc){
+      return (void*)lock_th((struct lock_container*)lc);
 }
 
 // TODO add int_mode_bytes functionality
@@ -525,8 +525,6 @@ void* lock_pthread(void* arg){
 // returns true if thread was created, false if thread not created
 bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r){
       pthread_t lock_th;
-      struct lock_arg* arg = malloc(sizeof(struct lock_arg));
-      arg->pid = pid; arg->lc = lc;
       pthread_mutex_t lck_mut;
       pthread_mutex_init(&lck_mut, NULL);
       pthread_mutex_lock(&lck_mut);
@@ -542,6 +540,7 @@ bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, 
             lc->locks[lc->n].s_value = NULL;
             lc->locks[lc->n].i_value = *i_val;
       }
+      lc->locks[lc->n].pid = pid;
       lc->locks[lc->n].integers = integers;
       lc->locks[lc->n].mul_val = mul_val;
       lc->locks[lc->n].n_addr = n_addr;
@@ -556,7 +555,7 @@ bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, 
       pthread_mutex_unlock(&lck_mut);
       // if we have one lock after adding one - if we just added the first lock
       if(lc->n-1 == lc->n_removed){
-            pthread_create(&lock_th, NULL, &lock_pthread, arg);
+            pthread_create(&lock_th, NULL, &lock_pthread, lc);
             lc->thread = lock_th;
             return true;
       }

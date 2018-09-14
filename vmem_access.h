@@ -19,10 +19,6 @@ struct lock_entry{
       void* to_free;
       int* i_val;
       char** s_val;
-};
-
-struct lock_arg{
-      struct lock_container* lc;
       pid_t pid;
 };
 
