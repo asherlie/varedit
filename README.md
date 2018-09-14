@@ -223,10 +223,10 @@ free(vmem);
 # memory locking
 the remaining functions defined in vmem_access.h are used for creating, removing, and keeping track of locks
 * `bool print_locks(struct lock_container* lc, bool integers)`
-* `int remove_lock(struct lock_container* lc, int rm_s, bool keep_first)`
+* `long remove_lock(struct lock_container* lc, int rm_s, bool keep_first)`
 * `int free_locks(struct lock_container* lc)`
 * `struct lock_container* lock_container_init(struct lock_container* lc, unsigned char initial_sz)`
-* `pid_t create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers, void* f_o_r)`
+* `pid_t create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers)`
 
 to use these, an initial `lock_container` struct must be created and initialized using `lock_container_init`.
 if `lock_container_init`'s `lc` parameter is `NULL`, a new malloc'd lock_container struct will be returned. otherwise `lock_container_init` will return a pointer to `lc`.

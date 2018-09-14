@@ -475,7 +475,6 @@ long remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first){
             ++r_i;
       }
       pthread_mutex_unlock(&lck_mut);
-      // thread isn't joined if succesfully removed
       if(lc->n == lc->n_removed)pthread_join(lc->thread, NULL);
       return ret;
 }
