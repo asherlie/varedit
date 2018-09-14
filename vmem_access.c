@@ -462,8 +462,9 @@ int remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first){
                   // setting to null as to not print it later
                   lc->locks[i].m_addr = NULL;
                   if(!lc->locks[i].integers){
-                        for(unsigned int f = keep_first; f < (lc->locks[i].mul_val) ? lc->locks[i].n_addr : 1; ++f)
-                              free(lc->locks[i].s_val[f]);
+                        printf("f == %i < %i\n", keep_first, (lc->locks[i].mul_val ) ? lc->locks[i].n_addr : 1);
+                        unsigned int u_lim = (lc->locks[i].mul_val) ? lc->locks[i].n_addr : 1;
+                        for(unsigned int f = keep_first; f < u_lim; ++f)free(lc->locks[i].s_val[f]);
                   }
                   if(!keep_first){
                         if(lc->locks[i].integers)free(lc->locks[i].i_val);
