@@ -473,7 +473,7 @@ long remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first, 
       pthread_mutex_unlock(&lck_mut);
       if(lc->n == lc->n_removed)pthread_join(lc->thread, NULL);
       if(free_op%2 != 0)free(lc->locks[ret].m_addr);
-      if(free_op != 0){
+      if(free_op > 1){
             if(lc->locks[ret].integers)free(lc->locks[ret].i_val);
             else if(!keep_first)free(lc->locks[ret].s_val);
       }
@@ -525,7 +525,6 @@ void* lock_pthread(void* lc){
 }
 
 // TODO add int_mode_bytes functionality
-// if f_o_r is not null, it'll be freed on removal
 // returns true if thread was created, false if thread not created
 bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers){
       pthread_t lock_th;
