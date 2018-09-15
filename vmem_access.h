@@ -2,7 +2,7 @@
 
 #include <pthread.h>
 
-#define MEMCARVE_VER "libmemcarve 1.5.0"
+#define MEMCARVE_VER "libmemcarve 1.5.1"
 
 typedef unsigned char BYTE;
 
@@ -69,5 +69,6 @@ void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bo
 bool print_locks(struct lock_container* lc);
 long remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first);
 unsigned int free_locks(struct lock_container* lc);
+unsigned long lock_th(struct lock_container* lc);
 struct lock_container* lock_container_init(struct lock_container* lc, unsigned int initial_sz);
 bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers);

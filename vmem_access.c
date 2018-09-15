@@ -432,7 +432,7 @@ bool print_locks(struct lock_container* lc){
       if(lc->n == lc->n_removed)return false;
       unsigned int r_i = 0;
       for(unsigned int i = 0; i < lc->n; ++i){
-            if(lc->locks[i].m_addr == NULL)continue;
+            if(*lc->locks[i].m_addr == NULL)continue;
             // strings
             if(!lc->locks[i].integers)printf("(%i) %p: \"%s\"", r_i, *lc->locks[i].m_addr, *lc->locks[i].s_val);
             else printf("(%i) %p: %i", r_i, *lc->locks[i].m_addr, *lc->locks[i].i_val);
@@ -443,9 +443,9 @@ bool print_locks(struct lock_container* lc){
       return true;
 }
 
-/* if keep_first, the s_value in the rm_s of lc will not be freed
-   every other string in to_free that requires freeing will still be freed
-   if keep_first, no i_val and s_val will still need to be freed */
+/* if keep_first, the s_val in the rm_s of lc will not be freed
+   every other string in s_val that requires freeing will still be freed
+   M_ADDR, I_VAL AND S_VAL WILL NOT BE FREED BY REMOVE_LOCK, THIS IS LEFT TO THE USER */
 // remove_lock returns long as to not truncate unsigned int - must be signed to return -1 when lock not found
 long remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first){
       if(lc->n == lc->n_removed || rm_s >= lc->n-lc->n_removed)return -1;
@@ -455,19 +455,14 @@ long remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first){
       pthread_mutex_lock(&lck_mut);
       long ret = -1;
       for(unsigned int i = 0; i < lc->n; ++i){
-            if(lc->locks[i].m_addr == NULL)continue;
+            if(*lc->locks[i].m_addr == NULL)continue;
             if(r_i == rm_s){
                   ++lc->n_removed;
-                  free(lc->locks[i].m_addr);
                   // setting to null as to not print it later
-                  lc->locks[i].m_addr = NULL;
+                  *lc->locks[i].m_addr = NULL;
                   if(!lc->locks[i].integers){
                         unsigned int u_lim = (lc->locks[i].mul_val) ? lc->locks[i].n_addr : 1;
                         for(unsigned int f = keep_first; f < u_lim; ++f)free(lc->locks[i].s_val[f]);
-                  }
-                  if(!keep_first){
-                        if(lc->locks[i].integers)free(lc->locks[i].i_val);
-                        else free(lc->locks[i].s_val);
                   }
                   ret = i;
                   break;
@@ -496,13 +491,13 @@ struct lock_container* lock_container_init(struct lock_container* lc, unsigned i
       return lc;
 }
 
-unsigned long long lock_th(struct lock_container* lc){
-      unsigned long long iter = 0;
+unsigned long lock_th(struct lock_container* lc){
+      unsigned long iter = 0;
       while(lc->n != lc->n_removed){
             ++iter;
             usleep(1000);
             for(unsigned int i = 0; i < lc->n; ++i){
-                  if(lc->locks[i].m_addr != NULL){
+                  if(*lc->locks[i].m_addr != NULL){
                         for(unsigned int j = 0; j < lc->locks[i].n_addr; ++j){
                               if(lc->locks[i].integers){
                                     if(lc->locks[i].mul_val)write_int_to_pid_mem(lc->locks[i].pid, lc->locks[i].m_addr[j], lc->locks[i].i_val[j]);
