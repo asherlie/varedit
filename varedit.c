@@ -131,7 +131,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             tmp_strlen = getline(&tmp_str, &sz, stdin)-1;
             tmp_str[tmp_strlen]='\0';
             if(strncmp(tmp_str, "q", 2) == 0){
-                  free_locks(&lock_pids);
+                  free_locks(&lock_pids, 3);
                   free(tmp_str);
                   return !first;
             }
@@ -227,7 +227,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               goto Find;
                         }
                         if(strncmp(v_loc_s, "q", 2) == 0){
-                              free_locks(&lock_pids);
+                              free_locks(&lock_pids, 3);
                               free(tmp_str);
                               return !first;
                         }
@@ -261,7 +261,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                     unsigned int rm_s = lock_pids.n + 1;
                                     if(!strtoi(v_loc_s, &rm_s, NULL) || rm_s >= lock_pids.n-lock_pids.n_removed)
                                           puts("enter a valid integer");
-                                    long i = remove_lock(&lock_pids, rm_s, true);
+                                    long i = remove_lock(&lock_pids, rm_s, true, 1);
                                     // remove_lock returns -1 if rm_s is out of bounds
                                     if(i >= 0){
                                           if(integers){
@@ -270,11 +270,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                                           }
                                           else{
                                                 printf("lock with value \"%s\" removed\n", *lock_pids.locks[i].s_val);
-                                                // s_value must be freed because we used keep_first so we could print s_value
+                                                // *s_val must be freed because we used keep_first so we could print *s_val
                                                 free(*lock_pids.locks[i].s_val);
                                                 free(lock_pids.locks[i].s_val);
                                           }
-                                          free(lock_pids.locks[i].m_addr);
                                     }
                               }
                               fseek(stdin, 0, SEEK_END);
@@ -422,7 +421,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.1.10";
+      char ver[] = "varedit 1.1.11";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
