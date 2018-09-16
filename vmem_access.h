@@ -2,7 +2,7 @@
 
 #include <pthread.h>
 
-#define MEMCARVE_VER "libmemcarve 1.5.3"
+#define MEMCARVE_VER "libmemcarve 1.5.4"
 
 typedef unsigned char BYTE;
 
@@ -14,7 +14,7 @@ struct lock_container{
 
 struct lock_entry{
       pid_t pid;
-      bool rng, mul_val, integers;
+      bool rng, mul_val, integers, active;
       void** m_addr;
       unsigned int n_addr;
       int* i_val;

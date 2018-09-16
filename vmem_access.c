@@ -432,7 +432,7 @@ bool print_locks(struct lock_container* lc){
       if(lc->n == lc->n_removed)return false;
       unsigned int r_i = 0;
       for(unsigned int i = 0; i < lc->n; ++i){
-            if(*lc->locks[i].m_addr == NULL)continue;
+            if(!lc->locks[i].active)continue;
             // strings
             if(!lc->locks[i].integers)printf("(%i) %p: \"%s\"", r_i, *lc->locks[i].m_addr, *lc->locks[i].s_val);
             else printf("(%i) %p: %i", r_i, *lc->locks[i].m_addr, *lc->locks[i].i_val);
@@ -456,11 +456,10 @@ long remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first, 
       pthread_mutex_lock(&lck_mut);
       long ret = -1;
       for(unsigned int i = 0; i < lc->n; ++i){
-            if(*lc->locks[i].m_addr == NULL)continue;
+            if(!lc->locks[i].active)continue;
             if(r_i == rm_s){
                   ++lc->n_removed;
-                  // setting to null as to not print it later
-                  *lc->locks[i].m_addr = NULL;
+                  lc->locks[i].active = false;
                   if(!lc->locks[i].integers){
                         unsigned int u_lim = (lc->locks[i].mul_val) ? lc->locks[i].n_addr : 1;
                         for(unsigned int f = keep_first; f < u_lim; ++f)free(lc->locks[i].s_val[f]);
@@ -503,7 +502,7 @@ unsigned long lock_th(struct lock_container* lc){
             ++iter;
             usleep(1000);
             for(unsigned int i = 0; i < lc->n; ++i){
-                  if(*lc->locks[i].m_addr != NULL){
+                  if(lc->locks[i].active){
                         for(unsigned int j = 0; j < lc->locks[i].n_addr; ++j){
                               if(lc->locks[i].integers){
                                     if(lc->locks[i].mul_val)write_int_to_pid_mem(lc->locks[i].pid, lc->locks[i].m_addr[j], lc->locks[i].i_val[j]);
@@ -539,6 +538,7 @@ bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, 
             lc->locks = tmp_l;
       }
       if(integers)lc->locks[lc->n].s_val = NULL;
+      lc->locks[lc->n].active = true;
       lc->locks[lc->n].pid = pid;
       lc->locks[lc->n].integers = integers;
       lc->locks[lc->n].mul_val = mul_val;
