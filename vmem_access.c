@@ -451,9 +451,7 @@ bool print_locks(struct lock_container* lc){
 long remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first, char free_op){
       if(lc->n == lc->n_removed || rm_s >= lc->n-lc->n_removed)return -1;
       unsigned int r_i = 0;
-      pthread_mutex_t lck_mut;
-      pthread_mutex_init(&lck_mut, NULL);
-      pthread_mutex_lock(&lck_mut);
+      pthread_mutex_lock(&lc->mut_lck);
       long ret = -1;
       for(unsigned int i = 0; i < lc->n; ++i){
             if(!lc->locks[i].active)continue;
@@ -469,7 +467,7 @@ long remove_lock(struct lock_container* lc, unsigned int rm_s, bool keep_first, 
             }
             ++r_i;
       }
-      pthread_mutex_unlock(&lck_mut);
+      pthread_mutex_unlock(&lc->mut_lck);
       if(lc->n == lc->n_removed)pthread_join(lc->thread, NULL);
       if(free_op%2 != 0)free(lc->locks[ret].m_addr);
       if(free_op > 1){
@@ -484,6 +482,7 @@ unsigned int free_locks(struct lock_container* lc, char free_op){
       unsigned int i = 0;
       for(i = 0; remove_lock(lc, 0, false, free_op) != -1; ++i);
       free(lc->locks);
+      pthread_mutex_destroy(&lc->mut_lck);
       return i;
 }
 
@@ -493,6 +492,9 @@ struct lock_container* lock_container_init(struct lock_container* lc, unsigned i
       lc->n = lc->n_removed = 0;
       lc->cap = initial_sz;
       lc->locks = malloc(sizeof(struct lock_entry)*lc->cap);
+      pthread_mutex_t mlck;
+      pthread_mutex_init(&mlck, NULL);
+      lc->mut_lck = mlck;
       return lc;
 }
 
@@ -501,6 +503,7 @@ unsigned long lock_th(struct lock_container* lc){
       while(lc->n != lc->n_removed){
             ++iter;
             usleep(1000);
+            pthread_mutex_lock(&lc->mut_lck);
             for(unsigned int i = 0; i < lc->n; ++i){
                   if(lc->locks[i].active){
                         for(unsigned int j = 0; j < lc->locks[i].n_addr; ++j){
@@ -515,6 +518,7 @@ unsigned long lock_th(struct lock_container* lc){
                         }
                   }
             }
+            pthread_mutex_unlock(&lc->mut_lck);
       }
       return iter;
 }
@@ -527,9 +531,7 @@ void* lock_pthread(void* lc){
 // returns true if thread was created, false if thread not created
 bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers){
       pthread_t lock_th;
-      pthread_mutex_t lck_mut;
-      pthread_mutex_init(&lck_mut, NULL);
-      pthread_mutex_lock(&lck_mut);
+      pthread_mutex_lock(&lc->mut_lck);
       if(lc->n == lc->cap){
             lc->cap *= 2;
             struct lock_entry* tmp_l = malloc(sizeof(struct lock_entry)*lc->cap);
@@ -548,7 +550,7 @@ bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, 
       lc->locks[lc->n].rng = n_addr != 1;
       lc->locks[lc->n].m_addr = addr;
       ++lc->n;
-      pthread_mutex_unlock(&lck_mut);
+      pthread_mutex_unlock(&lc->mut_lck);
       // if we have one lock after adding one - if we just added the first lock
       if(lc->n-1 == lc->n_removed){
             pthread_create(&lock_th, NULL, &lock_pthread, lc);

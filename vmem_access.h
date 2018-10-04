@@ -2,12 +2,13 @@
 
 #include <pthread.h>
 
-#define MEMCARVE_VER "libmemcarve 1.5.4"
+#define MEMCARVE_VER "libmemcarve 1.5.5"
 
 typedef unsigned char BYTE;
 
 struct lock_container{
       pthread_t thread;
+      pthread_mutex_t mut_lck;
       struct lock_entry* locks;
       unsigned int cap, n, n_removed;
 };
