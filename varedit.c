@@ -204,10 +204,9 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         puts("no memory locations available for writing. returning to search");
                         goto Find;
                   }
-                  // to_w needs to be large enough to store any write string
-                  // TODO: make to_w char* and use getline() to support write strings the same size as possible read strings
                   char v_loc_s[10];
-                  unsigned int v_loc[2]; // v_loc stores start and end of range
+                  // v_loc stores start and end of range
+                  unsigned int v_loc[2];
                   unsigned short to_w_len = 0;
                   while(1){
                         Write:
