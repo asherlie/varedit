@@ -113,12 +113,13 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       else puts("strings");
       puts("enter 'u' at any time to update visible values, 'q' to exit or '?' for help");
       char* tmp_str = NULL;
+      char* to_w = NULL;
       int tmp_strlen = 0;
       int tmp_val;
       bool first = true;
       bool lock_mode;
       struct lock_container lock_pids;
-      size_t sz = 0;
+      size_t sz = 0, to_w_sz = 0;
       lock_container_init(&lock_pids, 1);
       // TODO: possibly get rid of while loop in favor of goto Find for increased clarity
       while(1){
@@ -129,10 +130,11 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             if(!first)fputs(" or 'w' to enter write mode", stdout);
             fputs("\n", stdout);
             tmp_strlen = getline(&tmp_str, &sz, stdin)-1;
-            tmp_str[tmp_strlen]='\0';
+            tmp_str[tmp_strlen] = '\0';
             if(strncmp(tmp_str, "q", 2) == 0){
                   free_locks(&lock_pids, 3);
                   free(tmp_str);
+                  if(to_w)free(to_w);
                   return !first;
             }
             // TODO: add ability to rescan memory regions and update vmem->mapped_rgn
@@ -204,7 +206,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   }
                   // to_w needs to be large enough to store any write string
                   // TODO: make to_w char* and use getline() to support write strings the same size as possible read strings
-                  char v_loc_s[10], to_w[4096];
+                  char v_loc_s[10];
                   unsigned int v_loc[2]; // v_loc stores start and end of range
                   unsigned short to_w_len = 0;
                   while(1){
@@ -229,6 +231,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         if(strncmp(v_loc_s, "q", 2) == 0){
                               free_locks(&lock_pids, 3);
                               free(tmp_str);
+                              if(to_w)free(to_w);
                               return !first;
                         }
                         if(strncmp(v_loc_s, "?", 2) == 0){
@@ -284,13 +287,13 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               lock_mode = true;
                               scanf(" %9[^ \t\n]%*c", v_loc_s);
                         }
-                        scanf("%4095[^\t\n]%*c", to_w);
+                        to_w_len = getline(&to_w, &to_w_sz, stdin)-1;
+                        to_w[to_w_len] = '\0';
                         int to_w_i;
                         if(integers && !strtoi(to_w, NULL, &to_w_i) && !(lock_mode && strncmp(to_w, "_", 2) == 0)){
                               puts("enter a valid integer to write");
                               goto Write;
                         }
-                        to_w_len = strlen(to_w);
                        { // scope to limit e_r's lifetime
                               char* e_r = strchr(v_loc_s, '-');
                               if(e_r != NULL)*(e_r++) = '\0';
