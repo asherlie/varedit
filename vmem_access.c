@@ -175,6 +175,14 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
             mem->i_mmap = malloc(sizeof(struct addr_int_pair)*m_size);
             if(d_rgn == STACK || d_rgn == BOTH){
                   BYTE* ints_in_stack = read_bytes_from_pid_mem(mem->mapped_rgn.pid, bytes, mem->mapped_rgn.stack.start, mem->mapped_rgn.stack.end);
+                  // TODO: in place math optimization
+                  /* this iteration is very slow
+                   * population can be sped up if only an initial mem addr is stored and ((char*)m_addr)+index_chk*bytes is computed on the fly
+                   * easy to reason about, we need to find m_addr of value at index index_chk, each value takes up n_bytes
+                   *
+                   * this will decrease both space and time complexity significantly - we no longer need to iterate over each n_bytes of of mem
+                   * and we no longer need to store sizeof(void*) for every single addr_{int,str}_pair
+                   */
                   for(char* sp = mem->mapped_rgn.stack.start; sp != mem->mapped_rgn.stack.end; sp += bytes){
                         mem->i_mmap[mem->size].addr = (void*)sp; mem->i_mmap[mem->size].value = 0;
                         memcpy(&(mem->i_mmap[mem->size++].value), ints_in_stack+buf_s, bytes);
