@@ -95,14 +95,33 @@ struct narrow_pth_arg{
       _Bool _int, * first;
       struct mem_map* mem;
       char* s_match;
+      int d_rgn, additional, hist_sz;
+      /* hist stores search history */
+      char** hist;
 
       struct gr_subroutine_arg* gsa;
 };
 
 void* narrow_pth(void* npa_v){
       struct narrow_pth_arg* npa = (struct narrow_pth_arg*)npa_v;
-      if(*npa->first || npa->_int || !npa->mem)return NULL;
+      /*if(*npa->first || npa->_int || !npa->mem)return NULL;*/
+      
+      /* TODO: commands should be prepended by '/' */
+      /* if we could be reading a command, don't bother */
+      if(npa->_int || **npa->gsa->str_recvd == 'w'|| **npa->gsa->str_recvd == 'q' || 
+      **npa->gsa->str_recvd == '?'|| **npa->gsa->str_recvd == 'u'||
+      **npa->gsa->str_recvd == 'r')return NULL;
+
+      if(*npa->first)populate_mem_map(npa->mem, npa->d_rgn, npa->additional, 0, -1);
       /* if we've read a deletion char, reset */
+      /* THIS IS NOT CORRECT BEHAVIOR */
+      /* to correct this:
+       * we can either keep track of search history and revert by reseraching
+       * sequentially for n-2 previous searches
+       * OR
+       * we can store snapshots of previous mem map states
+       * will take a lot more memory but would be faster
+       */
       if(*npa->gsa->char_recvd == 8 || *npa->gsa->char_recvd == 127){
             free_mem_map(npa->mem);
             npa->mem->size = 0;
@@ -152,6 +171,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       npa.gsa = &gsa;
       npa.mem = vmem;
       npa._int = integers;
+      npa.d_rgn = d_rgn;
+      npa.additional = additional;
 
       init_gsa(&gsa);
       gsa.pthread_arg = &npa;
@@ -431,12 +452,13 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   else puts("enter a valid string to search");
                   goto Find;
             }
-            if(first)populate_mem_map(vmem, d_rgn, additional, integers, int_mode_bytes);
+            if((integers || vmem->low_mem) && first)populate_mem_map(vmem, d_rgn, additional, integers, int_mode_bytes);
             // tmp_str_ptr makes it easier to handle escaped searches of reserved varedit strings because it can be incremented
             char* tmp_str_ptr = tmp_str;
             // to deal with escaped \w, \u, \q, \r, \?, \rl
             if(tmp_str[0] == '\\')++tmp_str_ptr;
-            if(!first)update_mem_map(vmem);
+            /* we now update no matter what because population is done if first in getline_raw_sub() */
+            /* if(!first)*/update_mem_map(vmem);
             if(integers){
                   tmp_val = atoi(tmp_str_ptr);
                   narrow_mem_map_int(vmem, tmp_val);
@@ -444,7 +466,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             // if caret_parse evaluates to true, exact_s, if ch_p $, exact_e
             // if search string contains escaped ^ as well as escaped $, only one set will be found because escape chars are stripped with each ch_p call
             // TODO: add param to ch_p - bool rm_escape_char
-            /*if strings and low mem OR */
+
             /* if we're not in low mem mode and this isn't our first iteration,
              * it will be safe to assume that getline_raw_sub() has already narrowed 
              * our mem_map
@@ -468,7 +490,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.2.4";
+      char ver[] = "varedit 1.2.5";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
