@@ -1,4 +1,5 @@
 #include <string.h>
+#include "ashio.h"
 
 #ifdef shared
 #include <vmem_access.h>
@@ -90,6 +91,34 @@ bool caret_parse(char* str){
       return ch_p("^", str, true);
 }
 
+/*
+ * void narrow_mem_map_int(struct mem_map* mem, int match);
+ * void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bool exact_e);
+*/
+struct narrow_pth_arg{
+      _Bool _int, * first;
+      struct mem_map* mem;
+      char* s_match;
+
+      struct gr_subroutine_arg* gsa;
+};
+
+void* narrow_pth(void* npa_v){
+      struct narrow_pth_arg* npa = (struct narrow_pth_arg*)npa_v;
+      if(*npa->first || npa->_int || !npa->mem)return NULL;
+      /* if we've read a deletion char, reset */
+      if(*npa->gsa->char_recvd == 8 || *npa->gsa->char_recvd == 127){
+            free_mem_map(npa->mem);
+            npa->mem->size = 0;
+            *npa->first = true;
+      }
+      char* tmp_str_ptr = *npa->gsa->str_recvd;
+      narrow_mem_map_str(npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
+      if(npa->mem->size == 0)*npa->first = true;
+      printf("narrowed to size: %i with %s\n", npa->mem->size, tmp_str_ptr);
+      return NULL;
+}
+
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
       char search_mode_help[620];
       char* prog = search_mode_help;
@@ -115,12 +144,23 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       char* tmp_str = NULL;
       char* to_w = NULL;
       int tmp_strlen = 0;
-      int tmp_val;
-      bool first = true;
-      bool lock_mode;
+      int tmp_val, grs_ignore[] = {9, 0};
+      bool first = true, lock_mode, tab;
       struct lock_container lock_pids;
-      size_t sz = 0, to_w_sz = 0;
+      size_t to_w_sz = 0;
       lock_container_init(&lock_pids, 1);
+
+      struct gr_subroutine_arg gsa;
+      struct narrow_pth_arg npa;
+
+      npa.first = &first;
+      npa.gsa = &gsa;
+      npa.mem = vmem;
+      npa._int = integers;
+
+      init_gsa(&gsa);
+      gsa.pthread_arg = &npa;
+
       // TODO: possibly get rid of while loop in favor of goto Find for increased clarity
       while(1){
             /* NOTE: each goto Find could be replaced by a continue to return to this point and the label Find could be removed
@@ -129,12 +169,16 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             fputs("enter current variable value to search", stdout);
             if(!first)fputs(" or 'w' to enter write mode", stdout);
             fputs("\n", stdout);
-            tmp_strlen = getline(&tmp_str, &sz, stdin)-1;
-            tmp_str[tmp_strlen] = '\0';
+            /* TODO: no subroutine should be called if mem->low_mem */
+            tmp_str = getline_raw_sub(&tmp_strlen, &tab, grs_ignore, narrow_pth, &gsa);
+            puts("");
+            pthread_join(gsa.prev_th, NULL);
+            /*tmp_str[tmp_strlen] = '\0';*/
             if(strncmp(tmp_str, "q", 2) == 0){
                   free_locks(&lock_pids, 3);
                   free(tmp_str);
                   if(to_w)free(to_w);
+                  free_gsa(&gsa);
                   return !first;
             }
             // TODO: add ability to rescan memory regions and update vmem->mapped_rgn
@@ -231,6 +275,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               free_locks(&lock_pids, 3);
                               free(tmp_str);
                               if(to_w)free(to_w);
+                              free_gsa(&gsa);
                               return !first;
                         }
                         if(strncmp(v_loc_s, "?", 2) == 0){
@@ -423,7 +468,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.1.11";
+      char ver[] = "varedit 1.2.0";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -469,7 +514,7 @@ int main(int argc, char* argv[]){
                               case 'C': integers = false; break;
                               case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], NULL, &n_bytes) || n_bytes == 0 || n_bytes > 4)n_bytes = 4; else if(p != -2)p = i+1; break;
                               case 'V': verbose = true; print_rgns = true; break;
-                              case 'v': printf("%s using %s\n", ver, MEMCARVE_VER); return -1;
+                              case 'v': printf("%s using %s and ashio %s\n", ver, MEMCARVE_VER, ASHIO_VER); return -1;
                               // TODO: -p will sometimes be used without a filter str
                               case 'p': mode = 'p'; if(p != -2)p = i+1; args[0] = i+1; break; 
                               case 'r': mode = 'r'; if(p != -2)p = i+1; args[0] = i+1; break;
