@@ -165,8 +165,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             fputs("enter current variable value to search", stdout);
             if(!first)fputs(" or 'w' to enter write mode", stdout);
             fputs("\n", stdout);
-            /* TODO: no subroutine should be called if mem->low_mem */
-            tmp_str = getline_raw_sub(&tmp_strlen, &tab, grs_ignore, narrow_pth, &gsa);
+            tmp_str = (vmem->low_mem) ? getline_raw(&tmp_strlen, &tab, grs_ignore) : getline_raw_sub(&tmp_strlen, &tab, grs_ignore, narrow_pth, &gsa);
             puts("");
             pthread_join(gsa.prev_th, NULL);
             /*tmp_str[tmp_strlen] = '\0';*/
@@ -469,7 +468,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.2.1";
+      char ver[] = "varedit 1.2.2";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
