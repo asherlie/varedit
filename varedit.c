@@ -111,7 +111,6 @@ void* narrow_pth(void* npa_v){
       char* tmp_str_ptr = *npa->gsa->str_recvd;
       narrow_mem_map_str(npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
       if(npa->mem->size == 0)*npa->first = true;
-      printf("narrowed to size: %i with %s\n", npa->mem->size, tmp_str_ptr);
       return NULL;
 }
 
@@ -468,7 +467,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.2.2";
+      char ver[] = "varedit 1.2.3";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
