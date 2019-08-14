@@ -91,10 +91,6 @@ bool caret_parse(char* str){
       return ch_p("^", str, true);
 }
 
-/*
- * void narrow_mem_map_int(struct mem_map* mem, int match);
- * void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bool exact_e);
-*/
 struct narrow_pth_arg{
       _Bool _int, * first;
       struct mem_map* mem;
@@ -450,7 +446,12 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             // if caret_parse evaluates to true, exact_s, if ch_p $, exact_e
             // if search string contains escaped ^ as well as escaped $, only one set will be found because escape chars are stripped with each ch_p call
             // TODO: add param to ch_p - bool rm_escape_char
-            else narrow_mem_map_str(vmem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
+            /*if strings and low mem OR */
+            /* if we're not in low mem mode and this isn't our first iteration,
+             * it will be safe to assume that getline_raw_sub() has already narrowed 
+             * our mem_map
+             */
+            else if(vmem->low_mem || first)narrow_mem_map_str(vmem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
             if(vmem->size == 0){
                   printf("nothing matches your search of: %s\nresetting mem map\n", tmp_str_ptr);
                   // setting first to true to imitate behavior of first search and load, reducing space complexity by waiting to repopulate mem_map
@@ -468,7 +469,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.2.0";
+      char ver[] = "varedit 1.2.1";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
