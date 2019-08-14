@@ -1,6 +1,6 @@
 CC=gcc
-#CFLAGS= -D_GNU_SOURCE -Wall -Wextra -Wpedantic -Werror -Wno-unused-result -std=c99 -O3 -lpthread -s
-CFLAGS= -D_GNU_SOURCE -Wall -Wextra -Wpedantic -Werror -Wno-unused-result -std=c99 -g -lpthread
+CFLAGS= -D_GNU_SOURCE -Wall -Wextra -Wpedantic -Werror -Wno-unused-result -std=c99 -O3 -lpthread -s
+#CFLAGS= -D_GNU_SOURCE -Wall -Wextra -Wpedantic -Werror -Wno-unused-result -std=c99 -g -lpthread
 
 all: v 
 

@@ -170,9 +170,9 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             /*tmp_str[tmp_strlen] = '\0';*/
             if(strncmp(tmp_str, "q", 2) == 0){
                   free_locks(&lock_pids, 3);
-                  free(tmp_str);
                   if(to_w)free(to_w);
                   free_gsa(&gsa);
+                  free(tmp_str);
                   return !first;
             }
             // TODO: add ability to rescan memory regions and update vmem->mapped_rgn
@@ -267,9 +267,9 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         }
                         if(strncmp(v_loc_s, "q", 2) == 0){
                               free_locks(&lock_pids, 3);
-                              free(tmp_str);
                               if(to_w)free(to_w);
                               free_gsa(&gsa);
+                              free(tmp_str);
                               return !first;
                         }
                         if(strncmp(v_loc_s, "?", 2) == 0){
@@ -463,11 +463,12 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   print_mmap(vmem, print_rgns);
             }
             first = false;
+            free(tmp_str);
       }
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.2.3";
+      char ver[] = "varedit 1.2.4";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
