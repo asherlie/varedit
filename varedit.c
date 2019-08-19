@@ -121,6 +121,8 @@ bool first_cmd(char* str){
 
 void* narrow_pth(void* npa_v){
       struct narrow_pth_arg* npa = (struct narrow_pth_arg*)npa_v;
+      /* TODO: commands should be prepended by '/' */
+      /* if this could be a command, don't even bother */
       if(npa->_int || first_cmd(*npa->gsa->str_recvd))return NULL;
       _Bool del = *npa->gsa->char_recvd == 8 || *npa->gsa->char_recvd == 127;
 
@@ -158,92 +160,6 @@ void* narrow_pth(void* npa_v){
       return NULL;
 }
 
-/*void* narrow_pth_(void* npa_v){*/
-      /*struct narrow_pth_arg* npa = (struct narrow_pth_arg*)npa_v;*/
-      /*[>if(*npa->first || npa->_int || !npa->mem)return NULL;<]*/
-      
-      /*[> TODO: commands should be prepended by '/' <]*/
-      /*[> if we could be reading a command, don't bother <]*/
-      /*if(npa->_int || first_cmd(*npa->gsa->str_recvd))return NULL;*/
-      /*
-       * if(npa->_int || **npa->gsa->str_recvd == 'w'|| **npa->gsa->str_recvd == 'q' || 
-       * **npa->gsa->str_recvd == '?'|| **npa->gsa->str_recvd == 'u'||
-       * **npa->gsa->str_recvd == 'r')return NULL;
-      */
-
-      /*if(*npa->first){*/
-            /*populate_mem_map(npa->mem, npa->d_rgn, npa->additional, 0, -1);*/
-            /**npa->first = 0;*/
-      /*}*/
-      /*[> if we've read a deletion char, reset <]*/
-      /*[> THIS IS NOT CORRECT BEHAVIOR <]*/
-      /* to correct this:
-       * we can either keep track of search history and revert by reseraching
-       * sequentially for n-2 previous searches
-       * OR
-       * we can store snapshots of previous mem map states
-       * will take a lot more memory but would be faster
-       */
-
-
-/*
- * a snap is appended each time a char is read
- * if no snaps exist this means that the string in progress is ""
-*/
-
-      /*if(*npa->gsa->char_recvd == 8 || *npa->gsa->char_recvd == 127){*/
-            /*[> this should also implicitly free snapshot[--npa->n_snaps] <]*/
-            /*
-             * if(npa->n_snaps == 0){
-             *       *npa->first = 1;
-             * }
-            */
-            /*if(npa->n_snaps == 0){*/
-                  /*free_mem_map(npa->mem);*/
-                  /*npa->mem->size = 0;*/
-                  /**npa->first = 1;*/
-            /*}*/
-            /*else{*/
-                  /*free(npa->snapshot[--npa->n_snaps]);*/
-                  /*if(npa->n_snaps == 1){*/
-                        /*free_mem_map(npa->mem);*/
-                        /*npa->mem->size = 0;*/
-                        /**npa->first = 1;*/
-                  /*}*/
-                  /*else{*/
-                        /*[>free_mem_map(npa->mem);<]*/
-                        /*[>dont think this reverting is actually working<]*/
-                        /*printf("npa revert from %i to %i\n", npa->mem->size, npa->snapshot[npa->n_snaps-1]->size);*/
-                        /*if(npa->n_snaps > 0)npa->mem = npa->snapshot[npa->n_snaps-1];*/
-                        /*puts("npa been reveted");*/
-                  /*}*/
-                  /*
-                   * free_mem_map(npa->mem);
-                   * npa->mem->size = 0;
-                   * *npa->first = true;
-                  */
-            /*}*/
-      /*}*/
-      /*[> can this be done without duplicating npa->mem <]*/
-      /*// if not delete*/
-      /*else{*/
-            /*[>printf("adding snapshot with search <]*/
-            /*[> we don't need to narrow if we've reverted snapshots <]*/
-            /*if(npa->n_snaps > 0){*/
-                  /*char* tmp_str_ptr = *npa->gsa->str_recvd;*/
-                  /*narrow_mem_map_str(npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));*/
-                  /*if(npa->mem->size == 0)*npa->first = true;*/
-            /*}*/
-            /*printf("adding snapshot for search %c of size %i\n", *npa->gsa->char_recvd, npa->mem->size);*/
-            /*npa->snapshot[npa->n_snaps++] = mmdup(npa->mem);*/
-      /*}*/
-      /*return NULL;*/
-/*}*/
-
-/*
- * void init_npa(struct narrow_pth_arg* npa, _Bool* first, ){
- * }
-*/
 
 void reset_snapshots(struct narrow_pth_arg* npa){
       /* TODO: actually free memory */
@@ -620,7 +536,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.3.0";
+      char ver[] = "varedit 1.3.1";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
