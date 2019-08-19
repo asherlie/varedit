@@ -119,6 +119,21 @@ bool first_cmd(char* str){
       return *str == 'w' || *str == 'q' || *str == '?' || *str == 'u' || *str == 'r';
 }
 
+/* narrow_pth() is called each time a character is read
+ * it handles two distinct cases - the first being a regular char
+ * is appended to the string in progress
+ * if this occurs, narrow_pth() will narrow the current mem_map using
+ * the string in progress and store the current state of the mem_map in
+ * the npa `snapshot` member
+ *
+ * the second case is a deletion char being read
+ * if this occurs, narrow_pth() will revert the current mem_map
+ * to the previous snapshot
+ *
+ * the snapshot is only used by this function
+ * the snapshot can be free()'d between calls to getline_raw_sub()
+ * as it is only meant to keep track of strings as they are being built
+ */
 void* narrow_pth(void* npa_v){
       struct narrow_pth_arg* npa = (struct narrow_pth_arg*)npa_v;
       /* TODO: commands should be prepended by '/' */
@@ -139,9 +154,7 @@ void* narrow_pth(void* npa_v){
             *npa->first = 0;
       }
 
-      if(del){
-      *npa->mem = npa->snapshot[npa->chars_read-1];
-      }
+      if(del)*npa->mem = npa->snapshot[npa->chars_read-1];
       else{
             if(npa->snap_cap == npa->chars_read){
                   npa->snap_cap *= 2;
@@ -536,7 +549,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.3.1";
+      char ver[] = "varedit 1.3.2";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
