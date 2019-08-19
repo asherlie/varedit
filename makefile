@@ -12,8 +12,8 @@ v: vmem_access.o ashio.o varedit.c
 	$(CC) $(CFLAGS) vmem_access.o vmem_parser.o ashio.o varedit.c -o v
 
 .PHONY:
-shared: varedit.c
-	$(CC) varedit.c -lmemcarve -o v $(CFLAGS)
+shared: varedit.c ashio.o
+	$(CC) varedit.c ashio.o -lmemcarve -o v $(CFLAGS)
 	strip v
 
 clean:
