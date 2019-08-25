@@ -182,6 +182,14 @@ void reset_sterms(struct narrow_pth_arg* npa){
 }
 
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
+      _Bool no_sub = 
+      #ifdef NO_SUB
+      1
+      #else
+      0
+      #endif
+      ;
+
       char search_mode_help[620];
       char* prog = search_mode_help;
       if(!integers)prog = stpcpy(search_mode_help, "NOTE: '^' marks the beginning of a target string of our search, it will only accept exact matches to the start of a string\nNOTE: '$' marks the end of a target string of our search, it will only accept exact matches to the end of a string\nsearch mode options:\n    wa <value> : write single value to all current results\n    <string> : enter a string to narrow results - begin string with \"^\" to match beginning exactly,\n               end string with \"$\" to match end exactly or use delimeter '\\' to search for '?', 'q', 'u', 'r', 'w'\n    ");
@@ -238,9 +246,9 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             fputs("enter current variable value to search", stdout);
             if(!first)fputs(" or 'w' to enter write mode", stdout);
             fputs("\n", stdout);
-            tmp_str = (vmem->low_mem) ? getline_raw(&tmp_strlen, &tab, grs_ignore) : getline_raw_sub(&tmp_strlen, &tab, grs_ignore, narrow_pth, &gsa);
+            tmp_str = (no_sub || vmem->low_mem) ? getline_raw(&tmp_strlen, &tab, grs_ignore) : getline_raw_sub(&tmp_strlen, &tab, grs_ignore, narrow_pth, &gsa);
             puts("");
-            pthread_join(gsa.prev_th, NULL);
+            if(!no_sub && !vmem->low_mem)pthread_join(gsa.prev_th, NULL);
             /*
              * at this point we can reset sterms
              * because they're only useful between rapid calls to narrow_pth()
@@ -250,7 +258,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             if(strncmp(tmp_str, "q", 2) == 0){
                   free_locks(&lock_pids, 3);
                   if(to_w)free(to_w);
-                  free_gsa(&gsa);
+                  if(!no_sub && !vmem->low_mem)free_gsa(&gsa);
                   free(tmp_str);
                   free_sterms(&npa, 1);
                   return !first;
@@ -348,7 +356,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         if(strncmp(v_loc_s, "q", 2) == 0){
                               free_locks(&lock_pids, 3);
                               if(to_w)free(to_w);
-                              free_gsa(&gsa);
+                              if(!no_sub && !vmem->low_mem)free_gsa(&gsa);
                               free(tmp_str);
                               free_sterms(&npa, 1);
                               return !first;
@@ -512,7 +520,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   else puts("enter a valid string to search");
                   goto Find;
             }
-            if((integers || vmem->low_mem) && first)populate_mem_map(vmem, d_rgn, additional, integers, int_mode_bytes);
+            if((integers || vmem->low_mem || no_sub) && first)populate_mem_map(vmem, d_rgn, additional, integers, int_mode_bytes);
             // tmp_str_ptr makes it easier to handle escaped searches of reserved varedit strings because it can be incremented
             char* tmp_str_ptr = tmp_str;
             // to deal with escaped \w, \u, \q, \r, \?, \rl
@@ -531,7 +539,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
              * it will be safe to assume that getline_raw_sub() has already narrowed 
              * our mem_map
              */
-            else if(vmem->low_mem || first || first_cmd(tmp_str))narrow_mem_map_str(vmem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
+            else if(no_sub || vmem->low_mem || first || first_cmd(tmp_str))narrow_mem_map_str(vmem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
             if(vmem->size == 0){
                   printf("nothing matches your search of: %s\nresetting mem map\n", tmp_str_ptr);
                   // setting first to true to imitate behavior of first search and load, reducing space complexity by waiting to repopulate mem_map
@@ -550,7 +558,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.4.5";
+      char ver[] = "varedit 1.4.6";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
