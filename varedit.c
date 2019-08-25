@@ -178,7 +178,6 @@ void* narrow_pth(void* npa_v){
                   npa->sterms = tmp_sterm;
             }
             /* *str_recvd should be malloc'd */
-            printf("\n\rstoring string: \"%s\" in sterms[%i]\n", *npa->gsa->str_recvd, npa->chars_read-1);
             // /*npa->sterms[npa->chars_read-1] = [>strdup(*/*npa->gsa->str_recvd/*)<];*/
             npa->sterms[npa->chars_read-1] = strdup(*npa->gsa->str_recvd);
       }
@@ -187,7 +186,6 @@ void* narrow_pth(void* npa_v){
 
       for(int i = (del) ? 0 : npa->chars_read-1; i < npa->chars_read; ++i){
             tmp_str_ptr = npa->sterms[i];
-            printf("\n\rrenarrowing using str: \"%s\" in sterms[%i]", tmp_str_ptr, i);
             narrow_mem_map_str(*npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
 
             /* it's possible that the strings in memory have changed */
@@ -631,7 +629,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.4.0";
+      char ver[] = "varedit 1.4.1";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
