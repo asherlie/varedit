@@ -97,7 +97,7 @@ struct narrow_pth_arg{
       char* s_match;
       int d_rgn, additional,
 
-      snap_cap,
+      sterm_cap,
 
       /* chars_read refers to total chars read between all calls */
       chars_read;
@@ -144,9 +144,9 @@ void* narrow_pth(void* npa_v){
             *npa->first = 0;
       }
       else{
-            if(npa->chars_read == npa->snap_cap){
-                  npa->snap_cap *= 2;
-                  char** tmp_sterm = malloc(sizeof(char*)*npa->snap_cap);
+            if(npa->chars_read == npa->sterm_cap){
+                  npa->sterm_cap *= 2;
+                  char** tmp_sterm = malloc(sizeof(char*)*npa->sterm_cap);
                   memcpy(tmp_sterm, npa->sterms, sizeof(char*)*npa->chars_read);
                   free(npa->sterms);
                   npa->sterms = tmp_sterm;
@@ -223,8 +223,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       npa.additional = additional;
 
       npa.chars_read = 0;
-      npa.snap_cap = 20;
-      npa.sterms = malloc(sizeof(char*)*npa.snap_cap);
+      npa.sterm_cap = 20;
+      npa.sterms = malloc(sizeof(char*)*npa.sterm_cap);
 
 
       init_gsa(&gsa);
@@ -550,7 +550,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.4.4";
+      char ver[] = "varedit 1.4.5";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
