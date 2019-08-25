@@ -165,7 +165,6 @@ void* narrow_pth(void* npa_v){
       /* re-narrow */
       if(del){
             free(npa->sterms[npa->chars_read]);
-            /*shit the error lies here - populate_mem_map isn't meant to be used with strings and !LOW_MEM*/
             free_mem_map(*npa->mem);
             populate_mem_map(*npa->mem, npa->d_rgn, npa->additional, 0, -1);
             /* probably not necessary */
@@ -179,7 +178,6 @@ void* narrow_pth(void* npa_v){
                   free(npa->sterms);
                   npa->sterms = tmp_sterm;
             }
-            /* *str_recvd should be malloc'd */
             npa->sterms[npa->chars_read-1] = strdup(*npa->gsa->str_recvd);
       }
 
@@ -253,9 +251,14 @@ void* narrow_pth_snapshot(void* npa_v){
       return NULL;
 }
 
+void free_sterms(struct narrow_pth_arg* npa, _Bool base){
+      for(int i = 0; i < npa->chars_read; ++i)
+            free(npa->sterms[i]);
+      if(base)free(npa->sterms);
+}
 
 void reset_snapshots(struct narrow_pth_arg* npa){
-      /* TODO: actually free memory */
+      free_sterms(npa, 0);
       npa->chars_read = 0;
       npa->n_snaps = 0;
 }
@@ -334,7 +337,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   if(to_w)free(to_w);
                   free_gsa(&gsa);
                   free(tmp_str);
-                  free(npa.sterms);
+                  free_sterms(&npa, 1);
                   return !first;
             }
             // TODO: add ability to rescan memory regions and update vmem->mapped_rgn
@@ -432,7 +435,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               if(to_w)free(to_w);
                               free_gsa(&gsa);
                               free(tmp_str);
-                              free(npa.sterms);
+                              free_sterms(&npa, 1);
                               return !first;
                         }
                         if(strncmp(v_loc_s, "?", 2) == 0){
@@ -632,7 +635,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.4.2";
+      char ver[] = "varedit 1.4.3";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
