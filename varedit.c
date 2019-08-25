@@ -97,43 +97,16 @@ struct narrow_pth_arg{
       char* s_match;
       int d_rgn, additional,
 
-      n_snaps, snap_cap,
+      snap_cap,
 
       /* chars_read refers to total chars read between all calls */
       chars_read;
 
-      struct mem_map** snapshot;
-
+      /* used for iterative renarrowing */
       char** sterms;
-
-      /* the following fields are used for 
-       * the iterative renarrowing approach
-       */
-      /*
-       * char** sterms;
-       * int n_terms, term_cap;
-      */
-
 
       struct gr_subroutine_arg* gsa;
 };
-
-/* used to populate snapshot */
-struct mem_map* str_mmdup(struct mem_map* mm){
-      struct mem_map* ret = malloc(sizeof(struct mem_map));
-      /*
-       * ret->blk = malloc(sizeof(struct str_blk));
-       * ret->blk->stack = mem->blk->heap = NULL;
-       * ret->blk->addtnl = NULL;
-       * ret->blk->in_place = true;
-       * ret->blk->n_ad = 0;
-       * if(mm->blk->in_place){
-       * }
-      */
-      /*mem_map_init(ret, pid, unmarked_additional);*/
-      memcpy(ret, mm, sizeof(struct mem_map));
-      return ret;
-}
 
 bool first_cmd(char* str){
       return *str == 'w' || *str == 'q' || *str == '?' || *str == 'u' || *str == 'r';
@@ -197,70 +170,15 @@ void* narrow_pth(void* npa_v){
       return NULL;
 }
 
-/* narrow_pth() is called each time a character is read
- * it handles two distinct cases - the first being a regular char
- * is appended to the string in progress
- * if this occurs, narrow_pth() will narrow the current mem_map using
- * the string in progress and store the current state of the mem_map in
- * the npa `snapshot` member
- *
- * the second case is a deletion char being read
- * if this occurs, narrow_pth() will revert the current mem_map
- * to the previous snapshot
- *
- * the snapshot is only used by this function
- * the snapshot can be free()'d between calls to getline_raw_sub()
- * as it is only meant to keep track of strings as they are being built
- */
-void* narrow_pth_snapshot(void* npa_v){
-      struct narrow_pth_arg* npa = (struct narrow_pth_arg*)npa_v;
-      /* TODO: commands should be prepended by '/' */
-      /* if this could be a command, don't even bother */
-      if(npa->_int || first_cmd(*npa->gsa->str_recvd))return NULL;
-      _Bool del = *npa->gsa->char_recvd == 8 || *npa->gsa->char_recvd == 127;
-
-      npa->chars_read += (del) ? -1 : 1;
-
-      if(!npa->chars_read){
-            *npa->first = 1;
-            free_mem_map(*npa->mem);
-            return NULL;
-      }
-
-      if(*npa->first){
-            populate_mem_map(*npa->mem, npa->d_rgn, npa->additional, 0, -1);
-            *npa->first = 0;
-      }
-
-      if(del)*npa->mem = npa->snapshot[npa->chars_read-1];
-      else{
-            if(npa->snap_cap == npa->chars_read){
-                  npa->snap_cap *= 2;
-                  struct mem_map** tmp_mm = malloc(sizeof(struct mem_map*)*npa->snap_cap);
-                  memcpy(tmp_mm, npa->snapshot, sizeof(struct mem_map*)*npa->n_snaps);
-                  free(npa->snapshot);
-                  npa->snapshot = tmp_mm;
-            }
-            char* tmp_str_ptr = *npa->gsa->str_recvd;
-            narrow_mem_map_str(*npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
-            if((*npa->mem)->size == 0)*npa->first = true;
-
-            npa->snapshot[npa->chars_read-1] = str_mmdup(*npa->mem);
-      }
-/*mem isnt set - setting npa->mem doesn't do shit lmao*/
-      return NULL;
-}
-
 void free_sterms(struct narrow_pth_arg* npa, _Bool base){
       for(int i = 0; i < npa->chars_read; ++i)
             free(npa->sterms[i]);
       if(base)free(npa->sterms);
 }
 
-void reset_snapshots(struct narrow_pth_arg* npa){
+void reset_sterms(struct narrow_pth_arg* npa){
       free_sterms(npa, 0);
       npa->chars_read = 0;
-      npa->n_snaps = 0;
 }
 
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
@@ -304,11 +222,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       npa.d_rgn = d_rgn;
       npa.additional = additional;
 
-      // is n_snaps obsolete? chars_read should always ...
       npa.chars_read = 0;
-      npa.n_snaps = 0;
       npa.snap_cap = 20;
-      /*npa.snapshot = malloc(sizeof(struct mem_map*)*npa.snap_cap);*/
       npa.sterms = malloc(sizeof(char*)*npa.snap_cap);
 
 
@@ -327,10 +242,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             puts("");
             pthread_join(gsa.prev_th, NULL);
             /*
-             * AT THIS POINT WE CAN FREE ALL SNAPSHOT MEM
-             * BECAUSE IT'S ONLY USEFUL BETWEEN RAPID CALLS TO NARROW_PTH()
+             * at this point we can reset sterms
+             * because they're only useful between rapid calls to narrow_pth()
             */
-            reset_snapshots(&npa);
+            reset_sterms(&npa);
             /*tmp_str[tmp_strlen] = '\0';*/
             if(strncmp(tmp_str, "q", 2) == 0){
                   free_locks(&lock_pids, 3);
@@ -635,7 +550,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.4.3";
+      char ver[] = "varedit 1.4.4";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
