@@ -116,12 +116,13 @@ void* narrow_pth(void* npa_v){
       struct narrow_pth_arg* npa = (struct narrow_pth_arg*)npa_v;
       /* TODO: commands should be prepended by '/' */
       /* if this could be a command, don't even bother */
-      if(npa->_int || first_cmd(*npa->gsa->str_recvd))return NULL;
-      /* TODO: what if del is read as the first character -- test this */
+      if(npa->_int)return NULL;
       if(*npa->first){
             populate_mem_map(*npa->mem, npa->d_rgn, npa->additional, 0, -1);
             *npa->first = 0;
       }
+      if(first_cmd(*npa->gsa->str_recvd))return NULL;
+      /* TODO: what if del is read as the first character -- test this */
       _Bool del = *npa->gsa->char_recvd == 8 || *npa->gsa->char_recvd == 127;
 
       npa->chars_read += (del) ? -1 : 1;
@@ -558,7 +559,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.4.6";
+      char ver[] = "varedit 1.4.7";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
