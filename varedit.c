@@ -197,21 +197,6 @@ void* narrow_pth(void* npa_v){
       tmp_str_ptr = *npa->gsa->str_recvd;
       narrow_mem_map_str(*npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
 
-      /*narrow with string from sterms[chars_read-1]*/
-
-/*
- *       for(int i = (del) ? 0 : npa->chars_read-1; i < npa->chars_read; ++i){
- *             tmp_str_ptr = npa->sterms[i];
- *             narrow_mem_map_str(*npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
- * 
- *             [> it's possible that the strings in memory have changed <]
- *             if((*npa->mem)->size == 0){
- *                   *npa->first = true;
- *                   break;
- *             }
- *       }
-*/
-
       return NULL;
 }
 
@@ -624,7 +609,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.4.8";
+      char ver[] = "varedit 1.4.9";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
