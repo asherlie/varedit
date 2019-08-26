@@ -100,16 +100,24 @@ struct narrow_pth_arg{
       sterm_cap,
 
       /* chars_read refers to total chars read between all calls */
-      chars_read;
+      chars_read, 
+
+      /* input_{sz,cap} keep track of all search history */
+      input_sz, input_cap;
 
       /* used for iterative renarrowing */
-      char** sterms;
+      char** sterms, ** all_input;
 
       struct gr_subroutine_arg* gsa;
 };
 
 bool first_cmd(char* str){
       return *str == 'w' || *str == 'q' || *str == '?' || *str == 'u' || *str == 'r';
+}
+
+void pis(struct narrow_pth_arg* npa){
+      for(int i = 0; i< npa->input_sz; ++i)
+            printf("%i: \"%s\"\n", i, npa->all_input[i]);
 }
 
 void* narrow_pth(void* npa_v){
@@ -127,22 +135,51 @@ void* narrow_pth(void* npa_v){
 
       npa->chars_read += (del) ? -1 : 1;
 
-      if(!npa->chars_read){
+      #if 0
+      investigate this
+      if(0 && !npa->chars_read){
             *npa->first = 1;
             free_mem_map(*npa->mem);
             return NULL;
       }
+      #endif
+
       /* since we're using the very expensive
        * re-narrowing method, we'll need to completely
        * reset our mem map each time we read a del
        */
       /* re-narrow */
       if(del){
+            /*puts("\n\n\ndel read\n\n");*/
             free(npa->sterms[npa->chars_read]);
+            /*puts("\rusing follwing to revert");*/
+            /*pis(npa);*/
             free_mem_map(*npa->mem);
             populate_mem_map(*npa->mem, npa->d_rgn, npa->additional, 0, -1);
             /* probably not necessary */
             *npa->first = 0;
+
+            /* narrow all srings saved in all_input */
+            /* before this iteration we should adjust for consecutive
+             * searches that are redundant
+             * if a search is a subset of a previous one
+             * delete it
+             */
+            char* tmp_str_ptr;
+            for(int i = 0; i < npa->input_sz; ++i){
+                  tmp_str_ptr = npa->all_input[i];
+                  narrow_mem_map_str(*npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
+                  if((*npa->mem)->size == 0){
+                        /* our issue is that
+                         * when this occurs we don't have the intermediate
+                         * 0 results page
+                         * it goes straight to new search results
+                         */
+                        /**npa->first = true;*/
+                        /*puts("\rbad bad bad");*/
+                        return NULL;
+                  }
+            }
       }
       else{
             if(npa->chars_read == npa->sterm_cap){
@@ -156,29 +193,51 @@ void* narrow_pth(void* npa_v){
       }
 
       char* tmp_str_ptr;
+      tmp_str_ptr = npa->sterms[npa->chars_read-1];
+      tmp_str_ptr = *npa->gsa->str_recvd;
+      narrow_mem_map_str(*npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
 
-      for(int i = (del) ? 0 : npa->chars_read-1; i < npa->chars_read; ++i){
-            tmp_str_ptr = npa->sterms[i];
-            narrow_mem_map_str(*npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
+      /*narrow with string from sterms[chars_read-1]*/
 
-            /* it's possible that the strings in memory have changed */
-            if((*npa->mem)->size == 0){
-                  *npa->first = true;
-                  break;
-            }
-      }
+/*
+ *       for(int i = (del) ? 0 : npa->chars_read-1; i < npa->chars_read; ++i){
+ *             tmp_str_ptr = npa->sterms[i];
+ *             narrow_mem_map_str(*npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
+ * 
+ *             [> it's possible that the strings in memory have changed <]
+ *             if((*npa->mem)->size == 0){
+ *                   *npa->first = true;
+ *                   break;
+ *             }
+ *       }
+*/
 
       return NULL;
 }
 
-void free_sterms(struct narrow_pth_arg* npa, _Bool base){
-      for(int i = 0; i < npa->chars_read; ++i)
+void free_sterms(struct narrow_pth_arg* npa, _Bool base, _Bool preserve_last){
+      for(int i = 0; i < npa->chars_read-preserve_last; ++i)
             free(npa->sterms[i]);
-      if(base)free(npa->sterms);
+      if(base){
+            free(npa->sterms);
+            for(int i = 0; i < npa->input_sz; ++i)
+                  free(npa->all_input[i]);
+            free(npa->all_input);
+      }
 }
 
+/* each time this is called, we'll back up the current list of sterms */
 void reset_sterms(struct narrow_pth_arg* npa){
-      free_sterms(npa, 0);
+      free_sterms(npa, 0, 1);
+      if(!npa->chars_read)return;
+      if(npa->input_sz == npa->input_cap){
+            npa->input_cap *= 2;
+            char** tmp_inp = malloc(sizeof(char*)*npa->input_cap);
+            memcpy(tmp_inp, npa->all_input, sizeof(char*)*npa->input_sz);
+            free(npa->all_input);
+            npa->all_input = tmp_inp;
+      }
+      npa->all_input[npa->input_sz++] = npa->sterms[npa->chars_read-1];
       npa->chars_read = 0;
 }
 
@@ -235,6 +294,10 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       npa.sterm_cap = 20;
       npa.sterms = malloc(sizeof(char*)*npa.sterm_cap);
 
+      npa.input_cap = 100;
+      npa.input_sz = 0;
+      npa.all_input = malloc(sizeof(char*)*npa.input_cap);
+
 
       init_gsa(&gsa);
       gsa.pthread_arg = &npa;
@@ -261,7 +324,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   if(to_w)free(to_w);
                   if(!no_sub && !vmem->low_mem)free_gsa(&gsa);
                   free(tmp_str);
-                  free_sterms(&npa, 1);
+                  free_sterms(&npa, 1, 0);
                   return !first;
             }
             // TODO: add ability to rescan memory regions and update vmem->mapped_rgn
@@ -280,6 +343,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         free_mem_map(vmem);
                         vmem->size = 0;
                         first = true;
+                        /* TODO: free strings */
+                        npa.input_sz = 0;
                   }
                   puts("mem map has been reset");
                   fseek(stdin, 0, SEEK_END);
@@ -359,7 +424,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               if(to_w)free(to_w);
                               if(!no_sub && !vmem->low_mem)free_gsa(&gsa);
                               free(tmp_str);
-                              free_sterms(&npa, 1);
+                              free_sterms(&npa, 1, 0);
                               return !first;
                         }
                         if(strncmp(v_loc_s, "?", 2) == 0){
@@ -559,7 +624,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.4.7";
+      char ver[] = "varedit 1.4.8";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
