@@ -135,6 +135,7 @@ void* narrow_pth(void* npa_v){
 
       npa->chars_read += (del) ? -1 : 1;
 
+      /*if(!npa->chars_read)return NULL;*/
       #if 0
       investigate this
       if(0 && !npa->chars_read){
@@ -170,18 +171,15 @@ void* narrow_pth(void* npa_v){
                   tmp_str_ptr = npa->all_input[i];
                   narrow_mem_map_str(*npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
                   if((*npa->mem)->size == 0){
-                        /* our issue is that
-                         * when this occurs we don't have the intermediate
-                         * 0 results page
-                         * it goes straight to new search results
-                         */
                         /**npa->first = true;*/
-                        /*puts("\rbad bad bad");*/
                         return NULL;
                   }
             }
       }
-      else{
+
+      if(!npa->chars_read)return NULL;
+
+      if(!del){
             if(npa->chars_read == npa->sterm_cap){
                   npa->sterm_cap *= 2;
                   char** tmp_sterm = malloc(sizeof(char*)*npa->sterm_cap);
@@ -193,7 +191,7 @@ void* narrow_pth(void* npa_v){
       }
 
       char* tmp_str_ptr;
-      tmp_str_ptr = npa->sterms[npa->chars_read-1];
+      /*tmp_str_ptr = npa->sterms[npa->chars_read-1];*/
       tmp_str_ptr = *npa->gsa->str_recvd;
       narrow_mem_map_str(*npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
 
@@ -609,7 +607,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.4.9";
+      char ver[] = "varedit 1.4.10";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
