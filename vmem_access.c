@@ -158,12 +158,16 @@ bool set_mode_mem_map(struct mem_map* mem, bool integers){
 void init_i_map(struct i_mmap_map* imm, int n_bux, int n_entries){
       imm->n_bux = n_bux;
       imm->i_buckets = malloc(sizeof(struct addr_int_pair*)*n_bux);
+      imm->bucket_ref = calloc(sizeof(int), n_bux);
 
       /* to limit the amount of memory used, we'll assume that most buckets will have less than n_entries/n_bux */
       /* this, of course, implies that we'll need to resize buckets in some cases */
       int bucket_sz = 0.7*(n_entries/n_bux);
 
-      for(int i = 0; i < n_bux; ++i)imm->i_buckets[i] = malloc(sizeof(struct addr_int_pair)*bucket_sz);
+      for(int i = 0; i < n_bux; ++i){
+            imm->i_buckets[i] = malloc(sizeof(struct addr_int_pair)*(bucket_sz+1));
+            imm->i_buckets[i][bucket_sz].addr = NULL;
+      }
 
       imm->in_place = 1;
 }
@@ -172,10 +176,19 @@ void free_i_map(struct i_mmap_map* imm){
       for(int i = 0; i < imm->n_bux; ++i)
             free(imm->i_buckets[i]);
       free(imm->i_buckets);
+      free(imm->bucket_ref);
 }
 
-void insert_i_map(struct i_mmap_map* imm){
-      (void)imm;
+void insert_i_map(struct i_mmap_map* imm, void* addr, int value){
+      int ind = value % imm->n_bux;
+      if(!imm->i_buckets[ind][imm->bucket_ref[ind]].addr){
+            struct addr_int_pair* tmp_ip = malloc(sizeof(struct addr_int_pair)*(imm->bucket_ref[ind]*2));
+            memcpy(tmp_ip, imm->i_buckets[ind], sizeof(struct addr_int_pair)*imm->bucket_ref[ind]);
+            free(imm->i_buckets[ind]);
+            imm->i_buckets[ind] = tmp_ip;
+      }
+      imm->i_buckets[ind][imm->bucket_ref[ind]].addr = addr;
+      imm->i_buckets[ind][imm->bucket_ref[ind]++].value = value;
 }
 
 void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, bool integers, int bytes){
@@ -197,7 +210,7 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
             /* populate_mem_map will always return an int mmap with hashed integers */
             m_size /= bytes;
 
-            init_i_map(&mem->i_mmap_hash, 50, 0);
+            init_i_map(&mem->i_mmap_hash, 50, m_size);
 
             mem->i_mmap = malloc(sizeof(struct addr_int_pair)*m_size);
             if(d_rgn == STACK || d_rgn == BOTH){
