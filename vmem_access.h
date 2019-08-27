@@ -2,7 +2,7 @@
 
 #include <pthread.h>
 
-#define MEMCARVE_VER "libmemcarve 1.5.5"
+#define MEMCARVE_VER "libmemcarve 1.6.0"
 
 typedef unsigned char BYTE;
 
@@ -32,6 +32,12 @@ struct addr_str_pair{
       char* value;
 };
 
+struct i_mmap_map{
+      int n_bux;
+      struct addr_int_pair** i_buckets;
+      _Bool in_place;
+};
+
 struct str_blk{
       bool in_place;
       char* stack;
@@ -43,6 +49,7 @@ struct str_blk{
 struct mem_map{
       struct mem_rgn mapped_rgn;
       struct addr_int_pair* i_mmap;
+      struct i_mmap_map i_mmap_hash;
       struct addr_str_pair* s_mmap;
       struct str_blk* blk;
       unsigned int i_size, s_size, size;

@@ -155,6 +155,23 @@ bool set_mode_mem_map(struct mem_map* mem, bool integers){
       return true;
 }
 
+void init_i_map(struct i_mmap_map* imm, int n_bux, int n_entries){
+      imm->n_bux = n_bux;
+      imm->i_buckets = malloc(sizeof(struct addr_int_pair*)*n_bux);
+
+      /* to limit the amount of memory used, we'll assume that most buckets will have less than n_entries/n_bux */
+      /* this, of course, implies that we'll need to resize buckets in some cases */
+      int bucket_sz = 0.7*(n_entries/n_bux);
+
+      for(int i = 0; i < n_bux; ++i)imm->i_buckets[i] = malloc(sizeof(struct addr_int_pair)*bucket_sz);
+
+      imm->in_place = 1;
+}
+
+void insert_i_map(struct i_mmap_map* imm){
+      (void)imm;
+}
+
 void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, bool integers, int bytes){
       // store size, toggle mem->integers in case mem is being repopulated with a different mode
       set_mode_mem_map(mem, integers);
@@ -171,7 +188,11 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
       unsigned long buf_s = 0;
       // TODO: fix integer mode when int_mode_bytes > 4
       if(integers){
+            /* populate_mem_map will always return an int mmap with hashed integers */
             m_size /= bytes;
+
+            init_i_map(&mem->i_mmap_hash, 50, 0);
+
             mem->i_mmap = malloc(sizeof(struct addr_int_pair)*m_size);
             if(d_rgn == STACK || d_rgn == BOTH){
                   BYTE* ints_in_stack = read_bytes_from_pid_mem(mem->mapped_rgn.pid, bytes, mem->mapped_rgn.stack.start, mem->mapped_rgn.stack.end);
