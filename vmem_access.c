@@ -168,6 +168,12 @@ void init_i_map(struct i_mmap_map* imm, int n_bux, int n_entries){
       imm->in_place = 1;
 }
 
+void free_i_map(struct i_mmap_map* imm){
+      for(int i = 0; i < imm->n_bux; ++i)
+            free(imm->i_buckets[i]);
+      free(imm->i_buckets);
+}
+
 void insert_i_map(struct i_mmap_map* imm){
       (void)imm;
 }
