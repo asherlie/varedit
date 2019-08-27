@@ -155,7 +155,7 @@ void* narrow_pth(void* npa_v){
             free(npa->sterms[npa->chars_read]);
             /*puts("\rusing follwing to revert");*/
             /*pis(npa);*/
-            free_mem_map(*npa->mem);
+            /*free_mem_map(*npa->mem);*/
             populate_mem_map(*npa->mem, npa->d_rgn, npa->additional, 0, -1);
             /* probably not necessary */
             *npa->first = 0;
@@ -607,7 +607,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.4.10";
+      char ver[] = "varedit 1.4.11";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
@@ -653,7 +653,17 @@ int main(int argc, char* argv[]){
                               case 'C': integers = false; break;
                               case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], NULL, &n_bytes) || n_bytes == 0 || n_bytes > 4)n_bytes = 4; else if(p != -2)p = i+1; break;
                               case 'V': verbose = true; print_rgns = true; break;
-                              case 'v': printf("%s using %s and ashio %s\n", ver, MEMCARVE_VER, ASHIO_VER); return -1;
+                              case 'v':{
+                                          _Bool no_sub =
+                                          #ifdef NO_SUB
+                                          1
+                                          #else
+                                          0
+                                          #endif
+                                          ;
+                                          printf("%s using %s and ashio %s\nlow mem mode is %s, subroutine re-narrowing is %s\n",
+                                          ver, MEMCARVE_VER, ASHIO_VER, (LOW_MEM) ?  "enabled" : "disabled", (no_sub) ? "enabled" : "disabled"); return -1;
+                                       }
                               // TODO: -p will sometimes be used without a filter str
                               case 'p': mode = 'p'; if(p != -2)p = i+1; args[0] = i+1; break; 
                               case 'r': mode = 'r'; if(p != -2)p = i+1; args[0] = i+1; break;
