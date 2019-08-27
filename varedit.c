@@ -92,10 +92,13 @@ bool caret_parse(char* str){
 }
 
 struct narrow_pth_arg{
-      _Bool _int, * first;
+      _Bool _int, * first, int_pop;
       struct mem_map** mem;
       char* s_match;
       int d_rgn, additional,
+      
+      /* used only for populating int mmaps */
+      int_bytes,
 
       sterm_cap,
 
@@ -124,11 +127,13 @@ void* narrow_pth(void* npa_v){
       struct narrow_pth_arg* npa = (struct narrow_pth_arg*)npa_v;
       /* TODO: commands should be prepended by '/' */
       /* if this could be a command, don't even bother */
-      if(npa->_int)return NULL;
+      /* if int mode, we'll still take advantage of this time to populate */
       if(*npa->first){
-            populate_mem_map(*npa->mem, npa->d_rgn, npa->additional, 0, -1);
+            populate_mem_map(*npa->mem, npa->d_rgn, npa->additional, npa->_int, npa->int_bytes);
+            npa->int_pop = 1;
             *npa->first = 0;
       }
+      if(npa->_int)return NULL;
       if(first_cmd(*npa->gsa->str_recvd))return NULL;
       /* TODO: what if del is read as the first character -- test this */
       _Bool del = *npa->gsa->char_recvd == 8 || *npa->gsa->char_recvd == 127;
@@ -281,6 +286,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       npa.input_sz = 0;
       npa.all_input = malloc(sizeof(char*)*npa.input_cap);
 
+      npa.int_bytes = int_mode_bytes;
+
 
       init_gsa(&gsa);
       gsa.pthread_arg = &npa;
@@ -293,6 +300,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             fputs("enter current variable value to search", stdout);
             if(!first)fputs(" or 'w' to enter write mode", stdout);
             fputs("\n", stdout);
+            npa.int_pop = 0;
             tmp_str = (no_sub || vmem->low_mem) ? getline_raw(&tmp_strlen, &tab, grs_ignore) : getline_raw_sub(&tmp_strlen, &tab, grs_ignore, narrow_pth, &gsa);
             puts("");
             if(!no_sub && !vmem->low_mem)pthread_join(gsa.prev_th, NULL);
@@ -569,7 +577,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   else puts("enter a valid string to search");
                   goto Find;
             }
-            if((integers || vmem->low_mem || no_sub) && first)populate_mem_map(vmem, d_rgn, additional, integers, int_mode_bytes);
+            if(((integers && !npa.int_pop) || vmem->low_mem || no_sub) && first)populate_mem_map(vmem, d_rgn, additional, integers, int_mode_bytes);
             // tmp_str_ptr makes it easier to handle escaped searches of reserved varedit strings because it can be incremented
             char* tmp_str_ptr = tmp_str;
             // to deal with escaped \w, \u, \q, \r, \?, \rl
@@ -607,7 +615,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.4.12";
+      char ver[] = "varedit 1.4.13";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
