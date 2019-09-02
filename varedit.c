@@ -582,8 +582,8 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             char* tmp_str_ptr = tmp_str;
             // to deal with escaped \w, \u, \q, \r, \?, \rl
             if(tmp_str[0] == '\\')++tmp_str_ptr;
-            /* we now update no matter what because population is done if first in getline_raw_sub() */
-            /* if(!first)*/update_mem_map(vmem);
+            
+            if(!first)update_mem_map(vmem);
             if(integers){
                   tmp_val = atoi(tmp_str_ptr);
                   narrow_mem_map_int(vmem, tmp_val);
