@@ -165,8 +165,8 @@ void init_i_map(struct i_mmap_map* imm, int n_bux, int n_entries){
       int bucket_sz = 0.7*(n_entries/n_bux);
 
       for(int i = 0; i < n_bux; ++i){
-            imm->i_buckets[i] = malloc(sizeof(struct addr_int_pair)*(bucket_sz+1));
-            imm->i_buckets[i][bucket_sz].addr = NULL;
+            imm->i_buckets[i] = calloc(sizeof(struct addr_int_pair), (bucket_sz+1));
+            imm->i_buckets[i][bucket_sz].addr = (void*)0x6969;
       }
 
       imm->in_place = 1;
@@ -181,13 +181,16 @@ void free_i_map(struct i_mmap_map* imm){
 
 void insert_i_map(struct i_mmap_map* imm, void* addr, int value){
       int ind = value % imm->n_bux;
-      if(!imm->i_buckets[ind][imm->bucket_ref[ind]].addr){
-            struct addr_int_pair* tmp_ip = malloc(sizeof(struct addr_int_pair)*(imm->bucket_ref[ind]*2));
-            memcpy(tmp_ip, imm->i_buckets[ind], sizeof(struct addr_int_pair)*imm->bucket_ref[ind]);
+      ind = (ind < 0) ? -1*ind : ind;
+      int ind_prog = imm->bucket_ref[ind];
+      if(imm->i_buckets[ind][ind_prog].addr == (void*)0x6969){
+            struct addr_int_pair* tmp_ip = malloc(sizeof(struct addr_int_pair)*((ind_prog*2)+1));
+            tmp_ip[(ind_prog*2)].addr = (void*)0x6969;
+            memcpy(tmp_ip, imm->i_buckets[ind], sizeof(struct addr_int_pair)*ind_prog);
             free(imm->i_buckets[ind]);
             imm->i_buckets[ind] = tmp_ip;
       }
-      imm->i_buckets[ind][imm->bucket_ref[ind]].addr = addr;
+      imm->i_buckets[ind][ind_prog].addr = addr;
       imm->i_buckets[ind][imm->bucket_ref[ind]++].value = value;
 }
 
@@ -213,6 +216,8 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
             init_i_map(&mem->i_mmap_hash, 50, m_size);
 
             mem->i_mmap = malloc(sizeof(struct addr_int_pair)*m_size);
+            int tmp_val;
+
             if(d_rgn == STACK || d_rgn == BOTH){
                   BYTE* ints_in_stack = read_bytes_from_pid_mem(mem->mapped_rgn.pid, bytes, mem->mapped_rgn.stack.start, mem->mapped_rgn.stack.end);
                   // TODO: in place math optimization
@@ -224,9 +229,15 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
                    * and we no longer need to store sizeof(void*) for every single addr_{int,str}_pair
                    */
                   for(char* sp = mem->mapped_rgn.stack.start; sp != mem->mapped_rgn.stack.end; sp += bytes){
-                        mem->i_mmap[mem->size].addr = (void*)sp; mem->i_mmap[mem->size].value = 0;
-                        memcpy(&(mem->i_mmap[mem->size++].value), ints_in_stack+buf_s, bytes);
+                        memcpy(&tmp_val, ints_in_stack+buf_s, bytes);
                         buf_s += bytes;
+                        insert_i_map(&mem->i_mmap_hash, (void*)sp, tmp_val);
+                        ++mem->size;
+/*
+ *                         mem->i_mmap[mem->size].addr = (void*)sp; mem->i_mmap[mem->size].value = 0;
+ *                         memcpy(&(mem->i_mmap[mem->size++].value), ints_in_stack+buf_s, bytes);
+ *                         buf_s += bytes;
+*/
                   }
                   free(ints_in_stack);
             }
@@ -234,9 +245,16 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
                   buf_s = 0;
                   BYTE* ints_in_heap = read_bytes_from_pid_mem(mem->mapped_rgn.pid, bytes, mem->mapped_rgn.heap.start, mem->mapped_rgn.heap.end);
                   for(char* hp = mem->mapped_rgn.heap.start; hp != mem->mapped_rgn.heap.end; hp += bytes){
-                        mem->i_mmap[mem->size].addr = (void*)hp; mem->i_mmap[mem->size].value = 0;
-                        memcpy(&(mem->i_mmap[mem->size++].value), ints_in_heap+buf_s, bytes);
+                        memcpy(&tmp_val, ints_in_heap+buf_s, bytes);
                         buf_s += bytes;
+                        insert_i_map(&mem->i_mmap_hash, (void*)hp, tmp_val);
+                        ++mem->size;
+
+                        /*
+                         * mem->i_mmap[mem->size].addr = (void*)hp; mem->i_mmap[mem->size].value = 0;
+                         * memcpy(&(mem->i_mmap[mem->size++].value), ints_in_heap+buf_s, bytes);
+                         * buf_s += bytes;
+                        */
                   }
                   free(ints_in_heap);
             }
@@ -247,9 +265,17 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
                         buf_s = 0;
                         for(char* ap = mem->mapped_rgn.remaining_addr[i].start;
                                   ap != mem->mapped_rgn.remaining_addr[i].end; ap += bytes){
-                              mem->i_mmap[mem->size].addr = (void*)ap; mem->i_mmap[mem->size].value = 0;  
-                              memcpy(&(mem->i_mmap[mem->size++].value), ints_in_addtnl+buf_s, bytes);
+
+                              memcpy(&tmp_val, ints_in_addtnl+buf_s, bytes); 
                               buf_s += bytes;
+                              insert_i_map(&mem->i_mmap_hash, (void*)ap, tmp_val);
+                              ++mem->size;
+
+                              /*
+                               * mem->i_mmap[mem->size].addr = (void*)ap; mem->i_mmap[mem->size].value = 0;  
+                               * memcpy(&(mem->i_mmap[mem->size++].value), ints_in_addtnl+buf_s, bytes);
+                               * buf_s += bytes;
+                              */
                         }
                         free(ints_in_addtnl);
                   }
@@ -368,7 +394,7 @@ void update_mem_map(struct mem_map* mem){
       }
 }
 
-void narrow_mem_map_int(struct mem_map* mem, int match){
+void narrow_mem_map_int_nopt(struct mem_map* mem, int match){
       unsigned int initial = mem->size;
       for(unsigned int i = 0; i < mem->size; ++i){
             if(mem->i_mmap[i].value != match){
@@ -391,6 +417,94 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
             memcpy(tmp_mmap, mem->i_mmap, sizeof(struct addr_int_pair)*mem->size);
             free(mem->i_mmap);
             mem->i_mmap = tmp_mmap;
+      }
+}
+
+/* regularize_i_mmap_hash() converts a one dimensional i_mmap_hash that has been narrowed
+ * into a standar i_mmap
+ */
+_Bool regularize_i_mmap_hash(struct mem_map* mem){
+      /*this should only be called when there is just one bucket left*/
+      if(!mem->i_mmap_hash.in_place || mem->i_mmap_hash.n_bux != 1)return 0;
+      /*
+       * struct addr_int_pair* imm = malloc(sizeof(struct addr_int_pair)*(*mem->i_mmap_hash.bucket_ref));
+       * mem->i_mmap = imm;
+      */
+      mem->i_mmap = *mem->i_mmap_hash.i_buckets;
+      mem->i_size = mem->size = *mem->i_mmap_hash.bucket_ref;
+
+      mem->i_mmap_hash.in_place = 0;
+      /*mem->i_mmap_hash.*/
+      return 1;
+}
+
+void narrow_mem_map_int(struct mem_map* mem, int match){
+      if(!mem->i_mmap_hash.in_place)narrow_mem_map_int_nopt(mem, match);
+      else{
+            /*unsigned int initial = mem->size;*/
+            int ind = match % mem->i_mmap_hash.n_bux;
+            ind = (ind < 0) ? -1*ind : ind;
+
+            for(int i = 0; i < mem->i_mmap_hash.n_bux; ++i){
+                  if(i != ind){
+                        free(mem->i_mmap_hash.i_buckets[i]);
+                        /* TODO: should we just hide values instead of freeing them? */
+                        mem->i_mmap_hash.bucket_ref[i] = 0;
+                  }
+            }
+            
+
+            struct addr_int_pair** tmp_aip = malloc(sizeof(struct addr_int_pair*));
+            tmp_aip[0] = malloc(sizeof(struct addr_int_pair)*(mem->i_mmap_hash.bucket_ref[ind])+1);
+            tmp_aip[0][mem->i_mmap_hash.bucket_ref[ind]].addr = (void*)0x6969;
+
+            /*
+             * we could ignore the problem of finding matches and just regularize
+             * the matche can be found using narrow_mem_map_int_nopt()
+             * just simply:
+             *       throw out buckets that we don't need
+             *       keep one
+             *       regularize
+             *       _nopt()
+            */
+
+
+            unsigned int adj_size = 0;
+            printf("for i in %i\n", mem->i_mmap_hash.bucket_ref[ind]);
+            for(int i = 0; i < mem->i_mmap_hash.bucket_ref[ind]; ++i){
+                  /*if(mem->i_mmap_hash.i_buckets[i]->value == match){*/
+                  if(mem->i_mmap_hash.i_buckets[ind][i].value == match){
+                        /*printf("%i == %i\n", tmp_aip[0][adj_size].value, mem->i_mmap_hash.i_buckets[i]->value);*/
+                        /*
+                         * tmp_aip[0][adj_size].value = mem->i_mmap_hash.i_buckets[i]->value;
+                         * tmp_aip[0][adj_size++].addr = mem->i_mmap_hash.i_buckets[i]->addr;
+                        */
+
+                        printf("inserting %i into tmp_aip[%i]\n", mem->i_mmap_hash.i_buckets[ind][i].value, adj_size);
+                        tmp_aip[0][adj_size].value = mem->i_mmap_hash.i_buckets[ind][i].value;
+                        tmp_aip[0][adj_size++].addr = mem->i_mmap_hash.i_buckets[ind][i].addr;
+                  }
+            }
+      
+            
+
+            /* TODO: this should leverage init* */
+             mem->i_mmap_hash.n_bux = 1;
+             free(mem->i_mmap_hash.bucket_ref);
+             mem->i_mmap_hash.bucket_ref = malloc(sizeof(int));
+             *mem->i_mmap_hash.bucket_ref = adj_size;
+ 
+             free(mem->i_mmap_hash.i_buckets);
+             mem->i_mmap_hash.i_buckets = tmp_aip;
+
+            /*
+             * mem->i_mmap_hash.i_buckets[adj_size]
+             * mem->i_mmap_hash.i_buckets
+            */
+            /*free_i_map(&mem->i_mmap_hash);*/
+            /*init_i_map(&mem->i_mmap_hash, 1, );*/
+
+            regularize_i_mmap_hash(mem);
       }
 }
 
