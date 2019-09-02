@@ -6,6 +6,7 @@
 // with less than RELOAD_CUTOFF values, it's faster to do individual reads for integers when updating mem_map
 #define RELOAD_CUTOFF 1000000
 
+// populate_mem_map
 void free_blkstr(struct str_blk* blk){
       if(!blk->in_place)return;
       if(blk->stack)free(blk->stack);
@@ -426,22 +427,16 @@ void narrow_mem_map_int_nopt(struct mem_map* mem, int match){
 _Bool regularize_i_mmap_hash(struct mem_map* mem){
       /*this should only be called when there is just one bucket left*/
       if(!mem->i_mmap_hash.in_place || mem->i_mmap_hash.n_bux != 1)return 0;
-      /*
-       * struct addr_int_pair* imm = malloc(sizeof(struct addr_int_pair)*(*mem->i_mmap_hash.bucket_ref));
-       * mem->i_mmap = imm;
-      */
       mem->i_mmap = *mem->i_mmap_hash.i_buckets;
       mem->i_size = mem->size = *mem->i_mmap_hash.bucket_ref;
 
       mem->i_mmap_hash.in_place = 0;
-      /*mem->i_mmap_hash.*/
       return 1;
 }
 
 void narrow_mem_map_int(struct mem_map* mem, int match){
       if(!mem->i_mmap_hash.in_place)narrow_mem_map_int_nopt(mem, match);
       else{
-            /*unsigned int initial = mem->size;*/
             int ind = match % mem->i_mmap_hash.n_bux;
             ind = (ind < 0) ? -1*ind : ind;
 
@@ -458,7 +453,7 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
             tmp_aip[0] = malloc(sizeof(struct addr_int_pair)*(mem->i_mmap_hash.bucket_ref[ind])+1);
             tmp_aip[0][mem->i_mmap_hash.bucket_ref[ind]].addr = (void*)0x6969;
 
-            /*
+            /* TODO:
              * we could ignore the problem of finding matches and just regularize
              * the matche can be found using narrow_mem_map_int_nopt()
              * just simply:
@@ -470,21 +465,11 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
 
 
             unsigned int adj_size = 0;
-            printf("for i in %i\n", mem->i_mmap_hash.bucket_ref[ind]);
-            for(int i = 0; i < mem->i_mmap_hash.bucket_ref[ind]; ++i){
-                  /*if(mem->i_mmap_hash.i_buckets[i]->value == match){*/
+            for(int i = 0; i < mem->i_mmap_hash.bucket_ref[ind]; ++i)
                   if(mem->i_mmap_hash.i_buckets[ind][i].value == match){
-                        /*printf("%i == %i\n", tmp_aip[0][adj_size].value, mem->i_mmap_hash.i_buckets[i]->value);*/
-                        /*
-                         * tmp_aip[0][adj_size].value = mem->i_mmap_hash.i_buckets[i]->value;
-                         * tmp_aip[0][adj_size++].addr = mem->i_mmap_hash.i_buckets[i]->addr;
-                        */
-
-                        printf("inserting %i into tmp_aip[%i]\n", mem->i_mmap_hash.i_buckets[ind][i].value, adj_size);
                         tmp_aip[0][adj_size].value = mem->i_mmap_hash.i_buckets[ind][i].value;
                         tmp_aip[0][adj_size++].addr = mem->i_mmap_hash.i_buckets[ind][i].addr;
                   }
-            }
       
             
 
@@ -497,10 +482,6 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
              free(mem->i_mmap_hash.i_buckets);
              mem->i_mmap_hash.i_buckets = tmp_aip;
 
-            /*
-             * mem->i_mmap_hash.i_buckets[adj_size]
-             * mem->i_mmap_hash.i_buckets
-            */
             /*free_i_map(&mem->i_mmap_hash);*/
             /*init_i_map(&mem->i_mmap_hash, 1, );*/
 
