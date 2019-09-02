@@ -16,17 +16,26 @@ void free_blkstr(struct str_blk* blk){
       free(blk);
 }
 
+void free_i_map(struct i_mmap_map* imm, int skip_index){
+      for(int i = 0; i < imm->n_bux; ++i)
+            if(i != skip_index)free(imm->i_buckets[i]);
+      free(imm->i_buckets);
+      free(imm->bucket_ref);
+}
+
 void free_mem_map(struct mem_map* mem){
-      if(mem->integers)free(mem->i_mmap);
-      else{
-            if(!mem->blk->in_place){
-                  for(unsigned int i = 0; i < mem->size; ++i)
-                        free(mem->s_mmap[i].value);
-            }
-            else free_blkstr(mem->blk);
-            free(mem->s_mmap); 
-            mem->s_mmap = NULL;
+      if(mem->integers){
+            if(mem->i_mmap_hash.in_place)free_i_map(&mem->i_mmap_hash, -1);
+            free(mem->i_mmap);
+            return;
       }
+      if(!mem->blk->in_place){
+            for(unsigned int i = 0; i < mem->size; ++i)
+                  free(mem->s_mmap[i].value);
+      }
+      else free_blkstr(mem->blk);
+      free(mem->s_mmap); 
+      mem->s_mmap = NULL;
 }
 
 bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e){
@@ -170,13 +179,6 @@ void init_i_map(struct i_mmap_map* imm, int n_bux, int n_entries){
       }
 
       imm->in_place = 1;
-}
-
-void free_i_map(struct i_mmap_map* imm){
-      for(int i = 0; i < imm->n_bux; ++i)
-            free(imm->i_buckets[i]);
-      free(imm->i_buckets);
-      free(imm->bucket_ref);
 }
 
 void insert_i_map(struct i_mmap_map* imm, void* addr, int value){
@@ -336,8 +338,30 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
       }
 }
 
+/* TODO: combine flatten_i_mmap_hash() and regularize_i_mmap_hash() */
+void flatten_i_mmap_hash(struct mem_map* mem){
+      (void)mem;
+}
+
+/* regularize_i_mmap_hash() converts a one dimensional i_mmap_hash that has been narrowed
+ * into a standar i_mmap
+ */
+_Bool regularize_i_mmap_hash(struct mem_map* mem){
+      /*this should only be called when there is just one bucket left*/
+      if(!mem->i_mmap_hash.in_place || mem->i_mmap_hash.n_bux != 1)return 0;
+      mem->i_mmap = *mem->i_mmap_hash.i_buckets;
+      mem->i_size = mem->size = *mem->i_mmap_hash.bucket_ref;
+
+      mem->i_mmap_hash.in_place = 0;
+      return 1;
+}
+
 void update_mem_map(struct mem_map* mem){
       if(mem->size == 0)return;
+      if(mem->integers && mem->i_mmap_hash.in_place){
+            flatten_i_mmap_hash(mem);
+            regularize_i_mmap_hash(mem);
+      }
       // TODO: should string update optimization always be used? it's much faster
       if(mem->low_mem || (!mem->integers && (!mem->blk->in_place || mem->size < RELOAD_CUTOFF/10000)) || (mem->integers && mem->size < RELOAD_CUTOFF)){
             if(mem->integers){
@@ -354,6 +378,7 @@ void update_mem_map(struct mem_map* mem){
             if(mem->integers){
                   struct mem_map tmp_mm;
                   tmp_mm.mapped_rgn = mem->mapped_rgn;
+                  /* TODO: this is slow with the new int hash storage */
                   populate_mem_map(&tmp_mm, mem->d_rgn, mem->use_addtnl, mem->integers, mem->int_mode_bytes);
                   for(unsigned int i = 0; i < mem->size; ++i){
                         if(mem->i_mmap[i].addr == tmp_mm.i_mmap[i].addr)mem->i_mmap[i].value = tmp_mm.i_mmap[i].value;
@@ -403,19 +428,6 @@ void narrow_mem_map_int_nopt(struct mem_map* mem, int match){
       }
 }
 
-/* regularize_i_mmap_hash() converts a one dimensional i_mmap_hash that has been narrowed
- * into a standar i_mmap
- */
-_Bool regularize_i_mmap_hash(struct mem_map* mem){
-      /*this should only be called when there is just one bucket left*/
-      if(!mem->i_mmap_hash.in_place || mem->i_mmap_hash.n_bux != 1)return 0;
-      mem->i_mmap = *mem->i_mmap_hash.i_buckets;
-      mem->i_size = mem->size = *mem->i_mmap_hash.bucket_ref;
-
-      mem->i_mmap_hash.in_place = 0;
-      return 1;
-}
-
 void narrow_mem_map_int(struct mem_map* mem, int match){
       if(!mem->i_mmap_hash.in_place)narrow_mem_map_int_nopt(mem, match);
       else{
@@ -429,7 +441,6 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
                         mem->i_mmap_hash.bucket_ref[i] = 0;
                   }
             }
-            
 
             struct addr_int_pair** tmp_aip = malloc(sizeof(struct addr_int_pair*));
             tmp_aip[0] = malloc(sizeof(struct addr_int_pair)*(mem->i_mmap_hash.bucket_ref[ind])+1);
@@ -452,19 +463,17 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
                         tmp_aip[0][adj_size].value = mem->i_mmap_hash.i_buckets[ind][i].value;
                         tmp_aip[0][adj_size++].addr = mem->i_mmap_hash.i_buckets[ind][i].addr;
                   }
-      
             
 
             /* TODO: this should leverage init* */
-             mem->i_mmap_hash.n_bux = 1;
-             free(mem->i_mmap_hash.bucket_ref);
-             mem->i_mmap_hash.bucket_ref = malloc(sizeof(int));
-             *mem->i_mmap_hash.bucket_ref = adj_size;
- 
-             free(mem->i_mmap_hash.i_buckets);
-             mem->i_mmap_hash.i_buckets = tmp_aip;
+            mem->i_mmap_hash.n_bux = 1;
+            free(mem->i_mmap_hash.bucket_ref);
+            mem->i_mmap_hash.bucket_ref = malloc(sizeof(int));
+            *mem->i_mmap_hash.bucket_ref = adj_size;
 
-            /*free_i_map(&mem->i_mmap_hash);*/
+            free(mem->i_mmap_hash.i_buckets);
+            mem->i_mmap_hash.i_buckets = tmp_aip;
+
             /*init_i_map(&mem->i_mmap_hash, 1, );*/
 
             regularize_i_mmap_hash(mem);
