@@ -6,7 +6,6 @@
 // with less than RELOAD_CUTOFF values, it's faster to do individual reads for integers when updating mem_map
 #define RELOAD_CUTOFF 1000000
 
-// populate_mem_map
 void free_blkstr(struct str_blk* blk){
       if(!blk->in_place)return;
       if(blk->stack)free(blk->stack);
@@ -234,11 +233,6 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
                         buf_s += bytes;
                         insert_i_map(&mem->i_mmap_hash, (void*)sp, tmp_val);
                         ++mem->size;
-/*
- *                         mem->i_mmap[mem->size].addr = (void*)sp; mem->i_mmap[mem->size].value = 0;
- *                         memcpy(&(mem->i_mmap[mem->size++].value), ints_in_stack+buf_s, bytes);
- *                         buf_s += bytes;
-*/
                   }
                   free(ints_in_stack);
             }
@@ -250,12 +244,6 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
                         buf_s += bytes;
                         insert_i_map(&mem->i_mmap_hash, (void*)hp, tmp_val);
                         ++mem->size;
-
-                        /*
-                         * mem->i_mmap[mem->size].addr = (void*)hp; mem->i_mmap[mem->size].value = 0;
-                         * memcpy(&(mem->i_mmap[mem->size++].value), ints_in_heap+buf_s, bytes);
-                         * buf_s += bytes;
-                        */
                   }
                   free(ints_in_heap);
             }
@@ -271,12 +259,6 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
                               buf_s += bytes;
                               insert_i_map(&mem->i_mmap_hash, (void*)ap, tmp_val);
                               ++mem->size;
-
-                              /*
-                               * mem->i_mmap[mem->size].addr = (void*)ap; mem->i_mmap[mem->size].value = 0;  
-                               * memcpy(&(mem->i_mmap[mem->size++].value), ints_in_addtnl+buf_s, bytes);
-                               * buf_s += bytes;
-                              */
                         }
                         free(ints_in_addtnl);
                   }
