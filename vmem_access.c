@@ -213,6 +213,8 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
       // TODO: fix integer mode when int_mode_bytes > 4
       if(integers){
             /* populate_mem_map will always return an int mmap with hashed integers */
+            /* integer mmaps will always point to an int_blk */
+            /* TODO: free sections of int_blk when possible */
             m_size /= bytes;
 
             init_i_map(&mem->i_mmap_hash, 50, m_size);
@@ -223,7 +225,6 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
             mem->i_blk->n_ad = 0;
 
             mem->i_mmap = malloc(sizeof(struct addr_int_pair)*m_size);
-            /*int tmp_val;*/
 
             if(d_rgn == STACK || d_rgn == BOTH){
                   BYTE* ints_in_stack = read_bytes_from_pid_mem(mem->mapped_rgn.pid, bytes, mem->mapped_rgn.stack.start, mem->mapped_rgn.stack.end);
@@ -237,25 +238,19 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
                    * and we no longer need to store sizeof(void*) for every single addr_{int,str}_pair
                    */
                   for(char* sp = mem->mapped_rgn.stack.start; sp != mem->mapped_rgn.stack.end; sp += bytes){
-                        /*memcpy(&tmp_val, ints_in_stack+buf_s, bytes);*/
                         insert_i_map(&mem->i_mmap_hash, (void*)sp, (int*)(ints_in_stack+buf_s));
                         buf_s += bytes;
-                        /*insert_i_map(&mem->i_mmap_hash, (void*)sp, tmp_val);*/
                         ++mem->size;
                   }
-                  /*free(ints_in_stack);*/
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
                   buf_s = 0;
                   BYTE* ints_in_heap = read_bytes_from_pid_mem(mem->mapped_rgn.pid, bytes, mem->mapped_rgn.heap.start, mem->mapped_rgn.heap.end);
                   for(char* hp = mem->mapped_rgn.heap.start; hp != mem->mapped_rgn.heap.end; hp += bytes){
-                        /*memcpy(&tmp_val, ints_in_heap+buf_s, bytes);*/
                         insert_i_map(&mem->i_mmap_hash, (void*)hp, (int*)(ints_in_heap+buf_s));
                         buf_s += bytes;
-                        /*insert_i_map(&mem->i_mmap_hash, (void*)hp, tmp_val);*/
                         ++mem->size;
                   }
-                  /*free(ints_in_heap);*/
             }
             if(use_additional_rgns){
                   mem->i_blk->n_ad = mem->mapped_rgn.n_remaining;
@@ -268,13 +263,10 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
                         for(char* ap = mem->mapped_rgn.remaining_addr[i].start;
                                   ap != mem->mapped_rgn.remaining_addr[i].end; ap += bytes){
 
-                              /*memcpy(&tmp_val, ints_in_addtnl+buf_s, bytes); */
                               insert_i_map(&mem->i_mmap_hash, (void*)ap, (int*)(ints_in_addtnl+buf_s));
                               buf_s += bytes;
-                              /*insert_i_map(&mem->i_mmap_hash, (void*)ap, tmp_val);*/
                               ++mem->size;
                         }
-                        /*free(ints_in_addtnl);*/
                   }
             }
       }
@@ -352,7 +344,6 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
 
 /* TODO: combine flatten_i_mmap_hash() and regularize_i_mmap_hash() */
 void flatten_i_mmap_hash(struct mem_map* mem){
-      /*mem->size;*/
       struct addr_int_pair* tmp_aip = malloc(sizeof(struct addr_int_pair)*(mem->size+1));
       tmp_aip[mem->size].addr = (void*)0x6969;
       int ind = 0;
@@ -379,13 +370,6 @@ _Bool regularize_i_mmap_hash(struct mem_map* mem){
       mem->i_mmap_hash.in_place = 0;
       return 1;
 }
-
-/*
- * we never need to update if mem_map stores int* instead of int
- * references one big chunk of memory int_blk
- * int_blk can be BYTE* - we can cast this to int* and dereference it
- * in mem_map
-*/
 
 void update_mem_map(struct mem_map* mem){
       if(mem->size == 0)return;
@@ -420,7 +404,6 @@ void update_mem_map(struct mem_map* mem){
       }
       // TODO: should string update optimization always be used? it's much faster
       /* TODO: should this always be used for integers with new hash storage population that takes much longer? */
-      /*if(mem->integers || mem->low_mem || (!mem->integers && (!mem->blk->in_place || mem->size < RELOAD_CUTOFF/10000)) || (mem->integers && mem->size < RELOAD_CUTOFF)){*/
       if(mem->low_mem || (!mem->blk->in_place || mem->size < RELOAD_CUTOFF/10000)){
             for(unsigned int i = 0; i < mem->size; ++i)
                   // this method works for both blkstr mode and individually alloc'd strings

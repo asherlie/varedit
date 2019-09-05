@@ -2,7 +2,7 @@
 
 #include <pthread.h>
 
-#define MEMCARVE_VER "libmemcarve 1.8.0"
+#define MEMCARVE_VER "libmemcarve 1.8.1"
 
 typedef unsigned char BYTE;
 
@@ -47,12 +47,6 @@ struct str_blk{
 };
 
 struct int_blk{
-      bool in_place;
-      /*
-       * int* stack;
-       * int* heap;
-       * int** addtnl;
-      */
       BYTE* stack;
       BYTE* heap;
       BYTE** addtnl;
