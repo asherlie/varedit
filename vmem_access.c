@@ -4,7 +4,7 @@
 #include <sys/uio.h>
 
 // with less than RELOAD_CUTOFF values, it's faster to do individual reads for integers when updating mem_map
-#define RELOAD_CUTOFF 1000000
+#define RELOAD_CUTOFF 1e5
 
 void free_blkstr(struct str_blk* blk){
       if(!blk->in_place)return;
@@ -181,8 +181,8 @@ void init_i_map(struct i_mmap_map* imm, int n_bux, int n_entries){
       imm->in_place = 1;
 }
 
-void insert_i_map(struct i_mmap_map* imm, void* addr, int value){
-      int ind = value % imm->n_bux;
+void insert_i_map(struct i_mmap_map* imm, void* addr, int* value){
+      int ind = *value % imm->n_bux;
       ind = (ind < 0) ? -1*ind : ind;
       int ind_prog = imm->bucket_ref[ind];
       if(imm->i_buckets[ind][ind_prog].addr == (void*)0x6969){
@@ -217,11 +217,17 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
 
             init_i_map(&mem->i_mmap_hash, 50, m_size);
 
+            mem->i_blk = malloc(sizeof(struct int_blk));
+            mem->i_blk->stack = mem->i_blk->heap = NULL;
+            mem->i_blk->addtnl = NULL;
+            mem->i_blk->n_ad = 0;
+
             mem->i_mmap = malloc(sizeof(struct addr_int_pair)*m_size);
-            int tmp_val;
+            /*int tmp_val;*/
 
             if(d_rgn == STACK || d_rgn == BOTH){
                   BYTE* ints_in_stack = read_bytes_from_pid_mem(mem->mapped_rgn.pid, bytes, mem->mapped_rgn.stack.start, mem->mapped_rgn.stack.end);
+                  mem->i_blk->stack = ints_in_stack;
                   // TODO: in place math optimization
                   /* this iteration is very slow
                    * population can be sped up if only an initial mem addr is stored and ((char*)m_addr)+index_chk*bytes is computed on the fly
@@ -231,38 +237,44 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
                    * and we no longer need to store sizeof(void*) for every single addr_{int,str}_pair
                    */
                   for(char* sp = mem->mapped_rgn.stack.start; sp != mem->mapped_rgn.stack.end; sp += bytes){
-                        memcpy(&tmp_val, ints_in_stack+buf_s, bytes);
+                        /*memcpy(&tmp_val, ints_in_stack+buf_s, bytes);*/
+                        insert_i_map(&mem->i_mmap_hash, (void*)sp, (int*)(ints_in_stack+buf_s));
                         buf_s += bytes;
-                        insert_i_map(&mem->i_mmap_hash, (void*)sp, tmp_val);
+                        /*insert_i_map(&mem->i_mmap_hash, (void*)sp, tmp_val);*/
                         ++mem->size;
                   }
-                  free(ints_in_stack);
+                  /*free(ints_in_stack);*/
             }
             if(d_rgn == HEAP || d_rgn == BOTH){
                   buf_s = 0;
                   BYTE* ints_in_heap = read_bytes_from_pid_mem(mem->mapped_rgn.pid, bytes, mem->mapped_rgn.heap.start, mem->mapped_rgn.heap.end);
                   for(char* hp = mem->mapped_rgn.heap.start; hp != mem->mapped_rgn.heap.end; hp += bytes){
-                        memcpy(&tmp_val, ints_in_heap+buf_s, bytes);
+                        /*memcpy(&tmp_val, ints_in_heap+buf_s, bytes);*/
+                        insert_i_map(&mem->i_mmap_hash, (void*)hp, (int*)(ints_in_heap+buf_s));
                         buf_s += bytes;
-                        insert_i_map(&mem->i_mmap_hash, (void*)hp, tmp_val);
+                        /*insert_i_map(&mem->i_mmap_hash, (void*)hp, tmp_val);*/
                         ++mem->size;
                   }
-                  free(ints_in_heap);
+                  /*free(ints_in_heap);*/
             }
             if(use_additional_rgns){
+                  mem->i_blk->n_ad = mem->mapped_rgn.n_remaining;
+                  mem->i_blk->addtnl = malloc(sizeof(BYTE*)*mem->i_blk->n_ad);
                   for(int i = 0; i < mem->mapped_rgn.n_remaining; ++i){
                         BYTE* ints_in_addtnl = read_bytes_from_pid_mem(mem->mapped_rgn.pid, bytes, mem->mapped_rgn.remaining_addr[i].start,
                                                                                    mem->mapped_rgn.remaining_addr[i].end);
+                        mem->i_blk->addtnl[i] = ints_in_addtnl;
                         buf_s = 0;
                         for(char* ap = mem->mapped_rgn.remaining_addr[i].start;
                                   ap != mem->mapped_rgn.remaining_addr[i].end; ap += bytes){
 
-                              memcpy(&tmp_val, ints_in_addtnl+buf_s, bytes); 
+                              /*memcpy(&tmp_val, ints_in_addtnl+buf_s, bytes); */
+                              insert_i_map(&mem->i_mmap_hash, (void*)ap, (int*)(ints_in_addtnl+buf_s));
                               buf_s += bytes;
-                              insert_i_map(&mem->i_mmap_hash, (void*)ap, tmp_val);
+                              /*insert_i_map(&mem->i_mmap_hash, (void*)ap, tmp_val);*/
                               ++mem->size;
                         }
-                        free(ints_in_addtnl);
+                        /*free(ints_in_addtnl);*/
                   }
             }
       }
@@ -340,7 +352,19 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
 
 /* TODO: combine flatten_i_mmap_hash() and regularize_i_mmap_hash() */
 void flatten_i_mmap_hash(struct mem_map* mem){
-      (void)mem;
+      /*mem->size;*/
+      struct addr_int_pair* tmp_aip = malloc(sizeof(struct addr_int_pair)*(mem->size+1));
+      tmp_aip[mem->size].addr = (void*)0x6969;
+      int ind = 0;
+      for(int i = 0; i < mem->i_mmap_hash.n_bux; ++i){
+            for(int j = 0; j < mem->i_mmap_hash.bucket_ref[i]; ++j){
+                  tmp_aip[ind++] = mem->i_mmap_hash.i_buckets[i][j];
+            }
+            /*free(mem->i_mmap_hash.i_buckets[i]);*/
+      }
+      mem->i_mmap_hash.n_bux = 1;
+      mem->i_mmap_hash.bucket_ref[0] = mem->size;
+      mem->i_mmap_hash.i_buckets[0] = tmp_aip;
 }
 
 /* regularize_i_mmap_hash() converts a one dimensional i_mmap_hash that has been narrowed
@@ -356,48 +380,60 @@ _Bool regularize_i_mmap_hash(struct mem_map* mem){
       return 1;
 }
 
+/*
+ * we never need to update if mem_map stores int* instead of int
+ * references one big chunk of memory int_blk
+ * int_blk can be BYTE* - we can cast this to int* and dereference it
+ * in mem_map
+*/
+
 void update_mem_map(struct mem_map* mem){
       if(mem->size == 0)return;
-      if(mem->integers && mem->i_mmap_hash.in_place){
-            flatten_i_mmap_hash(mem);
+      if(mem->integers){
+            /* TODO: should this always be used?
+             * it is much simpler as it will work with either i_mmap_hash or i_mmap
+             * and is often faster
+             */
+            if(!mem->low_mem && mem->size > 100){
+
+                  if(mem->i_blk->stack)
+                        read_bytes_from_pid_mem_dir(mem->i_blk->stack, mem->mapped_rgn.pid, mem->int_mode_bytes,
+                                                    mem->mapped_rgn.stack.start, mem->mapped_rgn.stack.end);
+                  if(mem->i_blk->heap)
+                        read_bytes_from_pid_mem_dir(mem->i_blk->heap, mem->mapped_rgn.pid, mem->int_mode_bytes,
+                                                    mem->mapped_rgn.heap.start, mem->mapped_rgn.heap.end);
+                  for(unsigned char i = 0; i < mem->i_blk->n_ad; ++i){
+                        if(mem->i_blk->addtnl[i])
+                        read_bytes_from_pid_mem_dir(mem->i_blk->addtnl[i], mem->mapped_rgn.pid, mem->int_mode_bytes,
+                                                    mem->mapped_rgn.remaining_addr[i].start, mem->mapped_rgn.remaining_addr[i].end);
+                  }
+                  return;
+            }
+
+            /* if we have few enough values it will be worthwhile to flatten and regularize */
+            if(mem->i_mmap_hash.n_bux != 1)flatten_i_mmap_hash(mem);
             regularize_i_mmap_hash(mem);
+            for(unsigned int i = 0; i < mem->size; ++i)
+                  *mem->i_mmap[i].value = read_single_val_from_pid_mem(mem->mapped_rgn.pid, mem->int_mode_bytes, mem->i_mmap[i].addr);
+
+            return;
       }
       // TODO: should string update optimization always be used? it's much faster
-      if(mem->low_mem || (!mem->integers && (!mem->blk->in_place || mem->size < RELOAD_CUTOFF/10000)) || (mem->integers && mem->size < RELOAD_CUTOFF)){
-            if(mem->integers){
-                  for(unsigned int i = 0; i < mem->size; ++i)
-                        mem->i_mmap[i].value = read_single_val_from_pid_mem(mem->mapped_rgn.pid, mem->int_mode_bytes, mem->i_mmap[i].addr);
-            }
-            else{
-                  for(unsigned int i = 0; i < mem->size; ++i)
-                        // this method works for both blkstr mode and individually alloc'd strings
-                        read_bytes_from_pid_mem_dir(mem->s_mmap[i].value, mem->mapped_rgn.pid, strlen(mem->s_mmap[i].value), mem->s_mmap[i].addr, NULL);
-            }
+      /* TODO: should this always be used for integers with new hash storage population that takes much longer? */
+      /*if(mem->integers || mem->low_mem || (!mem->integers && (!mem->blk->in_place || mem->size < RELOAD_CUTOFF/10000)) || (mem->integers && mem->size < RELOAD_CUTOFF)){*/
+      if(mem->low_mem || (!mem->blk->in_place || mem->size < RELOAD_CUTOFF/10000)){
+            for(unsigned int i = 0; i < mem->size; ++i)
+                  // this method works for both blkstr mode and individually alloc'd strings
+                  read_bytes_from_pid_mem_dir(mem->s_mmap[i].value, mem->mapped_rgn.pid, strlen(mem->s_mmap[i].value), mem->s_mmap[i].addr, NULL);
       }
       else{ // faster but more memory intensive update methods
-            if(mem->integers){
-                  struct mem_map tmp_mm;
-                  tmp_mm.mapped_rgn = mem->mapped_rgn;
-                  /* TODO: this is slow with the new int hash storage */
-                  populate_mem_map(&tmp_mm, mem->d_rgn, mem->use_addtnl, mem->integers, mem->int_mode_bytes);
-                  for(unsigned int i = 0; i < mem->size; ++i){
-                        if(mem->i_mmap[i].addr == tmp_mm.i_mmap[i].addr)mem->i_mmap[i].value = tmp_mm.i_mmap[i].value;
-                        else{
-                              mem->i_mmap[i].value = read_single_val_from_pid_mem(mem->mapped_rgn.pid, mem->int_mode_bytes, mem->i_mmap[i].addr);
-                              ++i;
-                        }
-                  }
-                  free_mem_map(&tmp_mm);
-            }
-            else{
-                  if(mem->blk->stack)
-                        read_bytes_from_pid_mem_dir(mem->blk->stack, mem->mapped_rgn.pid, 1, mem->mapped_rgn.stack.start, mem->mapped_rgn.stack.end);
-                  if(mem->blk->heap)
-                        read_bytes_from_pid_mem_dir(mem->blk->heap, mem->mapped_rgn.pid, 1, mem->mapped_rgn.heap.start, mem->mapped_rgn.heap.end);
-                  for(unsigned char i = 0; i < mem->blk->n_ad; ++i){
-                        if(mem->blk->addtnl[i])
-                        read_bytes_from_pid_mem_dir(mem->blk->addtnl[i], mem->mapped_rgn.pid, 1, mem->mapped_rgn.remaining_addr[i].start, mem->mapped_rgn.remaining_addr[i].end);
-                  }
+            if(mem->blk->stack)
+                  read_bytes_from_pid_mem_dir(mem->blk->stack, mem->mapped_rgn.pid, 1, mem->mapped_rgn.stack.start, mem->mapped_rgn.stack.end);
+            if(mem->blk->heap)
+                  read_bytes_from_pid_mem_dir(mem->blk->heap, mem->mapped_rgn.pid, 1, mem->mapped_rgn.heap.start, mem->mapped_rgn.heap.end);
+            for(unsigned char i = 0; i < mem->blk->n_ad; ++i){
+                  if(mem->blk->addtnl[i])
+                  read_bytes_from_pid_mem_dir(mem->blk->addtnl[i], mem->mapped_rgn.pid, 1, mem->mapped_rgn.remaining_addr[i].start, mem->mapped_rgn.remaining_addr[i].end);
             }
       }
 }
@@ -405,7 +441,7 @@ void update_mem_map(struct mem_map* mem){
 void narrow_mem_map_int_nopt(struct mem_map* mem, int match){
       unsigned int initial = mem->size;
       for(unsigned int i = 0; i < mem->size; ++i){
-            if(mem->i_mmap[i].value != match){
+            if(*mem->i_mmap[i].value != match){
                   mem->i_mmap[i--] = mem->i_mmap[--mem->size];
                   /*
                    *  // more simply,
@@ -459,7 +495,7 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
 
             unsigned int adj_size = 0;
             for(int i = 0; i < mem->i_mmap_hash.bucket_ref[ind]; ++i)
-                  if(mem->i_mmap_hash.i_buckets[ind][i].value == match){
+                  if(*mem->i_mmap_hash.i_buckets[ind][i].value == match){
                         tmp_aip[0][adj_size].value = mem->i_mmap_hash.i_buckets[ind][i].value;
                         tmp_aip[0][adj_size++].addr = mem->i_mmap_hash.i_buckets[ind][i].addr;
                   }
@@ -473,8 +509,6 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
 
             free(mem->i_mmap_hash.i_buckets);
             mem->i_mmap_hash.i_buckets = tmp_aip;
-
-            /*init_i_map(&mem->i_mmap_hash, 1, );*/
 
             regularize_i_mmap_hash(mem);
       }

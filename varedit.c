@@ -45,8 +45,8 @@ bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional, bool silent){
 void print_mmap(const struct mem_map* mem, bool show_rgns){
       for(unsigned int i = 0; i < mem->size; ++i){
             if(mem->integers){
-                  if(show_rgns)printf("%p (%s) : %i\n", mem->i_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->i_mmap[i].addr, NULL), mem->i_mmap[i].value);
-                  else printf("%p: %i\n", mem->i_mmap[i].addr, mem->i_mmap[i].value);
+                  if(show_rgns)printf("%p (%s) : %i\n", mem->i_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->i_mmap[i].addr, NULL), *mem->i_mmap[i].value);
+                  else printf("%p: %i\n", mem->i_mmap[i].addr, *mem->i_mmap[i].value);
             }
             else{
                   if(show_rgns)printf("%p (%s) : \"%s\"\n", mem->s_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->s_mmap[i].addr, NULL), mem->s_mmap[i].value);
@@ -263,7 +263,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       char* to_w = NULL;
       int tmp_strlen = 0;
       int tmp_val, grs_ignore[] = {9, 0};
-      bool first = true, lock_mode, tab;
+      bool first = true, first_search = true, lock_mode, tab;
       struct lock_container lock_pids;
       size_t to_w_sz = 0;
       lock_container_init(&lock_pids, 1);
@@ -298,7 +298,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
              * gotos are used intentionally to make code clearer */
             Find:
             fputs("enter current variable value to search", stdout);
-            if(!first)fputs(" or 'w' to enter write mode", stdout);
+            if(!first_search)fputs(" or 'w' to enter write mode", stdout);
             fputs("\n", stdout);
             npa.int_pop = 0;
             tmp_str = (no_sub || vmem->low_mem) ? getline_raw(&tmp_strlen, &tab, grs_ignore) : getline_raw_sub(&tmp_strlen, &tab, grs_ignore, narrow_pth, &gsa);
@@ -397,7 +397,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                         // update_mem_map(vmem);
                         if(integers)
                               for(unsigned int i = 0; i < vmem->size; ++i)
-                                    printf("%i: (%p: %i)\n", i, vmem->i_mmap[i].addr, vmem->i_mmap[i].value);
+                                    printf("%i: (%p: %i)\n", i, vmem->i_mmap[i].addr, *vmem->i_mmap[i].value);
                         else
                               for(unsigned int i = 0; i < vmem->size; ++i)
                                     printf("%i: (%p: \"%s\")\n", i, vmem->s_mmap[i].addr, vmem->s_mmap[i].value);
@@ -515,7 +515,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                               for(unsigned int i =  v_loc[0]; i <= v_loc[1]; ++i){
                                     if(integers){
                                           addrs[addr_s++] = vmem->i_mmap[i].addr;
-                                          if(same)ints[i] = vmem->i_mmap[i].value;
+                                          if(same)ints[i] = *vmem->i_mmap[i].value;
                                     }
                                     else{
                                           addrs[addr_s++] = vmem->s_mmap[i].addr;
@@ -571,7 +571,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   }
             }
             // tmp_str != "w"
-            // checking if input is valid before calling populating mem_map
+            // checking if input is valid before populating mem_map
             if(!*tmp_str || (integers && !strtoi(tmp_str, NULL, NULL))){
                   if(integers)puts("enter a valid integer to search");
                   else puts("enter a valid string to search");
@@ -583,7 +583,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             // to deal with escaped \w, \u, \q, \r, \?, \rl
             if(tmp_str[0] == '\\')++tmp_str_ptr;
             
-            if(!first)update_mem_map(vmem);
+            if(!first_search)update_mem_map(vmem);
             if(integers){
                   tmp_val = atoi(tmp_str_ptr);
                   narrow_mem_map_int(vmem, tmp_val);
@@ -610,6 +610,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   print_mmap(vmem, print_rgns);
             }
             first = false;
+            first_search = false;
             free(tmp_str);
       }
 }
