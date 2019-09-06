@@ -42,7 +42,23 @@ bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional, bool silent){
       return true;
 }
 
+void print_ih_mmap(const struct mem_map* mem, _Bool show_rgns){
+      for(int i = 0; i < mem->i_mmap_hash.n_bux; ++i){
+            for(int j = 0; j < mem->i_mmap_hash.bucket_ref[i]; ++j){
+                  if(show_rgns)printf("%p (%s) : %i\n", mem->i_mmap_hash.i_buckets[i][j].addr, which_rgn(mem->mapped_rgn,
+                                                                     mem->i_mmap_hash.i_buckets[i][j].addr, NULL),
+                                      *mem->i_mmap_hash.i_buckets[i][j].value);
+                  else printf("%p: %i\n", mem->i_mmap_hash.i_buckets[i][j].addr, *mem->i_mmap_hash.i_buckets[i][j].value);
+
+            }
+      }
+}
+
 void print_mmap(const struct mem_map* mem, bool show_rgns){
+      if(mem->integers && mem->i_mmap_hash.in_place){
+            print_ih_mmap(mem, show_rgns);
+            return;
+      }
       for(unsigned int i = 0; i < mem->size; ++i){
             if(mem->integers){
                   if(show_rgns)printf("%p (%s) : %i\n", mem->i_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->i_mmap[i].addr, NULL), *mem->i_mmap[i].value);
@@ -263,6 +279,12 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
       char* to_w = NULL;
       int tmp_strlen = 0;
       int tmp_val, grs_ignore[] = {9, 0};
+      /* first_search is equivalent to first but it does not get
+       * altered by any other functions/threads
+       *
+       * first refers to population, first_search to searches
+       * TODO: is first actually necessary?
+       */
       bool first = true, first_search = true, lock_mode, tab;
       struct lock_container lock_pids;
       size_t to_w_sz = 0;
@@ -324,16 +346,18 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   goto Find;
             }
             if(strncmp(tmp_str, "u", 2) == 0){
-                  update_mem_map(vmem);
-                  fseek(stdin, 0, SEEK_END);
-                  print_mmap(vmem, print_rgns);
+                  if(!first_search){
+                        update_mem_map(vmem);
+                        fseek(stdin, 0, SEEK_END);
+                        print_mmap(vmem, print_rgns);
+                  }
                   goto Find;
             }
             if(strncmp(tmp_str, "r", 2) == 0){
                   if(vmem->size != 0){
                         free_mem_map(vmem);
                         vmem->size = 0;
-                        first = true;
+                        first_search = first = true;
                         /* TODO: free strings */
                         npa.input_sz = 0;
                   }
@@ -383,7 +407,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
                   }
             }
             if(strncmp(tmp_str, "w", 2) == 0){
-                  if(first){
+                  if(first_search){
                         puts("no memory locations available for writing. returning to search");
                         goto Find;
                   }
@@ -600,7 +624,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
             if(vmem->size == 0){
                   printf("nothing matches your search of: %s\nresetting mem map\n", tmp_str_ptr);
                   // setting first to true to imitate behavior of first search and load, reducing space complexity by waiting to repopulate mem_map
-                  first = true;
+                  first_search = first = true;
                   goto Find;
             }
             if(!verbose && vmem->size > result_print_limit)
@@ -616,7 +640,7 @@ bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, i
 }
 
 int main(int argc, char* argv[]){
-      char ver[] = "varedit 1.4.13";
+      char ver[] = "varedit 1.5.0";
       char help_str[1023] = " <pid> {[-p [filter]] [-r <memory address>] [-w <memory address> <value>] [-i] [-S] [-H] [-B] [-A] [-E] [-U] [-C] [-b <n bytes>] [-V] [-pr] [-pl <print limit>]}\n"
       "    -p  : prints values in specified memory region with optional filter\n"
       "    -r  : read single value from virtual memory address\n"
