@@ -2,7 +2,7 @@
 
 #include <pthread.h>
 
-#define MEMCARVE_VER "libmemcarve 1.8.1"
+#define MEMCARVE_VER "libmemcarve 1.8.2"
 
 typedef unsigned char BYTE;
 
@@ -79,6 +79,8 @@ bool write_str_to_pid_mem(pid_t pid, void* vm, const char* str);
 struct mem_map* mem_map_init(struct mem_map* mem, pid_t pid, bool unmarked_additional);
 bool set_mode_mem_map(struct mem_map* mem, bool integers);
 void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, bool integers, int bytes);
+void flatten_i_mmap_hash(struct mem_map* mem);
+_Bool regularize_i_mmap_hash(struct mem_map* mem);
 void update_mem_map(struct mem_map* mem);
 void narrow_mem_map_int(struct mem_map* mem, int match);
 void narrow_mem_map_str(struct mem_map* mem, const char* match, bool exact_s, bool exact_e);
