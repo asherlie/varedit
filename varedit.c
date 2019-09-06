@@ -43,7 +43,7 @@ bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional, bool silent){
 }
 
 void print_ih_mmap(const struct mem_map* mem, _Bool show_rgns){
-      for(int i = 0; i < mem->i_mmap_hash.n_bux; ++i){
+      for(int i = 0; i < mem->i_mmap_hash.n_bux; ++i)
             for(int j = 0; j < mem->i_mmap_hash.bucket_ref[i]; ++j){
                   if(show_rgns)printf("%p (%s) : %i\n", mem->i_mmap_hash.i_buckets[i][j].addr, which_rgn(mem->mapped_rgn,
                                                                      mem->i_mmap_hash.i_buckets[i][j].addr, NULL),
@@ -51,7 +51,6 @@ void print_ih_mmap(const struct mem_map* mem, _Bool show_rgns){
                   else printf("%p: %i\n", mem->i_mmap_hash.i_buckets[i][j].addr, *mem->i_mmap_hash.i_buckets[i][j].value);
 
             }
-      }
 }
 
 void print_mmap(const struct mem_map* mem, bool show_rgns){
@@ -141,8 +140,6 @@ void pis(struct narrow_pth_arg* npa){
 
 void* narrow_pth(void* npa_v){
       struct narrow_pth_arg* npa = (struct narrow_pth_arg*)npa_v;
-      /* TODO: commands should be prepended by '/' */
-      /* if this could be a command, don't even bother */
       /* if int mode, we'll still take advantage of this time to populate */
       if(*npa->first){
             populate_mem_map(*npa->mem, npa->d_rgn, npa->additional, npa->_int, npa->int_bytes);
@@ -150,6 +147,8 @@ void* narrow_pth(void* npa_v){
             *npa->first = 0;
       }
       if(npa->_int)return NULL;
+      /* TODO: commands should be prepended by '/' */
+      /* if this could be a command, don't even bother */
       if(first_cmd(*npa->gsa->str_recvd))return NULL;
       /* TODO: what if del is read as the first character -- test this */
       _Bool del = *npa->gsa->char_recvd == 8 || *npa->gsa->char_recvd == 127;
