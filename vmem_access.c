@@ -166,7 +166,7 @@ bool set_mode_mem_map(struct mem_map* mem, bool integers){
 
 void init_i_map(struct i_mmap_map* imm, int n_bux, int n_entries){
       imm->n_bux = n_bux;
-      imm->i_buckets = malloc(sizeof(struct addr_int_pair*)*n_bux);
+      imm->i_buckets = calloc(sizeof(struct addr_int_pair*), n_bux);
       imm->bucket_ref = calloc(sizeof(int), n_bux);
 
       /* to limit the amount of memory used, we'll assume that most buckets will have less than n_entries/n_bux */
@@ -175,7 +175,7 @@ void init_i_map(struct i_mmap_map* imm, int n_bux, int n_entries){
 
       for(int i = 0; i < n_bux; ++i){
             imm->i_buckets[i] = calloc(sizeof(struct addr_int_pair), (bucket_sz+1));
-            imm->i_buckets[i][bucket_sz].addr = (void*)0x6969;
+            imm->i_buckets[i][bucket_sz].addr = (void*)0xdecaf;
       }
 
       imm->in_place = 1;
@@ -185,9 +185,9 @@ void insert_i_map(struct i_mmap_map* imm, void* addr, int* value){
       int ind = *value % imm->n_bux;
       ind = (ind < 0) ? -1*ind : ind;
       int ind_prog = imm->bucket_ref[ind];
-      if(imm->i_buckets[ind][ind_prog].addr == (void*)0x6969){
+      if(imm->i_buckets[ind][ind_prog].addr == (void*)0xdecaf){
             struct addr_int_pair* tmp_ip = malloc(sizeof(struct addr_int_pair)*((ind_prog*2)+1));
-            tmp_ip[(ind_prog*2)].addr = (void*)0x6969;
+            tmp_ip[(ind_prog*2)].addr = (void*)0xdecaf;
             memcpy(tmp_ip, imm->i_buckets[ind], sizeof(struct addr_int_pair)*ind_prog);
             free(imm->i_buckets[ind]);
             imm->i_buckets[ind] = tmp_ip;
@@ -345,7 +345,7 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
 /* TODO: combine flatten_i_mmap_hash() and regularize_i_mmap_hash() */
 void flatten_i_mmap_hash(struct mem_map* mem){
       struct addr_int_pair* tmp_aip = malloc(sizeof(struct addr_int_pair)*(mem->size+1));
-      tmp_aip[mem->size].addr = (void*)0x6969;
+      tmp_aip[mem->size].addr = (void*)0xdecaf;
       int ind = 0;
       for(int i = 0; i < mem->i_mmap_hash.n_bux; ++i){
             for(int j = 0; j < mem->i_mmap_hash.bucket_ref[i]; ++j){
@@ -462,8 +462,8 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
             }
 
             struct addr_int_pair** tmp_aip = malloc(sizeof(struct addr_int_pair*));
-            tmp_aip[0] = malloc(sizeof(struct addr_int_pair)*(mem->i_mmap_hash.bucket_ref[ind])+1);
-            tmp_aip[0][mem->i_mmap_hash.bucket_ref[ind]].addr = (void*)0x6969;
+            tmp_aip[0] = malloc(sizeof(struct addr_int_pair)*(mem->i_mmap_hash.bucket_ref[ind]+1));
+            tmp_aip[0][mem->i_mmap_hash.bucket_ref[ind]].addr = (void*)0xdecaf;
 
             /* TODO:
              * we could ignore the problem of finding matches and just regularize
