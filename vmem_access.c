@@ -26,19 +26,22 @@ void free_i_map(struct i_mmap_map* imm, int skip_index){
 void free_i_blk(struct int_blk* ib){
       if(ib->stack)free(ib->stack);
       if(ib->heap)free(ib->heap);
-      if(ib->addtnl)
+      if(ib->addtnl){
             for(int i = 0; i < ib->n_ad; ++i){
                   free(ib->addtnl[i]);
             }
+            free(ib->addtnl);
+      }
 }
 
 void free_mem_map(struct mem_map* mem){
       if(mem->integers){
-            if(mem->i_mmap_hash.in_place)free_i_map(&mem->i_mmap_hash, -1);
+            /*if(mem->i_mmap_hash.in_place)free_i_map(&mem->i_mmap_hash, -1);*/
             /* we'll free i_map even if not in place because we know that it was once in place */
             /* if(mem->i_mmap_hash.in_place) */free_i_map(&mem->i_mmap_hash, -1);
             /*free(mem->i_mmap);*/
             free_i_blk(mem->i_blk);
+            free(mem->i_blk);
             return;
       }
       if(!mem->blk->in_place){
@@ -364,7 +367,8 @@ void flatten_i_mmap_hash(struct mem_map* mem){
             for(int j = 0; j < mem->i_mmap_hash.bucket_ref[i]; ++j){
                   tmp_aip[ind++] = mem->i_mmap_hash.i_buckets[i][j];
             }
-            /*free(mem->i_mmap_hash.i_buckets[i]);*/
+            /* TODO: remove this (?)  */
+            free(mem->i_mmap_hash.i_buckets[i]);
       }
       mem->i_mmap_hash.n_bux = 1;
       mem->i_mmap_hash.bucket_ref[0] = mem->size;
@@ -505,6 +509,7 @@ void narrow_mem_map_int(struct mem_map* mem, int match){
             mem->i_mmap_hash.bucket_ref = malloc(sizeof(int));
             *mem->i_mmap_hash.bucket_ref = adj_size;
 
+            free(mem->i_mmap_hash.i_buckets[ind]);
             free(mem->i_mmap_hash.i_buckets);
             mem->i_mmap_hash.i_buckets = tmp_aip;
 
