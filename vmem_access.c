@@ -35,7 +35,9 @@ void free_i_blk(struct int_blk* ib){
 void free_mem_map(struct mem_map* mem){
       if(mem->integers){
             if(mem->i_mmap_hash.in_place)free_i_map(&mem->i_mmap_hash, -1);
-            free(mem->i_mmap);
+            /* we'll free i_map even if not in place because we know that it was once in place */
+            /* if(mem->i_mmap_hash.in_place) */free_i_map(&mem->i_mmap_hash, -1);
+            /*free(mem->i_mmap);*/
             free_i_blk(mem->i_blk);
             return;
       }
@@ -256,6 +258,7 @@ void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, 
             if(d_rgn == HEAP || d_rgn == BOTH){
                   buf_s = 0;
                   BYTE* ints_in_heap = read_bytes_from_pid_mem(mem->mapped_rgn.pid, bytes, mem->mapped_rgn.heap.start, mem->mapped_rgn.heap.end);
+                  mem->i_blk->heap = ints_in_heap;
                   for(char* hp = mem->mapped_rgn.heap.start; hp != mem->mapped_rgn.heap.end; hp += bytes){
                         insert_i_map(&mem->i_mmap_hash, (void*)hp, (int*)(ints_in_heap+buf_s));
                         buf_s += bytes;
@@ -374,6 +377,8 @@ void flatten_i_mmap_hash(struct mem_map* mem){
 _Bool regularize_i_mmap_hash(struct mem_map* mem){
       /*this should only be called when there is just one bucket left*/
       if(!mem->i_mmap_hash.in_place || mem->i_mmap_hash.n_bux != 1)return 0;
+      free(mem->i_mmap);
+
       mem->i_mmap = *mem->i_mmap_hash.i_buckets;
       mem->i_size = mem->size = *mem->i_mmap_hash.bucket_ref;
 
