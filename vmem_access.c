@@ -23,10 +23,20 @@ void free_i_map(struct i_mmap_map* imm, int skip_index){
       free(imm->bucket_ref);
 }
 
+void free_i_blk(struct int_blk* ib){
+      if(ib->stack)free(ib->stack);
+      if(ib->heap)free(ib->heap);
+      if(ib->addtnl)
+            for(int i = 0; i < ib->n_ad; ++i){
+                  free(ib->addtnl[i]);
+            }
+}
+
 void free_mem_map(struct mem_map* mem){
       if(mem->integers){
             if(mem->i_mmap_hash.in_place)free_i_map(&mem->i_mmap_hash, -1);
             free(mem->i_mmap);
+            free_i_blk(mem->i_blk);
             return;
       }
       if(!mem->blk->in_place){
