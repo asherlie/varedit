@@ -181,15 +181,15 @@ bool set_mode_mem_map(struct mem_map* mem, bool integers){
 
 void init_i_map(struct i_mmap_map* imm, int n_bux, int n_entries){
       imm->n_bux = n_bux;
-      imm->i_buckets = calloc(sizeof(struct addr_int_pair*), n_bux);
-      imm->bucket_ref = calloc(sizeof(int), n_bux);
+      imm->i_buckets = calloc(n_bux, sizeof(struct addr_int_pair*));
+      imm->bucket_ref = calloc(n_bux, sizeof(int));
 
       /* to limit the amount of memory used, we'll assume that most buckets will have less than n_entries/n_bux */
       /* this, of course, implies that we'll need to resize buckets in some cases */
       int bucket_sz = 0.7*(n_entries/n_bux);
 
       for(int i = 0; i < n_bux; ++i){
-            imm->i_buckets[i] = calloc(sizeof(struct addr_int_pair), (bucket_sz+1));
+            imm->i_buckets[i] = calloc((bucket_sz+1), sizeof(struct addr_int_pair));
             imm->i_buckets[i][bucket_sz].addr = (void*)0xdecaf;
       }
 
