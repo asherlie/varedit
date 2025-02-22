@@ -211,6 +211,9 @@ void insert_i_map(struct i_mmap_map* imm, void* addr, int* value){
       imm->i_buckets[ind][imm->bucket_ref[ind]++].value = value;
 }
 
+void populate_mem_map_opt() {
+}
+
 void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, bool integers, int bytes){
       // store size, toggle mem->integers in case mem is being repopulated with a different mode
       set_mode_mem_map(mem, integers);

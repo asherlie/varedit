@@ -1,6 +1,7 @@
 #include "vmem_parser.h"
 
 #include <pthread.h>
+#include <stdint.h>
 
 #define MEMCARVE_VER "libmemcarve 1.8.6"
 
@@ -63,6 +64,14 @@ struct mem_map{
       unsigned int i_size, s_size, size;
       int d_rgn, int_mode_bytes;
       bool integers, low_mem, force_block_str, use_addtnl;
+};
+
+struct mem_map_optimized{
+    struct mem_rgn rgn;
+    uint8_t* heap;
+    uint8_t* stack;
+    uint8_t** addtnl;
+    uint8_t n_ad;
 };
 
 void free_mem_map(struct mem_map* mem);
