@@ -66,15 +66,36 @@ struct mem_map{
       bool integers, low_mem, force_block_str, use_addtnl;
 };
 
+/* ~~~~~~~~~~~~~~~~begin optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
+
+struct found_variable{
+    uint8_t* address;
+    uint8_t len;
+};
+
+struct narrow_frame{
+    char label[16];
+    struct found_variable* tracked_vars;
+    int n_tracked;
+};
+
 // we'll be using named frames to keep track of different collections of tracked variables
 // this way we can effortlessly switch between them
+// to keep track of a variable we need a pointer into a region and size of that variable
 struct mem_map_optimized{
     struct mem_rgn rgn;
     uint8_t* heap;
     uint8_t* stack;
     uint8_t** other;
     uint8_t n_other;
+
+    struct narrow_frame* frames;
+    int n_frames;
 };
+
+void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other);
+
+/* ~~~~~~~~~~~~~~~~end optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
 
 void free_mem_map(struct mem_map* mem);
 bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e);
@@ -101,5 +122,3 @@ unsigned int free_locks(struct lock_container* lc, char free_op);
 unsigned long lock_th(struct lock_container* lc);
 struct lock_container* lock_container_init(struct lock_container* lc, unsigned int initial_sz);
 bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers);
-
-void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other);
