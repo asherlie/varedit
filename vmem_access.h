@@ -70,8 +70,8 @@ struct mem_map_optimized{
     struct mem_rgn rgn;
     uint8_t* heap;
     uint8_t* stack;
-    uint8_t** addtnl;
-    uint8_t n_ad;
+    uint8_t** other;
+    uint8_t n_other;
 };
 
 void free_mem_map(struct mem_map* mem);

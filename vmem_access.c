@@ -211,7 +211,22 @@ void insert_i_map(struct i_mmap_map* imm, void* addr, int* value){
       imm->i_buckets[ind][imm->bucket_ref[ind]++].value = value;
 }
 
-void populate_mem_map_opt() {
+void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other) {
+    // we'll assume caller sets m->rgn
+    /*m->rgn = get_vmem_locations(pid, unmarked_additional);*/
+    m->stack = m->heap = m->other = NULL;
+    if (stack) {
+        // using a byte value of 32 - hoping it'll be faster and shouldn't matter for actual data now that
+        // we're lumping it all together
+        m->stack = read_bytes_from_pid_mem(m->rgn.pid, 32);
+    }
+    /*
+     * struct mem_rgn rgn;
+     * uint8_t* heap;
+     * uint8_t* stack;
+     * uint8_t** other;
+     * uint8_t n_other;
+    */
 }
 
 void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, bool integers, int bytes){
