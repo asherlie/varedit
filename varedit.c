@@ -7,6 +7,10 @@
 #include "vmem_access.h"
 #endif
 
+// TODO: fix weird double frees. this program is so broken.
+// maybe rewrite from ground up to be fast, lock free, functional
+// i can probably use vmem_access but rewrite varedit
+
 bool strtoi(const char* str, unsigned int* ui, int* i){
       char* res;
       unsigned int r = (unsigned int)strtol(str, &res, 10);
@@ -243,6 +247,15 @@ void reset_sterms(struct narrow_pth_arg* npa){
       npa->all_input[npa->input_sz++] = npa->sterms[npa->chars_read-1];
       npa->chars_read = 0;
 }
+
+/*
+ * i should maybe just store all bytes in one huge array. yes keep them in a bytearray - there shouldn't be an int/char* mode
+ * makes so much more sense to just read memory in sizeof(x) chunks, although we don't know at what offset which type of variable lives
+ * 
+ * okay, the way to do this is to do n_threads passes over the large chunk of memory each initial scan.
+ * we don't know where variables begin, so we have to iterate with a sliding scale
+*/
+
 
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
       _Bool no_sub = 
