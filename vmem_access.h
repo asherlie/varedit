@@ -66,6 +66,8 @@ struct mem_map{
       bool integers, low_mem, force_block_str, use_addtnl;
 };
 
+// we'll be using named frames to keep track of different collections of tracked variables
+// this way we can effortlessly switch between them
 struct mem_map_optimized{
     struct mem_rgn rgn;
     uint8_t* heap;
@@ -99,3 +101,5 @@ unsigned int free_locks(struct lock_container* lc, char free_op);
 unsigned long lock_th(struct lock_container* lc);
 struct lock_container* lock_container_init(struct lock_container* lc, unsigned int initial_sz);
 bool create_lock(struct lock_container* lc, pid_t pid, void** addr, int* i_val, char** s_val, unsigned int n_addr, bool mul_val, bool integers);
+
+void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other);

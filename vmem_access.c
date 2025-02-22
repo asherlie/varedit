@@ -211,26 +211,39 @@ void insert_i_map(struct i_mmap_map* imm, void* addr, int* value){
       imm->i_buckets[ind][imm->bucket_ref[ind]++].value = value;
 }
 
+
+/* ~~~~~~~~~~~~~~~~begin optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
+
 void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other) {
     // we'll assume caller sets m->rgn
     /*m->rgn = get_vmem_locations(pid, unmarked_additional);*/
+    // using a byte value of 32 - hoping it'll be faster and shouldn't matter for actual data now that
+    // we're lumping it all together
+    int bytes = 32;
     m->stack = m->heap = NULL;
     m->other = NULL;
     if (stack) {
-        // using a byte value of 32 - hoping it'll be faster and shouldn't matter for actual data now that
-        // we're lumping it all together
-        m->stack = read_bytes_from_pid_mem(m->rgn.pid, 32, m->rgn.stack.start, m->rgn.stack.end);
+        m->stack = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.stack.start, m->rgn.stack.end);
     }
     if (heap) {
-        m->heap = read_bytes_from_pid_mem(m->rgn.pid, 32, m->rgn.heap.start, m->rgn.heap.end);
+        m->heap = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.heap.start, m->rgn.heap.end);
     }
     if (other) {
         m->other = malloc(sizeof(uint8_t*) * m->rgn.n_remaining);
         for (uint8_t i = 0; i < m->rgn.n_remaining; ++i) {
-            m->other[i] = read_bytes_from_pid_mem(m->rgn.pid, 32, m->rgn.remaining_addr[i].start, m->rgn.remaining_addr[i].end);
+            m->other[i] = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.remaining_addr[i].start, m->rgn.remaining_addr[i].end);
         }
     }
 }
+
+// nice, use named frames
+void narrow_mem_map_opt(struct mem_map_optimized* m, void* value, uint16_t valsz) {
+    (void)m;    
+    (void)value;    
+    (void)valsz;    
+}
+
+/* ~~~~~~~~~~~~~~~~end optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
 
 void populate_mem_map(struct mem_map* mem, int d_rgn, bool use_additional_rgns, bool integers, int bytes){
       // store size, toggle mem->integers in case mem is being repopulated with a different mode
