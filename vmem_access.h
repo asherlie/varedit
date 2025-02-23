@@ -1,6 +1,7 @@
 #include "vmem_parser.h"
 
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdint.h>
 
 #define MEMCARVE_VER "libmemcarve 1.8.6"
@@ -71,12 +72,26 @@ struct mem_map{
 struct found_variable{
     uint8_t* address;
     uint8_t len;
+
+    struct found_variable* next;
 };
 
+/*
+ * there are benefits and drawbacks to using a LL - it's nice because narrowing is easier. can just redirect pointers
+ * and free up memory, as opposed to keeping memory allocated
+ *
+ * array would occupy less total memory at its peak, however
+ * try LL for now.
+ */
+// TODO: make this a lock free linked list
 struct narrow_frame{
     char label[16];
-    struct found_variable* tracked_vars;
-    int n_tracked;
+    // TODO: are these parens right?
+    _Atomic (struct found_variable*) tracked_vars;
+    _Atomic int n_tracked;
+
+    // TODO: initialize this
+    //pthread_mutex_t lock;
 };
 
 // we'll be using named frames to keep track of different collections of tracked variables
@@ -87,13 +102,19 @@ struct mem_map_optimized{
     uint8_t* heap;
     uint8_t* stack;
     uint8_t** other;
-    uint8_t n_other;
+    // use rgn data for this
+    //uint8_t n_other;
 
     struct narrow_frame* frames;
-    int n_frames;
+    int n_frames, frame_cap;
 };
 
 void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other);
+void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len);
+uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t* start_rgn, uint8_t* end_rgn, void* value, uint16_t valsz);
+void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* frame, uint8_t n_threads, void* value, uint16_t valsz, 
+                              _Bool* heap_match, _Bool* stack_match, _Bool* other_match);
+void add_frame(struct mem_map_optimized* m, char* label);
 
 /* ~~~~~~~~~~~~~~~~end optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
 
