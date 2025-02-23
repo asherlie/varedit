@@ -1,6 +1,7 @@
 #include "vmem_access.h"
 
 #include <string.h>
+#include <assert.h>
 #include <sys/uio.h>
 
 // with less than RELOAD_CUTOFF values, it's faster to do individual reads for integers when updating mem_map
@@ -215,6 +216,7 @@ void insert_i_map(struct i_mmap_map* imm, void* addr, int* value){
 
 /* ~~~~~~~~~~~~~~~~begin optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
 
+// TODO: potentially only repopulate regions that have matches in frame
 void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other) {
     // we'll assume caller sets m->rgn
     /*m->rgn = get_vmem_locations(pid, unmarked_additional);*/
@@ -287,17 +289,32 @@ void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len)
 
 // searches from start -> end for regions of size valsz with value `value`. adds to frame when found
 // TODO: this shouldn't use locks - make frame struct a lock free linked list
-void narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t* start_rgn, uint8_t* end_rgn, void* value, uint16_t valsz) {
+/*
+ * need a way to link frame vars with real remote addresses so we can narrow multiple times
+ * maybe remove the repopulation logic above. i just need to read_bytes_from_mem on a much smaller scale after initial frame generation
+ * maybe populate_mem_map_opt() should create a frame implicitly!
+ * actually prob better if it just exists seperately. i can just create as many frames as i want separately
+ * 
+ * omg wait this is already so elegant! 
+ * 1: we grab memory with populate()
+ * 2: narrow() , let user know which regions they should reupdate
+ * 3: repopulate relevant regions
+ * 4: iterate through frame, pointers will have updated values automatically!
+*/
+
+uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t* start_rgn, uint8_t* end_rgn, void* value, uint16_t valsz) {
+    uint64_t n_matches = 0;
     uint8_t* first_byte_match = start_rgn;
     uint8_t* i_rgn = start_rgn;
     // until we exhaust all matches of first byte
     for (; first_byte_match; first_byte_match = memchr(i_rgn, *((uint8_t*)value), end_rgn - i_rgn)) {
         if (first_byte_match >= end_rgn) {
             /*ALSO need to exit once first_byte_match is not in our defined region. could cause concurrency issues.*/
-            return;
+            return n_matches;
         }
         if (!memcmp(first_byte_match, value, valsz)) {
-            puts("found a match!");
+            ++n_matches;
+            /*puts("found a match!");*/
             insert_frame_var(frame, first_byte_match, valsz);
             i_rgn = first_byte_match + valsz;
         } else {
@@ -305,11 +322,36 @@ void narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t* st
             i_rgn = first_byte_match + 1;
         }
     }
+    return n_matches;
 }
 
 /* narrows variables in memory of all  */
-void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* frame, uint8_t n_threads, void* value, uint16_t valsz) {
-    narrow_mem_map_frame_opt_subroutine(frame, m->);
+// TODO: get multithreading working with this function
+void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* frame, uint8_t n_threads, void* value, uint16_t valsz, 
+                              _Bool* heap_match, _Bool* stack_match, _Bool* other_match) {
+
+    *heap_match = *stack_match = *other_match = 0;
+    assert(n_threads == 1);
+    if (m->stack) {
+        if (narrow_mem_map_frame_opt_subroutine(frame, m->stack, m->stack + ((uint8_t*)m->rgn.stack.end - (uint8_t*)m->rgn.stack.start),
+                                            value, valsz)) {
+            *stack_match = 1;
+        }
+    }
+    if (m->heap) {
+        if (narrow_mem_map_frame_opt_subroutine(frame, m->heap, m->heap+ ((uint8_t*)m->rgn.heap.end - (uint8_t*)m->rgn.heap.start),
+                                            value, valsz)) {
+            *heap_match = 1;
+        }
+    }
+    #if 0
+    if (m->other) {
+        if (narrow_mem_map_frame_opt_subroutine(frame, m->heap, m->heap+ ((uint8_t*)m->rgn.heap.end - (uint8_t*)m->rgn.heap.start),
+                                            value, valsz)) {
+            *heap_match = 1;
+        }
+    }
+    #endif
 }
 
 /* ~~~~~~~~~~~~~~~~end optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
