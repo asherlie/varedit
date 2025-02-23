@@ -234,14 +234,42 @@ void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, 
             m->other[i] = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.remaining_addr[i].start, m->rgn.remaining_addr[i].end);
         }
     }
+
+    /* prep frames */
+    m->n_frames = 0;
+    m->frame_cap = 5;
+    m->frames = malloc(sizeof(struct narrow_frame) * m->frame_cap);
 }
 
-// nice, use named frames
-void narrow_mem_map_opt(struct mem_map_optimized* m, void* value, uint16_t valsz) {
-    (void)m;    
-    (void)value;    
-    (void)valsz;    
+void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len) {
+    /*pthread_mutex_lock(&frame->lock);*/
+    struct found_variable* vframe->tracked_vars
+    /*pthread_mutex_unlock(&frame->lock);*/
 }
+
+// searches from start -> end for regions of size valsz with value `value`. adds to frame when found
+// TODO: this shouldn't use locks - make frame struct a lock free linked list
+void narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t* start_rgn, uint8_t* end_rgn, void* value, uint16_t valsz) {
+    void* first_byte_match = start_rgn, * i_rgn = start_rgn;
+    // until we exhaust all matches of first byte
+    for (; first_byte_match; first_byte_match = memchr(i_rgn, *value, end_rgn - i_rgn)) {
+        if (first_byte_match >= end_rgn) {
+            /*ALSO need to exit once first_byte_match is not in our defined region. could cause concurrency issues.*/
+            return;
+        }
+        if (!memcmp(first_byte_match, value, valsz)) {
+            insert_frame_var(frame, first_byte_match, valsz);
+            i_rgn = first_byte_match + valsz;
+        } else {
+            i_rgn = first_byte_match + 1;
+        }
+    }
+}
+
+#if 0
+void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* frame, uint8_t n_threads, void* value, uint16_t valsz) {
+}
+#endif
 
 /* ~~~~~~~~~~~~~~~~end optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
 
