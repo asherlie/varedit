@@ -280,6 +280,7 @@ void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len)
     while (1) {
         var->next = frame->tracked_vars;
         if (atomic_compare_exchange_strong(&frame->tracked_vars, &var->next, var)) {
+            atomic_fetch_add(&frame->n_tracked, 1);
             break;
         }
     }
@@ -344,14 +345,14 @@ void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* 
             *heap_match = 1;
         }
     }
-    #if 0
     if (m->other) {
-        if (narrow_mem_map_frame_opt_subroutine(frame, m->heap, m->heap+ ((uint8_t*)m->rgn.heap.end - (uint8_t*)m->rgn.heap.start),
-                                            value, valsz)) {
-            *heap_match = 1;
+        for (int i = 0; i < m->rgn.n_remaining; ++i) {
+            if (narrow_mem_map_frame_opt_subroutine(frame, m->other[i], 
+                m->other[i] + ((uint8_t*)m->rgn.remaining_addr[i].end - (uint8_t*)m->rgn.remaining_addr[i].start), value, valsz)) {
+                *other_match = 1;
+            }
         }
     }
-    #endif
 }
 
 /* ~~~~~~~~~~~~~~~~end optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
