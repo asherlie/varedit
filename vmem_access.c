@@ -243,16 +243,26 @@ void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, 
 
 void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len) {
     /*pthread_mutex_lock(&frame->lock);*/
-    struct found_variable* vframe->tracked_vars
+    struct found_variable* var = malloc(sizeof(struct found_variable));
+    var->address = address;
+    var->len = len;
+
+    while (1) {
+        var->next = frame->tracked_vars;
+        if (atomic_compare_exchange_strong(&frame->tracked_vars, var->next, var)) {
+            break;
+        }
+    }
     /*pthread_mutex_unlock(&frame->lock);*/
 }
 
 // searches from start -> end for regions of size valsz with value `value`. adds to frame when found
 // TODO: this shouldn't use locks - make frame struct a lock free linked list
 void narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t* start_rgn, uint8_t* end_rgn, void* value, uint16_t valsz) {
-    void* first_byte_match = start_rgn, * i_rgn = start_rgn;
+    uint8_t* first_byte_match = start_rgn;
+    uint8_t* i_rgn = start_rgn;
     // until we exhaust all matches of first byte
-    for (; first_byte_match; first_byte_match = memchr(i_rgn, *value, end_rgn - i_rgn)) {
+    for (; first_byte_match; first_byte_match = memchr(i_rgn, *((uint8_t*)value), end_rgn - i_rgn)) {
         if (first_byte_match >= end_rgn) {
             /*ALSO need to exit once first_byte_match is not in our defined region. could cause concurrency issues.*/
             return;
