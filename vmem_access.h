@@ -114,6 +114,7 @@ void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len)
 uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t* start_rgn, uint8_t* end_rgn, void* value, uint16_t valsz);
 void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* frame, uint8_t n_threads, void* value, uint16_t valsz, 
                               _Bool* heap_match, _Bool* stack_match, _Bool* other_match);
+void init_frames(struct mem_map_optimized* m);
 void add_frame(struct mem_map_optimized* m, char* label);
 
 /* ~~~~~~~~~~~~~~~~end optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */

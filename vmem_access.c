@@ -216,6 +216,12 @@ void insert_i_map(struct i_mmap_map* imm, void* addr, int* value){
 
 /* ~~~~~~~~~~~~~~~~begin optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
 
+void init_frames(struct mem_map_optimized* m) {
+    m->n_frames = 0;
+    m->frame_cap = 5;
+    m->frames = malloc(sizeof(struct narrow_frame) * m->frame_cap);
+}
+
 // TODO: potentially only repopulate regions that have matches in frame
 void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other) {
     // we'll assume caller sets m->rgn
@@ -251,11 +257,6 @@ void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, 
             }
         }
     }
-
-    /* prep frames */
-    m->n_frames = 0;
-    m->frame_cap = 5;
-    m->frames = malloc(sizeof(struct narrow_frame) * m->frame_cap);
 }
 
 // TODO: write this code - should be a linked list. no need to be threadsafe, this will only be called
