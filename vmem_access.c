@@ -222,6 +222,17 @@ void init_frames(struct mem_map_optimized* m) {
     m->frames = malloc(sizeof(struct narrow_frame) * m->frame_cap);
 }
 
+void init_mem_map_opt(struct mem_map_optimized* m) {
+    m->stack = m->heap = NULL;
+    m->other = NULL;
+
+    init_frames(m);
+}
+
+uint64_t rgn_len(struct m_addr_pair* addrs) {
+    return ((uint8_t*)addrs->end - (uint8_t*)addrs->start);
+}
+
 // TODO: potentially only repopulate regions that have matches in frame
 void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other) {
     // we'll assume caller sets m->rgn
@@ -229,11 +240,13 @@ void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, 
     // using a byte value of 32 - hoping it'll be faster and shouldn't matter for actual data now that
     // we're lumping it all together
     int bytes = 32;
-    m->stack = m->heap = NULL;
-    m->other = NULL;
     if (stack) {
         if (m->stack) {
+            /*memset(m->stack, 0, rgn_len(&m->rgn.stack));*/
+            /*uint8_t* tmp_stack = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.stack.start, m->rgn.stack.end);*/
+            /*memcpy(m->stack, tmp_stack, rgn_len(&m->rgn.stack));*/
             read_bytes_from_pid_mem_dir(m->stack, m->rgn.pid, bytes, m->rgn.stack.start, m->rgn.stack.end);
+            /*printf("inserted stack bytes into %p -> %p\n", (void*)m->stack, m->stack + ((uint8_t*)m->rgn.stack.end - (uint8_t*)m->rgn.stack.end));*/
         } else {
             m->stack = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.stack.start, m->rgn.stack.end);
         }
@@ -267,7 +280,7 @@ void add_frame(struct mem_map_optimized* m, char* label) {
         puts("GOTTA RESIZE");
     }
     m->frames[m->n_frames - 1].n_tracked = 0;
-    strncpy(m->frames[m->n_frames - 1].label, label, sizeof(m->frames[0].label));
+    strncpy(m->frames[m->n_frames - 1].label, label, sizeof(m->frames[0].label) - 1);
     m->frames[m->n_frames - 1].tracked_vars = NULL;
     printf("created frame \"%s\"\n", label);
 }
@@ -304,10 +317,12 @@ void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len)
  * 4: iterate through frame, pointers will have updated values automatically!
 */
 
+// this is used only for initial narrow! after this, we can just inspect our linked list
 uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t* start_rgn, uint8_t* end_rgn, void* value, uint16_t valsz) {
     uint64_t n_matches = 0;
     uint8_t* first_byte_match = start_rgn;
     uint8_t* i_rgn = start_rgn;
+    // this is only necessary on the first pass - we can know this by n_tracked!
     // until we exhaust all matches of first byte
     for (; first_byte_match; first_byte_match = memchr(i_rgn, *((uint8_t*)value), end_rgn - i_rgn)) {
         if (first_byte_match >= end_rgn) {
@@ -327,13 +342,53 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
     return n_matches;
 }
 
+void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
+    struct found_variable* prev_v = frame->tracked_vars;;
+    _Bool free_prev = 0;
+    for (struct found_variable* v = frame->tracked_vars; v; v = v->next) {
+
+        if (valsz != v->len) {
+        // weird - this is getting corrupted somehow with FTL. how is valsz not 4 here?
+            printf("%i != %i\n", valsz, v->len);
+        }
+        assert(valsz == v->len);
+        if (free_prev) {
+            free(prev_v);
+            free_prev = 0;
+        }
+
+        /*printf("checking if *%p == %i\n", ((void*)v->address), *((int*)value));*/
+        /*printf("checking if %i == %i\n", *((int*)v->address), *((int*)value));*/
+        if (memcmp(v->address, value, valsz)) {
+            // first node
+            free_prev = 1;
+            if (v == frame->tracked_vars) {
+                frame->tracked_vars = v->next;
+            } else {
+                prev_v->next = v->next;
+            }
+            --frame->n_tracked;
+        }
+        prev_v = v;
+    }
+}
+
 /* narrows variables in memory of all  */
 // TODO: get multithreading working with this function
 void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* frame, uint8_t n_threads, void* value, uint16_t valsz, 
                               _Bool* heap_match, _Bool* stack_match, _Bool* other_match) {
 
     *heap_match = *stack_match = *other_match = 0;
+
+    // if we already have a narrowed frame
+    if (frame->n_tracked) {
+        printf("calling renarrow with valsz %i\n", valsz);
+        renarrow_frame(frame, value, valsz);
+        return;
+    }
+
     assert(n_threads == 1);
+
     if (m->stack) {
         if (narrow_mem_map_frame_opt_subroutine(frame, m->stack, m->stack + ((uint8_t*)m->rgn.stack.end - (uint8_t*)m->rgn.stack.start),
                                             value, valsz)) {
