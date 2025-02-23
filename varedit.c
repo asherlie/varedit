@@ -256,6 +256,19 @@ void reset_sterms(struct narrow_pth_arg* npa){
  * we don't know where variables begin, so we have to iterate with a sliding scale
 */
 
+void find_var(pid_t pid) {
+    // can't forget this
+    struct mem_map_optimized m;
+    int val = 54;
+    _Bool heap, stack, other;
+    m.rgn = get_vmem_locations(pid, 1);
+    populate_mem_map_opt(&m, 1, 1, 1);
+    add_frame(&m, "test frame");
+    /*narrow_mem_map_frame_opt_subroutine(&m.frames[0], m.rgn.stack.start, (uint8_t*)m.rgn.stack.start + 100, &val, 4);*/
+    /*narrow_mem_map_frame_opt_subroutine(&m.frames[0], m.stack, m.stack +  ((uint8_t*)m.rgn.stack.end - (uint8_t*)m.rgn.stack.start) , &val, 4);*/
+    narrow_mem_map_frame_opt(&m, &m.frames[0], 1, &val, 4, &heap, &stack, &other);
+    printf("%i %i %i - %i total matches!\n", heap, stack, other, m.frames[0].n_tracked);
+}
 
 bool interactive_mode(struct mem_map* vmem, bool integers, int int_mode_bytes, int d_rgn, int additional, bool verbose, unsigned int result_print_limit, bool print_rgns){
       _Bool no_sub = 
@@ -731,6 +744,11 @@ int main(int argc, char* argv[]){
             puts("enter a valid pid");
             return -1;
       }
+
+      // for testing - inserting this right after grabbing pid
+      find_var(pid);
+      return 0;
+
       // default to stack, heap and additional if no region is specified
       if(d_rgn == NONE && !additional){
             d_rgn = BOTH;
