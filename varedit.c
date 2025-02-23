@@ -263,14 +263,14 @@ void find_var(pid_t pid) {
     size_t sz;
     int val = 54;
     _Bool heap, stack, other;
-    init_frames(&m);
+    init_mem_map_opt(&m);
     add_frame(&m, "test frame");
     m.rgn = get_vmem_locations(pid, 1);
 
     while (1) {
-        populate_mem_map_opt(&m, 1, 1, 1);
         getline(&ln, &sz, stdin);
         val = atoi(ln);
+        populate_mem_map_opt(&m, 1, 1, 0);
         narrow_mem_map_frame_opt(&m, &m.frames[0], 1, &val, 4, &heap, &stack, &other);
         printf("%i %i %i - %i total matches for %i!\n", heap, stack, other, m.frames[0].n_tracked, val);
     }
