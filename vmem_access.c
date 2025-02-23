@@ -65,6 +65,7 @@ bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, v
       remote.iov_len = sz_rgn;
       ssize_t nread;
       nread = process_vm_readv(pid, &local, 1, &remote, 1, 0);
+      /*printf("read %li bytes - %p -> %p\n", nread, vm_s, vm_e);*/
       return nread == sz_rgn;
 }
 
@@ -241,6 +242,17 @@ void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, 
     m->frames = malloc(sizeof(struct narrow_frame) * m->frame_cap);
 }
 
+void add_frame(struct mem_map_optimized* m, char* label) {
+    ++m->n_frames;
+    if (m->n_frames == m->frame_cap) {
+        puts("GOTTA RESIZE");
+    }
+    m->frames[m->n_frames - 1].n_tracked = 0;
+    strncpy(m->frames[m->n_frames - 1].label, label, sizeof(m->frames[0].label));
+    m->frames[m->n_frames - 1].tracked_vars = NULL;
+    printf("created frame \"%s\"\n", label);
+}
+
 void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len) {
     /*pthread_mutex_lock(&frame->lock);*/
     struct found_variable* var = malloc(sizeof(struct found_variable));
@@ -249,10 +261,11 @@ void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len)
 
     while (1) {
         var->next = frame->tracked_vars;
-        if (atomic_compare_exchange_strong(&frame->tracked_vars, var->next, var)) {
+        if (atomic_compare_exchange_strong(&frame->tracked_vars, &var->next, var)) {
             break;
         }
     }
+    printf("succesfully inserted a new frame var");
     /*pthread_mutex_unlock(&frame->lock);*/
 }
 
@@ -268,9 +281,11 @@ void narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t* st
             return;
         }
         if (!memcmp(first_byte_match, value, valsz)) {
+            puts("found a match!");
             insert_frame_var(frame, first_byte_match, valsz);
             i_rgn = first_byte_match + valsz;
         } else {
+            /*puts("incrementing i_rgn");*/
             i_rgn = first_byte_match + 1;
         }
     }
