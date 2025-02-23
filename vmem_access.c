@@ -224,15 +224,29 @@ void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, 
     m->stack = m->heap = NULL;
     m->other = NULL;
     if (stack) {
-        m->stack = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.stack.start, m->rgn.stack.end);
+        if (m->stack) {
+            read_bytes_from_pid_mem_dir(m->stack, m->rgn.pid, bytes, m->rgn.stack.start, m->rgn.stack.end);
+        } else {
+            m->stack = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.stack.start, m->rgn.stack.end);
+        }
     }
     if (heap) {
-        m->heap = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.heap.start, m->rgn.heap.end);
+        if (m->heap) {
+            read_bytes_from_pid_mem_dir(m->heap, m->rgn.pid, bytes, m->rgn.heap.start, m->rgn.heap.end);
+        } else {
+            m->heap = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.heap.start, m->rgn.heap.end);
+        }
     }
     if (other) {
-        m->other = malloc(sizeof(uint8_t*) * m->rgn.n_remaining);
+        if (!m->other) {
+            m->other = calloc(m->rgn.n_remaining, sizeof(uint8_t*));
+        }
         for (uint8_t i = 0; i < m->rgn.n_remaining; ++i) {
-            m->other[i] = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.remaining_addr[i].start, m->rgn.remaining_addr[i].end);
+            if (m->other[i]) {
+                read_bytes_from_pid_mem_dir(m->other[i], m->rgn.pid, bytes, m->rgn.remaining_addr[i].start, m->rgn.remaining_addr[i].end);
+            } else {
+                m->other[i] = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.remaining_addr[i].start, m->rgn.remaining_addr[i].end);
+            }
         }
     }
 
@@ -242,6 +256,8 @@ void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, 
     m->frames = malloc(sizeof(struct narrow_frame) * m->frame_cap);
 }
 
+// TODO: write this code - should be a linked list. no need to be threadsafe, this will only be called
+// from the main thread in varedit
 void add_frame(struct mem_map_optimized* m, char* label) {
     ++m->n_frames;
     if (m->n_frames == m->frame_cap) {
@@ -265,7 +281,7 @@ void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len)
             break;
         }
     }
-    printf("succesfully inserted a new frame var");
+    /*printf("succesfully inserted a new frame var");*/
     /*pthread_mutex_unlock(&frame->lock);*/
 }
 
@@ -291,10 +307,10 @@ void narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t* st
     }
 }
 
-#if 0
+/* narrows variables in memory of all  */
 void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* frame, uint8_t n_threads, void* value, uint16_t valsz) {
+    narrow_mem_map_frame_opt_subroutine(frame, m->);
 }
-#endif
 
 /* ~~~~~~~~~~~~~~~~end optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
 
