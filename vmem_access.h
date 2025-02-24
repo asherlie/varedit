@@ -73,7 +73,7 @@ struct found_variable{
     uint8_t* address;
     uint8_t len;
 
-    struct found_variable* next;
+    struct found_variable* next, * prev;
 };
 
 /*
@@ -92,7 +92,7 @@ struct narrow_frame{
     _Atomic int n_tracked;
 
     // TODO: initialize this
-    //pthread_mutex_t lock;
+    pthread_mutex_t lock;
 };
 
 // we'll be using named frames to keep track of different collections of tracked variables
