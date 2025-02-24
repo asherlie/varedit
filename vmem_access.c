@@ -282,6 +282,7 @@ void add_frame(struct mem_map_optimized* m, char* label) {
     m->frames[m->n_frames - 1].n_tracked = 0;
     strncpy(m->frames[m->n_frames - 1].label, label, sizeof(m->frames[0].label) - 1);
     m->frames[m->n_frames - 1].tracked_vars = NULL;
+    pthread_mutex_init(&m->frames[m->n_frames - 1].lock, NULL);
     printf("created frame \"%s\"\n", label);
 }
 
@@ -291,15 +292,84 @@ void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len)
     var->address = address;
     var->len = len;
 
+    var->next = frame->tracked_vars;
+
     while (1) {
-        var->next = frame->tracked_vars;
+        // ah, just understood why they do this for me. no need for updating this
+        /*var->next = frame->tracked_vars;*/
         if (atomic_compare_exchange_strong(&frame->tracked_vars, &var->next, var)) {
             atomic_fetch_add(&frame->n_tracked, 1);
             break;
         }
+        puts("FAIled");
     }
     /*printf("succesfully inserted a new frame var");*/
     /*pthread_mutex_unlock(&frame->lock);*/
+}
+
+void rm_frame_var(struct narrow_frame* frame, struct found_variable* v, struct found_variable* prev_v) {
+    // remove idx 0
+    struct found_variable* vn = v->next;
+    (void)vn;
+    atomic_fetch_sub(&frame->n_tracked, 1);
+    /*if (atomic_compare_exchange_strong(&frame->tracked_vars, &v, vn)) {*/
+        /*return;*/
+    /*}*/
+    if (frame->tracked_vars == v) {
+        frame->tracked_vars = v->next;
+        return;
+    }
+
+    prev_v->next = v->next;
+    /*free(v);*/
+
+    /*WTF - v isn't getting removed. it's still being printed in the list*/
+}
+
+// this version uses locks as a proof of concept and sets prev
+void insert_frame_var_lock(struct narrow_frame* frame, uint8_t* address, uint8_t len) {
+    struct found_variable* var = malloc(sizeof(struct found_variable));
+
+    var->address = address;
+    var->len = len;
+
+    var->next = frame->tracked_vars;
+    var->prev = NULL;
+
+    pthread_mutex_lock(&frame->lock);
+    frame->tracked_vars = var;
+    if (var->next) {
+        var->next->prev = var;
+    }
+    ++frame->n_tracked;
+    pthread_mutex_unlock(&frame->lock);
+}
+
+// returns remaining entries
+void rm_frame_var_lock(struct narrow_frame* frame, struct found_variable* v) {
+    pthread_mutex_lock(&frame->lock);
+    /*puts("RM");*/
+    if (v->prev) {
+        v->prev->next = v->next;
+    } else {
+        // first element
+        frame->tracked_vars = v->next;
+        /*frame->tracked_vars->prev = NULL;*/
+    }
+    if (v->next) {
+        v->next->prev = v->prev;
+    }
+    --frame->n_tracked;
+    pthread_mutex_unlock(&frame->lock);
+}
+
+
+// for debugging, prints a full frame including pointers to see what's getting corrupted. use before and after removal.
+void p_frame_var(struct narrow_frame* frame) {
+    for (struct found_variable* v = frame->tracked_vars; v; v = v->next) {
+        printf("%p->", (void*)v);
+    }
+    printf("\\0\n");
 }
 
 // searches from start -> end for regions of size valsz with value `value`. adds to frame when found
@@ -332,7 +402,8 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
         if (!memcmp(first_byte_match, value, valsz)) {
             ++n_matches;
             /*puts("found a match!");*/
-            insert_frame_var(frame, first_byte_match, valsz);
+            /*insert_frame_var(frame, first_byte_match, valsz);*/
+            insert_frame_var_lock(frame, first_byte_match, valsz);
             i_rgn = first_byte_match + valsz;
         } else {
             /*puts("incrementing i_rgn");*/
@@ -342,35 +413,41 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
     return n_matches;
 }
 
+ /*TODO:  is there a chance that memory is being reshuffled around? no probably not.*/
+ /*TODO: free removed v*/
 void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
-    struct found_variable* prev_v = frame->tracked_vars;;
+    struct found_variable* prev_v = NULL, * prev_prev_v = NULL;
     _Bool free_prev = 0;
+    (void)free_prev;
+    /*printf("started renarrow at %i\n", frame->n_tracked);*/
+    // need to get out of this loop if we've removed all entries!
     for (struct found_variable* v = frame->tracked_vars; v; v = v->next) {
-
-        if (valsz != v->len) {
-        // weird - this is getting corrupted somehow with FTL. how is valsz not 4 here?
-            printf("%i != %i\n", valsz, v->len);
-        }
         assert(valsz == v->len);
-        if (free_prev) {
-            free(prev_v);
-            free_prev = 0;
-        }
 
-        /*printf("checking if *%p == %i\n", ((void*)v->address), *((int*)value));*/
-        /*printf("checking if %i == %i\n", *((int*)v->address), *((int*)value));*/
         if (memcmp(v->address, value, valsz)) {
-            // first node
-            free_prev = 1;
-            if (v == frame->tracked_vars) {
-                frame->tracked_vars = v->next;
-            } else {
-                prev_v->next = v->next;
+
+            // okay, am i considering that this in a loop enough?
+            /*rm_frame_var(frame, v, prev_v);*/
+            rm_frame_var_lock(frame, v);
+            if (!frame->n_tracked) {
+                break;
             }
-            --frame->n_tracked;
+            v = (prev_v) ? prev_v : frame->tracked_vars;
+            if (prev_v) {
+                v = prev_v;
+                prev_v = prev_prev_v;
+            }
+            /*if (!((v->next == frame->tracked_vars) || (prev_v->next == v->next))) {*/
+                /*puts("FAIL");*/
+            /*}*/
         }
+        prev_prev_v = prev_v;
         prev_v = v;
     }
+    if (frame->n_tracked < 20) {
+        /*p_frame_var(frame);*/
+    }
+    /*printf("ended renarrow at %i\n", frame->n_tracked);*/
 }
 
 /* narrows variables in memory of all  */
