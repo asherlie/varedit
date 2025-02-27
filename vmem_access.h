@@ -118,6 +118,10 @@ void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* 
 void init_mem_map_opt(struct mem_map_optimized* m);
 void add_frame(struct mem_map_optimized* m, char* label);
 
+void p_frame_var(struct narrow_frame* frame);
+void insert_frame_var_lock(struct narrow_frame* frame, uint8_t* address, uint8_t len);
+void rm_frame_var_lock(struct narrow_frame* frame, struct found_variable* v);
+
 /* ~~~~~~~~~~~~~~~~end optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
 
 void free_mem_map(struct mem_map* mem);
