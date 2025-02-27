@@ -219,6 +219,7 @@ void insert_i_map(struct i_mmap_map* imm, void* addr, int* value){
 void init_frames(struct mem_map_optimized* m) {
     m->n_frames = 0;
     m->frame_cap = 5;
+    // this must be zeroed for NULL first frame
     m->frames = malloc(sizeof(struct narrow_frame) * m->frame_cap);
 }
 
@@ -278,12 +279,13 @@ void add_frame(struct mem_map_optimized* m, char* label) {
     ++m->n_frames;
     if (m->n_frames == m->frame_cap) {
         puts("GOTTA RESIZE");
+        return;
     }
     m->frames[m->n_frames - 1].n_tracked = 0;
     strncpy(m->frames[m->n_frames - 1].label, label, sizeof(m->frames[0].label) - 1);
     m->frames[m->n_frames - 1].tracked_vars = NULL;
     pthread_mutex_init(&m->frames[m->n_frames - 1].lock, NULL);
-    printf("created frame \"%s\"\n", label);
+    printf("created frame \"%s\" in idx %i\n", label, m->n_frames - 1);
 }
 
 void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len) {
@@ -327,16 +329,21 @@ void rm_frame_var(struct narrow_frame* frame, struct found_variable* v, struct f
 }
 
 // this version uses locks as a proof of concept and sets prev
+/*first element must have next = NULL;*/
+// must init frame to NULL!
 void insert_frame_var_lock(struct narrow_frame* frame, uint8_t* address, uint8_t len) {
     struct found_variable* var = malloc(sizeof(struct found_variable));
 
     var->address = address;
     var->len = len;
 
-    var->next = frame->tracked_vars;
     var->prev = NULL;
 
     pthread_mutex_lock(&frame->lock);
+    var->next = frame->tracked_vars;
+    /*if (frame->tracked_vars) {*/
+        /*frame->tracked_vars->prev = var;*/
+    /*}*/
     frame->tracked_vars = var;
     if (var->next) {
         var->next->prev = var;
@@ -352,8 +359,13 @@ void rm_frame_var_lock(struct narrow_frame* frame, struct found_variable* v) {
     if (v->prev) {
         v->prev->next = v->next;
     } else {
+        assert(frame->tracked_vars == v);
         // first element
+        /*puts("in main sec");*/
         frame->tracked_vars = v->next;
+        if (!frame->tracked_vars) {
+            /*puts("zeroed that shit");*/
+        }
         /*frame->tracked_vars->prev = NULL;*/
     }
     if (v->next) {
@@ -363,6 +375,20 @@ void rm_frame_var_lock(struct narrow_frame* frame, struct found_variable* v) {
     pthread_mutex_unlock(&frame->lock);
 }
 
+
+/*
+ * F->a->b->c->d
+ * 
+ * F->NULL - insert a
+ * v = a
+ * v->next = F
+ * v->prev = NULL
+ * F = v
+ * v->next->prev = v
+ *
+ * F->a->NULL
+ * 
+*/
 
 // for debugging, prints a full frame including pointers to see what's getting corrupted. use before and after removal.
 void p_frame_var(struct narrow_frame* frame) {
@@ -429,14 +455,23 @@ void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
             // okay, am i considering that this in a loop enough?
             /*rm_frame_var(frame, v, prev_v);*/
             rm_frame_var_lock(frame, v);
+            /*printf("removed %p\n", v);*/
+            // this shouldn't be needed but seems like it is, weird.
             if (!frame->n_tracked) {
+                /*puts("breaking due to 0sz");*/
+                // hmm, why is there always 1 total match at the end of a narrow that actually had 0 matches
+                /*above is issue of the moment!*/
                 break;
             }
-            v = (prev_v) ? prev_v : frame->tracked_vars;
-            if (prev_v) {
-                v = prev_v;
-                prev_v = prev_prev_v;
-            }
+            (void)prev_prev_v;
+            // OKAY. why is the line below critical?
+            /*v = (prev_v) ? prev_v : frame->tracked_vars;*/
+            /*
+             * if (prev_v) {
+             *     v = prev_v;
+             *     prev_v = prev_prev_v;
+             * }
+            */
             /*if (!((v->next == frame->tracked_vars) || (prev_v->next == v->next))) {*/
                 /*puts("FAIL");*/
             /*}*/
