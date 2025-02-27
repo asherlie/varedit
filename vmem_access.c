@@ -455,6 +455,7 @@ void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
             // okay, am i considering that this in a loop enough?
             /*rm_frame_var(frame, v, prev_v);*/
             rm_frame_var_lock(frame, v);
+            free(v);
             /*printf("removed %p\n", v);*/
             // this shouldn't be needed but seems like it is, weird.
             if (!frame->n_tracked) {
