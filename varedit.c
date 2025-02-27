@@ -267,12 +267,38 @@ void find_var(pid_t pid) {
     add_frame(&m, "test frame");
     m.rgn = get_vmem_locations(pid, 1);
 
+    #if 0
+    for (uint64_t i = 0; i < 100; ++i) {
+        insert_frame_var_lock(&m.frames[0], (uint8_t*)i, 99);
+    }
+    for (struct found_variable* v = m.frames[0].tracked_vars; v; v = v->next) {
+        if (!((int)v->address % 2)) {
+            rm_frame_var_lock(&m.frames[0], v);
+        }
+    }
+
+    /*ok, this seems to be working... might need to just fix narrow, seems like that might be the problem*/
+    /*
+     * rm_frame_var_lock(&m.frames[0], m.frames[0].tracked_vars->next->next);
+     * rm_frame_var_lock(&m.frames[0], m.frames[0].tracked_vars->next);
+     * rm_frame_var_lock(&m.frames[0], m.frames[0].tracked_vars);
+    */
+    p_frame_var(&m.frames[0]);
+
+    return;
+    ok... fixed!
+    #endif
+
     while (1) {
+        /*omg, it's nont fucking owrking at all now*/
         getline(&ln, &sz, stdin);
         val = atoi(ln);
-        populate_mem_map_opt(&m, 1, 1, 0);
+        populate_mem_map_opt(&m, 1, 1, 1);
         narrow_mem_map_frame_opt(&m, &m.frames[0], 1, &val, 4, &heap, &stack, &other);
         printf("%i %i %i - %i total matches for %i!\n", heap, stack, other, m.frames[0].n_tracked, val);
+        if (m.frames[0].n_tracked == 1) {
+            p_frame_var(&m.frames[0]);
+        }
     }
 }
 
