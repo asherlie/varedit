@@ -288,6 +288,9 @@ void add_frame(struct mem_map_optimized* m, char* label) {
     printf("created frame \"%s\" in idx %i\n", label, m->n_frames - 1);
 }
 
+/*
+ * could just insert replacing frame_var with a copy that has a prev value
+*/
 void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len) {
     /*pthread_mutex_lock(&frame->lock);*/
     struct found_variable* var = malloc(sizeof(struct found_variable));
@@ -311,21 +314,67 @@ void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len)
 
 void rm_frame_var(struct narrow_frame* frame, struct found_variable* v, struct found_variable* prev_v) {
     // remove idx 0
-    struct found_variable* vn = v->next;
-    (void)vn;
-    atomic_fetch_sub(&frame->n_tracked, 1);
-    /*if (atomic_compare_exchange_strong(&frame->tracked_vars, &v, vn)) {*/
-        /*return;*/
-    /*}*/
-    if (frame->tracked_vars == v) {
-        frame->tracked_vars = v->next;
-        return;
+    if (0) {
+        struct found_variable* vn = v->next;
+        (void)vn;
+        atomic_fetch_sub(&frame->n_tracked, 1);
+        /*if (atomic_compare_exchange_strong(&frame->tracked_vars, &v, vn)) {*/
+            /*return;*/
+        /*}*/
+        if (frame->tracked_vars == v) {
+            frame->tracked_vars = v->next;
+            return;
+        }
+        prev_v->next = v->next;
     }
 
-    prev_v->next = v->next;
     /*free(v);*/
 
     /*WTF - v isn't getting removed. it's still being printed in the list*/
+}
+
+// WARNING: this function may fail if !v && rm_first, in this case, call again with v being set
+// this failure indicates that rm_first is no longer the first element of our list
+_Bool rm_next_frame_var_lf(struct narrow_frame* frame, struct found_variable* v, struct found_variable* rm_first) {
+    struct found_variable* vn;
+    // this works when v->nextD
+    // what happens when we need to remove idx 0
+    //
+    // if (v == NULL) frame = NULL
+
+    // if !v, we nullify frame->tracked
+    if (!v && rm_first) {
+        vn = rm_first;
+        if (atomic_compare_exchange_strong(&frame->tracked_vars, &vn, NULL)) {
+            return 1;
+        }
+        return 0;
+    }
+    vn = v->next;
+    while (1) {
+        if (atomic_compare_exchange_strong(&v->next, &vn, vn->next)) {
+            break;
+        }
+    }
+    /*v->next = v->next->next;*/
+    return 1;
+}
+
+void rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first) {
+    struct found_variable* to_free;
+    --frame->n_tracked;
+    if (!v && rm_first) {
+        to_free = frame->tracked_vars;
+        frame->tracked_vars = frame->tracked_vars->next;
+        // okay, this is causing segfault... WHY?
+        /*free(to_free);*/
+        return;
+    }
+
+    /*v == NULL at some point*/
+    to_free = v->next;
+    v->next = v->next->next;
+    free(to_free);
 }
 
 // this version uses locks as a proof of concept and sets prev
@@ -428,8 +477,11 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
         if (!memcmp(first_byte_match, value, valsz)) {
             ++n_matches;
             /*puts("found a match!");*/
-            /*insert_frame_var(frame, first_byte_match, valsz);*/
-            insert_frame_var_lock(frame, first_byte_match, valsz);
+            insert_frame_var(frame, first_byte_match, valsz);
+            if (valsz != 4) {
+                printf("inserting valsz of %i\n", valsz);
+            }
+            /*insert_frame_var_lock(frame, first_byte_match, valsz);*/
             i_rgn = first_byte_match + valsz;
         } else {
             /*puts("incrementing i_rgn");*/
@@ -453,9 +505,10 @@ void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
         if (memcmp(v->address, value, valsz)) {
 
             // okay, am i considering that this in a loop enough?
-            /*rm_frame_var(frame, v, prev_v);*/
-            rm_frame_var_lock(frame, v);
-            free(v);
+            rm_frame_var(frame, v, prev_v);
+            /*_Bool rm_next_frame_var(struct narrow_frame* frame, struct found_variable* v, struct found_variable* rm_first);*/
+            /*rm_frame_var_lock(frame, v);*/
+            /*free(v);*/
             /*printf("removed %p\n", v);*/
             // this shouldn't be needed but seems like it is, weird.
             if (!frame->n_tracked) {
@@ -486,6 +539,42 @@ void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
     /*printf("ended renarrow at %i\n", frame->n_tracked);*/
 }
 
+// i don't believe there's any concurrency risk with iterating over this simply
+// only one thread will be doing the renarrowing and this is strictly later than initial narrow occurs
+// the only concurrent section of code is the original narrowing
+// WAIT... does this mean that we don't even need frame var REMOVAL to be threadsafe? LOL
+// only insertion must be! and that's the easy part. wonderful.
+//
+// OKAY, SO:
+//  1. keep insertion to be lock free
+//  2. update renarrow next to not be threadsafe with current logic
+//  3. make note that this function is not threadsafe
+//
+void renarrow_frame_rm_next(struct narrow_frame* frame, void* value, uint16_t valsz) {
+    if (!frame->tracked_vars) {
+        return;
+    }
+    if (memcmp(frame->tracked_vars->address, value, valsz)) {
+        rm_next_frame_var_unsafe(frame, NULL, 1);
+        // recurse in case updated first value is a removal candidate
+        /*puts("recursing after removal of idx 0");*/
+        renarrow_frame_rm_next(frame, value, valsz);
+    }
+    for (struct found_variable* v = frame->tracked_vars; v && v->next; v = v->next) {
+        /*printf("sz: %i, checking %p, %i == %i\n", frame->n_tracked, (void*)v->next, valsz, v->next->len);*/
+        assert(valsz == v->next->len);
+        /*
+         * this assertion is failing despite no weird sizes being inserted.
+         * v->next may be getting corrupted during removal somehow
+        */
+
+        if (memcmp(v->next->address, value, valsz)) {
+            rm_next_frame_var_unsafe(frame, v, 0);
+        }
+        // is there a chance that we need to rm idx 0 at the end?
+    }
+}
+
 /* narrows variables in memory of all  */
 // TODO: get multithreading working with this function
 void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* frame, uint8_t n_threads, void* value, uint16_t valsz, 
@@ -496,10 +585,12 @@ void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* 
     // if we already have a narrowed frame
     if (frame->n_tracked) {
         printf("calling renarrow with valsz %i\n", valsz);
-        renarrow_frame(frame, value, valsz);
+        /*renarrow_frame(frame, value, valsz);*/
+        renarrow_frame_rm_next(frame, value, valsz);
         return;
     }
 
+    // TODO: implement multithreaded narrowing!
     assert(n_threads == 1);
 
     if (m->stack) {
