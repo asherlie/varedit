@@ -236,28 +236,36 @@ uint64_t rgn_len(struct m_addr_pair* addrs) {
 
 // TODO: potentially only repopulate regions that have matches in frame
 // TODO: this should fail when process shuts down
-void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other) {
+// TODO: detect failures from initial population
+_Bool populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other) {
     // we'll assume caller sets m->rgn
     /*m->rgn = get_vmem_locations(pid, unmarked_additional);*/
     // using a byte value of 32 - hoping it'll be faster and shouldn't matter for actual data now that
     // we're lumping it all together
     int bytes = 32;
+    int failures = stack + heap + m->rgn.n_remaining;
     if (stack) {
         if (m->stack) {
             /*memset(m->stack, 0, rgn_len(&m->rgn.stack));*/
             /*uint8_t* tmp_stack = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.stack.start, m->rgn.stack.end);*/
             /*memcpy(m->stack, tmp_stack, rgn_len(&m->rgn.stack));*/
-            read_bytes_from_pid_mem_dir(m->stack, m->rgn.pid, bytes, m->rgn.stack.start, m->rgn.stack.end);
+            if (!read_bytes_from_pid_mem_dir(m->stack, m->rgn.pid, bytes, m->rgn.stack.start, m->rgn.stack.end)) {
+                --failures;
+            }
             /*printf("inserted stack bytes into %p -> %p\n", (void*)m->stack, m->stack + ((uint8_t*)m->rgn.stack.end - (uint8_t*)m->rgn.stack.end));*/
         } else {
             m->stack = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.stack.start, m->rgn.stack.end);
+            --failures;
         }
     }
     if (heap) {
         if (m->heap) {
-            read_bytes_from_pid_mem_dir(m->heap, m->rgn.pid, bytes, m->rgn.heap.start, m->rgn.heap.end);
+            if (read_bytes_from_pid_mem_dir(m->heap, m->rgn.pid, bytes, m->rgn.heap.start, m->rgn.heap.end)) {
+                --failures;
+            }
         } else {
             m->heap = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.heap.start, m->rgn.heap.end);
+            --failures;
         }
     }
     if (other) {
@@ -266,12 +274,17 @@ void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, 
         }
         for (uint8_t i = 0; i < m->rgn.n_remaining; ++i) {
             if (m->other[i]) {
-                read_bytes_from_pid_mem_dir(m->other[i], m->rgn.pid, bytes, m->rgn.remaining_addr[i].start, m->rgn.remaining_addr[i].end);
+                if (!read_bytes_from_pid_mem_dir(m->other[i], m->rgn.pid, bytes, m->rgn.remaining_addr[i].start,
+                                                 m->rgn.remaining_addr[i].end)) {
+                    --failures;
+                }
             } else {
                 m->other[i] = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.remaining_addr[i].start, m->rgn.remaining_addr[i].end);
+                --failures;
             }
         }
     }
+    return !failures;
 }
 
 // TODO: write this code - should be a linked list. no need to be threadsafe, this will only be called
