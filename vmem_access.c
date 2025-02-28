@@ -312,27 +312,6 @@ void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len)
     /*pthread_mutex_unlock(&frame->lock);*/
 }
 
-void rm_frame_var(struct narrow_frame* frame, struct found_variable* v, struct found_variable* prev_v) {
-    // remove idx 0
-    if (0) {
-        struct found_variable* vn = v->next;
-        (void)vn;
-        atomic_fetch_sub(&frame->n_tracked, 1);
-        /*if (atomic_compare_exchange_strong(&frame->tracked_vars, &v, vn)) {*/
-            /*return;*/
-        /*}*/
-        if (frame->tracked_vars == v) {
-            frame->tracked_vars = v->next;
-            return;
-        }
-        prev_v->next = v->next;
-    }
-
-    /*free(v);*/
-
-    /*WTF - v isn't getting removed. it's still being printed in the list*/
-}
-
 void rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first) {
     struct found_variable* to_free;
     --frame->n_tracked;
@@ -468,53 +447,6 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
     return n_matches;
 }
 
- /*TODO:  is there a chance that memory is being reshuffled around? no probably not.*/
- /*TODO: free removed v*/
-void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
-    struct found_variable* prev_v = NULL, * prev_prev_v = NULL;
-    _Bool free_prev = 0;
-    (void)free_prev;
-    /*printf("started renarrow at %i\n", frame->n_tracked);*/
-    // need to get out of this loop if we've removed all entries!
-    for (struct found_variable* v = frame->tracked_vars; v; v = v->next) {
-        assert(valsz == v->len);
-
-        if (memcmp(v->address, value, valsz)) {
-
-            // okay, am i considering that this in a loop enough?
-            rm_frame_var(frame, v, prev_v);
-            /*_Bool rm_next_frame_var(struct narrow_frame* frame, struct found_variable* v, struct found_variable* rm_first);*/
-            /*rm_frame_var_lock(frame, v);*/
-            /*free(v);*/
-            /*printf("removed %p\n", v);*/
-            // this shouldn't be needed but seems like it is, weird.
-            if (!frame->n_tracked) {
-                /*puts("breaking due to 0sz");*/
-                // hmm, why is there always 1 total match at the end of a narrow that actually had 0 matches
-                /*above is issue of the moment!*/
-                break;
-            }
-            (void)prev_prev_v;
-            // OKAY. why is the line below critical?
-            /*v = (prev_v) ? prev_v : frame->tracked_vars;*/
-            /*
-             * if (prev_v) {
-             *     v = prev_v;
-             *     prev_v = prev_prev_v;
-             * }
-            */
-            /*if (!((v->next == frame->tracked_vars) || (prev_v->next == v->next))) {*/
-                /*puts("FAIL");*/
-            /*}*/
-        }
-        prev_prev_v = prev_v;
-        prev_v = v;
-    }
-    if (frame->n_tracked < 20) {
-        /*p_frame_var(frame);*/
-    }
-    /*printf("ended renarrow at %i\n", frame->n_tracked);*/
-}
 
 // i don't believe there's any concurrency risk with iterating over this simply
 // only one thread will be doing the renarrowing and this is strictly later than initial narrow occurs
@@ -527,7 +459,7 @@ void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
 //  2. update renarrow next to not be threadsafe with current logic
 //  3. make note that this function is not threadsafe
 //
-void renarrow_frame_rm_next(struct narrow_frame* frame, void* value, uint16_t valsz) {
+void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
     _Bool removed = 0;
     for (struct found_variable* v = frame->tracked_vars; v && v->next; v = (removed) ? v : v->next) {
         assert(valsz == v->next->len);
@@ -557,7 +489,7 @@ void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* 
     if (frame->n_tracked) {
         printf("calling renarrow with valsz %i\n", valsz);
         /*renarrow_frame(frame, value, valsz);*/
-        renarrow_frame_rm_next(frame, value, valsz);
+        renarrow_frame(frame, value, valsz);
         return;
     }
 
