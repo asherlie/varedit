@@ -333,46 +333,37 @@ void rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable*
 /*first element must have next = NULL;*/
 // must init frame to NULL!
 
-// returns remaining entries
-void rm_frame_var_lock(struct narrow_frame* frame, struct found_variable* v) {
-    pthread_mutex_lock(&frame->lock);
-    /*puts("RM");*/
-    if (v->prev) {
-        v->prev->next = v->next;
-    } else {
-        assert(frame->tracked_vars == v);
-        // first element
-        /*puts("in main sec");*/
-        frame->tracked_vars = v->next;
-        if (!frame->tracked_vars) {
-            /*puts("zeroed that shit");*/
-        }
-        /*frame->tracked_vars->prev = NULL;*/
-    }
-    if (v->next) {
-        v->next->prev = v->prev;
-    }
-    --frame->n_tracked;
-    pthread_mutex_unlock(&frame->lock);
-}
-
-
 /*
- * F->a->b->c->d
- * 
- * F->NULL - insert a
- * v = a
- * v->next = F
- * v->prev = NULL
- * F = v
- * v->next->prev = v
- *
- * F->a->NULL
- * 
+ * calculates address given two ranges and a local address
+ * it saves memory and time to only calculate this once we're printing out narrowed
+ * variables, the cost of looking this up for each variable is insignificant once we've
+ * sufficiently narrowed
 */
+uint8_t* get_remote_addr(struct mem_map_optimized* m, struct found_variable* v) {
+    uint8_t* local_rgn_end = NULL;
+    struct m_addr_pair* remote_rgn;
+    if (v->address > m->stack && v->address < (m->stack + rgn_len(&m->rgn.stack))) {
+        /*mem_rgn = m->stack;*/
+        remote_rgn = &m->rgn.stack;
+        local_rgn_end = m->stack + rgn_len(&m->rgn.stack);
+    } else if (v->address > m->heap && v->address < (m->heap + rgn_len(&m->rgn.heap))) {
+        /*mem_rgn = m->heap;*/
+        remote_rgn = &m->rgn.heap;
+        local_rgn_end = m->heap + rgn_len(&m->rgn.heap);
+    } else {
+        for (int i = 0; i < m->rgn.n_remaining; ++i) {
+            if (v->address > m->other[i] && v->address < (m->other[i] + rgn_len(&m->rgn.remaining_addr[i]))) {
+                /*mem_rgn = m->other[i];*/
+                remote_rgn = &m->rgn.remaining_addr[i];
+                local_rgn_end = m->other[i] + rgn_len(&m->rgn.remaining_addr[i]);
+            }
+        }
+    }
 
-// calculates address given two ranges and a local address
-/*uint8_t* get_remote_addr()*/
+    if (!local_rgn_end)return NULL;
+
+    return (uint8_t*)remote_rgn->start + (local_rgn_end - v->address);
+}
 
 // for debugging, prints a full frame including pointers to see what's getting corrupted. use before and after removal.
 void p_frame_var(struct narrow_frame* frame) {
