@@ -333,33 +333,6 @@ void rm_frame_var(struct narrow_frame* frame, struct found_variable* v, struct f
     /*WTF - v isn't getting removed. it's still being printed in the list*/
 }
 
-// WARNING: this function may fail if !v && rm_first, in this case, call again with v being set
-// this failure indicates that rm_first is no longer the first element of our list
-_Bool rm_next_frame_var_lf(struct narrow_frame* frame, struct found_variable* v, struct found_variable* rm_first) {
-    struct found_variable* vn;
-    // this works when v->nextD
-    // what happens when we need to remove idx 0
-    //
-    // if (v == NULL) frame = NULL
-
-    // if !v, we nullify frame->tracked
-    if (!v && rm_first) {
-        vn = rm_first;
-        if (atomic_compare_exchange_strong(&frame->tracked_vars, &vn, NULL)) {
-            return 1;
-        }
-        return 0;
-    }
-    vn = v->next;
-    while (1) {
-        if (atomic_compare_exchange_strong(&v->next, &vn, vn->next)) {
-            break;
-        }
-    }
-    /*v->next = v->next->next;*/
-    return 1;
-}
-
 void rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first) {
     struct found_variable* to_free;
     --frame->n_tracked;
@@ -565,6 +538,9 @@ void renarrow_frame_rm_next(struct narrow_frame* frame, void* value, uint16_t va
             removed = 1;
         }
     }
+
+    /* check first element */
+    assert(valsz == frame->tracked_vars->len);
     if (frame->tracked_vars && memcmp(frame->tracked_vars->address, value, valsz)) {
         rm_next_frame_var_unsafe(frame, NULL, 1);
     }
