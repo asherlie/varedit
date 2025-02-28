@@ -293,7 +293,9 @@ void find_var(pid_t pid) {
         /*omg, it's nont fucking owrking at all now*/
         getline(&ln, &sz, stdin);
         val = atoi(ln);
-        populate_mem_map_opt(&m, 1, 1, 1);
+        if (!populate_mem_map_opt(&m, 1, 1, 1)) {
+            break;
+        }
         narrow_mem_map_frame_opt(&m, &m.frames[0], 1, &val, 4, &heap, &stack, &other);
         printf("%i %i %i - %i total matches for %i!\n", heap, stack, other, m.frames[0].n_tracked, val);
         if (m.frames[0].n_tracked <= 33) {
