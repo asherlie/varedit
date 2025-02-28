@@ -92,6 +92,9 @@ struct narrow_frame{
     _Atomic int n_tracked;
 
     // TODO: initialize this
+    /* this is only used for the creation of new frames
+     * TODO: remove this lock and make frame creation lock free
+     */
     pthread_mutex_t lock;
 };
 
@@ -118,7 +121,7 @@ void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* 
 void init_mem_map_opt(struct mem_map_optimized* m);
 void add_frame(struct mem_map_optimized* m, char* label);
 
-void p_frame_var(struct narrow_frame* frame);
+void p_frame_var(struct mem_map_optimized* m, struct narrow_frame* frame);
 void insert_frame_var_lock(struct narrow_frame* frame, uint8_t* address, uint8_t len);
 void rm_frame_var_lock(struct narrow_frame* frame, struct found_variable* v);
 //_Bool rm_next_frame_var(struct narrow_frame* frame, struct found_variable* v, struct found_variable* rm_first);
