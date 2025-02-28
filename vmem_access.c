@@ -235,6 +235,7 @@ uint64_t rgn_len(struct m_addr_pair* addrs) {
 }
 
 // TODO: potentially only repopulate regions that have matches in frame
+// TODO: this should fail when process shuts down
 void populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other) {
     // we'll assume caller sets m->rgn
     /*m->rgn = get_vmem_locations(pid, unmarked_additional);*/
@@ -362,16 +363,15 @@ uint8_t* get_remote_addr(struct mem_map_optimized* m, struct found_variable* v) 
 
     if (!local_rgn_end)return NULL;
 
-    return (uint8_t*)remote_rgn->start + (local_rgn_end - v->address);
+    return (uint8_t*)remote_rgn->end - (local_rgn_end - v->address);
 }
 
 // for debugging, prints a full frame including pointers to see what's getting corrupted. use before and after removal.
-void p_frame_var(struct narrow_frame* frame) {
+void p_frame_var(struct mem_map_optimized* m, struct narrow_frame* frame) {
     for (struct found_variable* v = frame->tracked_vars; v; v = v->next) {
         /*printf("%", v->);*/
-        printf("%p->", (void*)v);
+        printf("%p\n", get_remote_addr(m, v));
     }
-    printf("\\0\n");
 }
 
 // searches from start -> end for regions of size valsz with value `value`. adds to frame when found
