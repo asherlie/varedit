@@ -332,26 +332,6 @@ void rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable*
 // this version uses locks as a proof of concept and sets prev
 /*first element must have next = NULL;*/
 // must init frame to NULL!
-void insert_frame_var_lock(struct narrow_frame* frame, uint8_t* address, uint8_t len) {
-    struct found_variable* var = malloc(sizeof(struct found_variable));
-
-    var->address = address;
-    var->len = len;
-
-    var->prev = NULL;
-
-    pthread_mutex_lock(&frame->lock);
-    var->next = frame->tracked_vars;
-    /*if (frame->tracked_vars) {*/
-        /*frame->tracked_vars->prev = var;*/
-    /*}*/
-    frame->tracked_vars = var;
-    if (var->next) {
-        var->next->prev = var;
-    }
-    ++frame->n_tracked;
-    pthread_mutex_unlock(&frame->lock);
-}
 
 // returns remaining entries
 void rm_frame_var_lock(struct narrow_frame* frame, struct found_variable* v) {
@@ -487,8 +467,6 @@ void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* 
 
     // if we already have a narrowed frame
     if (frame->n_tracked) {
-        printf("calling renarrow with valsz %i\n", valsz);
-        /*renarrow_frame(frame, value, valsz);*/
         renarrow_frame(frame, value, valsz);
         return;
     }
