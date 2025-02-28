@@ -439,9 +439,13 @@ void rm_frame_var_lock(struct narrow_frame* frame, struct found_variable* v) {
  * 
 */
 
+// calculates address given two ranges and a local address
+/*uint8_t* get_remote_addr()*/
+
 // for debugging, prints a full frame including pointers to see what's getting corrupted. use before and after removal.
 void p_frame_var(struct narrow_frame* frame) {
     for (struct found_variable* v = frame->tracked_vars; v; v = v->next) {
+        /*printf("%", v->);*/
         printf("%p->", (void*)v);
     }
     printf("\\0\n");
@@ -551,16 +555,24 @@ void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
 //  3. make note that this function is not threadsafe
 //
 void renarrow_frame_rm_next(struct narrow_frame* frame, void* value, uint16_t valsz) {
+    #if 0
     if (!frame->tracked_vars) {
         return;
     }
     if (memcmp(frame->tracked_vars->address, value, valsz)) {
         rm_next_frame_var_unsafe(frame, NULL, 1);
         // recurse in case updated first value is a removal candidate
-        /*puts("recursing after removal of idx 0");*/
         renarrow_frame_rm_next(frame, value, valsz);
     }
-    for (struct found_variable* v = frame->tracked_vars; v && v->next; v = v->next) {
+    #endif
+    /*
+     * rethink this, the above shouldn't recurse, it should be captured in this loop
+     * and we should iterate until we remove all variables. 
+     * we need a special condition for removal of idx 0!
+    */
+    int n_rem = 0;
+    _Bool removed = 0;
+    for (struct found_variable* v = frame->tracked_vars; v && v->next; v = (removed) ? v : v->next) {
         /*printf("sz: %i, checking %p, %i == %i\n", frame->n_tracked, (void*)v->next, valsz, v->next->len);*/
         assert(valsz == v->next->len);
         /*
@@ -568,11 +580,23 @@ void renarrow_frame_rm_next(struct narrow_frame* frame, void* value, uint16_t va
          * v->next may be getting corrupted during removal somehow
         */
 
+        removed = 0;
         if (memcmp(v->next->address, value, valsz)) {
             rm_next_frame_var_unsafe(frame, v, 0);
+            removed = 1;
+            ++n_rem;
         }
+        /*ah, i think i see. we're skipping over half of our list somehow*/
+        // yep, this is because we remove v->next, then set v to v->next. V SHOULD STAY CONSTANT AFTER REMOVAL
         // is there a chance that we need to rm idx 0 at the end?
     }
+    printf("removed %i in main loop\n", n_rem);
+    n_rem = 0;
+    if (frame->tracked_vars && memcmp(frame->tracked_vars->address, value, valsz)) {
+        rm_next_frame_var_unsafe(frame, NULL, 1);
+        ++n_rem;
+    }
+    printf("removed %i in cleanup\n", n_rem);
 }
 
 /* narrows variables in memory of all  */
