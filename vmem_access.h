@@ -121,6 +121,8 @@ void add_frame(struct mem_map_optimized* m, char* label);
 void p_frame_var(struct narrow_frame* frame);
 void insert_frame_var_lock(struct narrow_frame* frame, uint8_t* address, uint8_t len);
 void rm_frame_var_lock(struct narrow_frame* frame, struct found_variable* v);
+//_Bool rm_next_frame_var(struct narrow_frame* frame, struct found_variable* v, struct found_variable* rm_first);
+void rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first);
 
 /* ~~~~~~~~~~~~~~~~end optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
 
