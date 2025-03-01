@@ -132,7 +132,6 @@ uint8_t* get_remote_addr(struct mem_map_optimized* m, struct found_variable* v);
     { \
         char pstr[32] = "%p: %"; \
         sprintf(pstr + 5, "%s\n", fmtstr); \
-        puts(pstr); \
         for (struct found_variable* v = f->tracked_vars; v; v = v->next) { \
             if (!strncmp(fmtstr, "s", 1)) { \
                 printf(pstr, get_remote_addr(m, v), (char*)v->address); \
