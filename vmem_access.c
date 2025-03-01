@@ -380,7 +380,7 @@ uint8_t* get_remote_addr(struct mem_map_optimized* m, struct found_variable* v) 
 }
 
 // for debugging, prints a full frame including pointers to see what's getting corrupted. use before and after removal.
-void p_frame_var(struct mem_map_optimized* m, struct narrow_frame* frame) {
+void _p_frame_var(struct mem_map_optimized* m, struct narrow_frame* frame) {
     for (struct found_variable* v = frame->tracked_vars; v; v = v->next) {
         /*printf("%", v->);*/
         printf("%p\n", get_remote_addr(m, v));
@@ -419,7 +419,7 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
             /*puts("found a match!");*/
             insert_frame_var(frame, first_byte_match, valsz);
             if (valsz != 4) {
-                printf("inserting valsz of %i\n", valsz);
+                /*printf("inserting valsz of %i\n", valsz);*/
             }
             /*insert_frame_var_lock(frame, first_byte_match, valsz);*/
             i_rgn = first_byte_match + valsz;

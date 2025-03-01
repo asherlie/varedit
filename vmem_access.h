@@ -121,11 +121,26 @@ void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* 
 void init_mem_map_opt(struct mem_map_optimized* m);
 void add_frame(struct mem_map_optimized* m, char* label);
 
-void p_frame_var(struct mem_map_optimized* m, struct narrow_frame* frame);
+//void p_frame_var(struct mem_map_optimized* m, struct narrow_frame* frame);
 void insert_frame_var_lock(struct narrow_frame* frame, uint8_t* address, uint8_t len);
 void rm_frame_var_lock(struct narrow_frame* frame, struct found_variable* v);
 //_Bool rm_next_frame_var(struct narrow_frame* frame, struct found_variable* v, struct found_variable* rm_first);
 void rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first);
+uint8_t* get_remote_addr(struct mem_map_optimized* m, struct found_variable* v);
+
+#define p_frame_var(m, f, fmtstr, type) \
+    { \
+        char pstr[32] = "%p: %"; \
+        sprintf(pstr + 5, "%s\n", fmtstr); \
+        puts(pstr); \
+        for (struct found_variable* v = f->tracked_vars; v; v = v->next) { \
+            if (!strncmp(fmtstr, "s", 1)) { \
+                printf(pstr, get_remote_addr(m, v), (char*)v->address); \
+            } else { \
+                printf(pstr, get_remote_addr(m, v), *((type*)v->address)); \
+            } \
+        } \
+    }
 
 /* ~~~~~~~~~~~~~~~~end optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
 
