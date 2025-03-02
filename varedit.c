@@ -10,6 +10,10 @@
 // TODO: fix weird double frees. this program is so broken.
 // maybe rewrite from ground up to be fast, lock free, functional
 // i can probably use vmem_access but rewrite varedit
+//
+// TODO: locks should be running in one thread - granularity can be updated for them
+//       just have a struct that stores many locks with address and value. one loop can set all of them
+//       periodically
 
 bool strtoi(const char* str, unsigned int* ui, int* i){
       char* res;
@@ -261,45 +265,92 @@ void find_var(pid_t pid) {
     struct mem_map_optimized m;
     char* ln = NULL;
     size_t sz;
+    ssize_t ln_len;
     int val = 54;
     _Bool heap, stack, other;
     init_mem_map_opt(&m);
     add_frame(&m, "test frame");
     m.rgn = get_vmem_locations(pid, 1);
 
-    #if 0
-    for (uint64_t i = 0; i < 100; ++i) {
-        insert_frame_var_lock(&m.frames[0], (uint8_t*)i, 99);
-    }
-    for (struct found_variable* v = m.frames[0].tracked_vars; v; v = v->next) {
-        if (!((int)v->address % 2)) {
-            rm_frame_var_lock(&m.frames[0], v);
-        }
-    }
-
-    /*ok, this seems to be working... might need to just fix narrow, seems like that might be the problem*/
-    /*
-     * rm_frame_var_lock(&m.frames[0], m.frames[0].tracked_vars->next->next);
-     * rm_frame_var_lock(&m.frames[0], m.frames[0].tracked_vars->next);
-     * rm_frame_var_lock(&m.frames[0], m.frames[0].tracked_vars);
-    */
-    p_frame_var(&m.frames[0]);
-
-    return;
-    ok... fixed!
-    #endif
-
     while (1) {
-        /*omg, it's nont fucking owrking at all now*/
-        getline(&ln, &sz, stdin);
+        ln_len = getline(&ln, &sz, stdin);
+        ln[ln_len-1] = 0;
         val = atoi(ln);
+        /*hmm, for some reason we're failing to repopulate with strings only*/
         if (!populate_mem_map_opt(&m, 1, 1, 1)) {
+            puts("failed to populate, exiting.");
             break;
         }
-        narrow_mem_map_frame_opt(&m, &m.frames[0], 1, &val, 4, &heap, &stack, &other);
-        printf("%i %i %i - %i total matches for %i!\n", heap, stack, other, m.frames[0].n_tracked, val);
+        /*narrow_mem_map_frame_opt(&m, &m.frames[0], 1, &val, 4, &heap, &stack, &other);*/
+        narrow_mem_map_frame_opt(&m, &m.frames[0], 1, ln, strlen(ln) - 1, &heap, &stack, &other);
+        /*printf("%i %i %i - %i total matches for %i!\n", heap, stack, other, m.frames[0].n_tracked, val);*/
+        printf("%i %i %i - %i total matches for \"%s\"!\n", heap, stack, other, m.frames[0].n_tracked, ln);
+        (void)val;
         if (m.frames[0].n_tracked <= 33) {
-            p_frame_var(&m, &m.frames[0]);
+            /*p_frame_var(&m, &m.frames[0]);*/
+            p_frame_var(&m, (&m.frames[0]), "s", char*);
+            p_frame_var(&m, (&m.frames[0]), "f", float);
+        }
+    }
+}
+
+/*
+ * we'll:
+ *  getline()
+ *
+ *  mode agnostic:
+     *  update - just prints all vars in current frame, doesn't narrow
+     *  frame operations?
+     *      create frame? create frame with name
+     *      remove frame? rm frame
+     *      swap frame? switch to idx or label
+
+ *  search mode?
+     *  check type - isalnum()? string
+     *  has a decimal point? float
+     *  ends with a D? double
+     *  ends with an L? long
+     *  isnum()? int
+ *
+ * edit mode?
+ *      lock? lock
+ *      wa - write all
+ *      w <idx> val
+ * edit mode?
+ */
+enum i_mode { SEARCH, EDIT };
+
+_Bool interactive_mode_opt(struct mem_map_optimized* m) {
+    char* ln = NULL;
+    size_t sz;
+    ssize_t ln_len;
+    enum i_mode mode = SEARCH;
+    struct narrow_frame* frame = m->frames;
+    while (1) {
+        ln_len = getline(&ln, &sz, stdin);
+        ln[ln_len - 1] = 0;
+        
+        // handle frame operations and mode switches here
+        if (*ln == '/') {
+            switch(ln[1]) {
+                case 'f':
+                    printf("current frame: \"%s\"\n", frame->label);
+                    break;
+                case 's':
+                    mode = SEARCH;
+                    break;
+                case 'e':
+                    mode = EDIT;
+                    break;
+            }
+        }
+        switch(mode) {
+            case SEARCH:
+                puts("srch");
+                break;
+            case EDIT:
+                puts("edit");
+                break;
         }
     }
 }
@@ -780,14 +831,23 @@ int main(int argc, char* argv[]){
       }
 
       // for testing - inserting this right after grabbing pid
-      find_var(pid);
-      return 0;
+      /*
+       * find_var(pid);
+       * return 0;
+      */
 
       // default to stack, heap and additional if no region is specified
       if(d_rgn == NONE && !additional){
             d_rgn = BOTH;
             additional = true;
       }
+
+      struct mem_map_optimized mm;
+      init_mem_map_opt(&mm);
+      // TODO: this should probably be added to init function
+      mm.rgn = get_vmem_locations(pid, 1);
+      add_frame(&mm, "DEFAULT");
+
       struct mem_map vmem;
       mem_map_init(&vmem, pid, unmarked);
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.c, too many regions are being recorded
@@ -828,6 +888,7 @@ int main(int argc, char* argv[]){
             else if(!not_run)write_str_to_pid_mem(pid, addr, argv[args[1]]);
       }
       else if(mode == 'i'){
+            interactive_mode_opt(&mm);
             if(interactive_mode(&vmem, integers, n_bytes, d_rgn, additional, verbose, result_print_limit, print_rgns))
                   free_mem_map(&vmem);
       }
