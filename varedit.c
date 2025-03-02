@@ -1,4 +1,5 @@
 #include <string.h>
+#include <ctype.h>
 #include "ashio.h"
 
 #ifdef shared
@@ -306,7 +307,8 @@ void find_var(pid_t pid) {
      *      swap frame? switch to idx or label
 
  *  search mode?
-     *  check type - isalnum()? string
+     *  check type 
+     *  begins and ends with " ? string
      *  has a decimal point? float
      *  ends with a D? double
      *  ends with an L? long
@@ -320,15 +322,82 @@ void find_var(pid_t pid) {
  */
 enum i_mode { SEARCH, EDIT };
 
+/* returns whether a string was found so we know whether to print a string */
+// TODO: support doubles, longs
+void* str_to_val(char* str, ssize_t len, uint16_t* valsz, _Bool* found_str) {
+    _Bool dec = 0, d_found = 0, l_found = 0;
+    char* endptr;
+    void* ret = NULL;
+
+    *found_str = 0;
+    if (*str == '"' && str[len-1] == '"') {
+        str[len-1] = 0;
+        *valsz = len;
+        *found_str = 1;
+        // TODO: make a copy, this is really bad for multiple reasons
+        return str + 1;
+    }
+    if (isalpha(str[len-1])) {
+        if (str[len-1] == 'D') {
+           d_found = 1; 
+        } else if (str[len-1] == 'L') {
+           l_found = 1; 
+        }
+        str[len-1] = 0;
+    }
+    for (ssize_t i = 0; i < len; ++i) {
+        /* exit before handling the \0 we inserted above */
+        if (!str[i]) {
+            break;
+        }
+        if (str[i] == '.') {
+            dec = 1;
+            puts("found dec");
+            break;
+        }
+    }
+
+    if (d_found) {
+        *valsz = sizeof(double);
+        double d = strtod(str, &endptr);
+        ret = malloc(*valsz);
+        memcpy(ret, &d, *valsz);
+        if (endptr == str) {
+            puts("FAILED TO CONV");
+        }
+    } else if (dec){
+        // handle regular floats
+        *valsz = sizeof(float);
+        ret = malloc(*valsz);
+        float f = strtof(str, &endptr);
+        memcpy(ret, &f, *valsz);
+    } else {
+        *valsz = sizeof(int);
+        if (l_found) {
+            *valsz = sizeof(long);
+        }
+        ret = malloc(*valsz);
+        long li = strtol(str, &endptr, 10);
+        memcpy(ret, &li, *valsz);
+    }
+
+    return ret;
+}
+
 _Bool interactive_mode_opt(struct mem_map_optimized* m) {
     char* ln = NULL;
     size_t sz;
     ssize_t ln_len;
     enum i_mode mode = SEARCH;
+    uint8_t n_threads = 1;
+    _Bool stack, heap, other, found_str = 1;
     struct narrow_frame* frame = m->frames;
+
+    void* val;
+    uint16_t valsz;
     while (1) {
         ln_len = getline(&ln, &sz, stdin);
-        ln[ln_len - 1] = 0;
+        ln[--ln_len] = 0;
         
         // handle frame operations and mode switches here
         if (*ln == '/') {
@@ -342,11 +411,27 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                 case 'e':
                     mode = EDIT;
                     break;
+                // this is a temp case to show how we'll print
+                case 'l':
+                    if (found_str) {
+                        p_frame_var(m, frame, "%s", char*);
+                    } else {
+                        p_frame_var(m, frame, "%i", int); 
+                    }
+                    break;
             }
         }
         switch(mode) {
             case SEARCH:
-                puts("srch");
+                if (!populate_mem_map_opt(m, 1, 1, 1)) {
+                    puts("failed to (re)populate");
+                }
+                val = str_to_val(ln, ln_len, &valsz, &found_str);
+                printf("narrowing with value: %p\n", val);
+                if (val) {
+                    narrow_mem_map_frame_opt(m, frame, n_threads, val, valsz, &heap, &stack, &other);
+                    printf("narrowed down to %i values\n", frame->n_tracked);
+                }
                 break;
             case EDIT:
                 puts("edit");
@@ -845,8 +930,8 @@ int main(int argc, char* argv[]){
       struct mem_map_optimized mm;
       init_mem_map_opt(&mm);
       // TODO: this should probably be added to init function
-      mm.rgn = get_vmem_locations(pid, 1);
       add_frame(&mm, "DEFAULT");
+      mm.rgn = get_vmem_locations(pid, 1);
 
       struct mem_map vmem;
       mem_map_init(&vmem, pid, unmarked);
