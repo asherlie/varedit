@@ -1,5 +1,8 @@
 #include <string.h>
 #include <ctype.h>
+#include <stdio.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 #include "ashio.h"
 
 #ifdef shared
@@ -386,7 +389,6 @@ void* str_to_val(char* str, ssize_t len, uint16_t* valsz, _Bool* found_str) {
 
 _Bool interactive_mode_opt(struct mem_map_optimized* m) {
     char* ln = NULL;
-    size_t sz;
     ssize_t ln_len;
     enum i_mode mode = SEARCH;
     uint8_t n_threads = 1;
@@ -396,8 +398,14 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
     void* val;
     uint16_t valsz;
     while (1) {
-        ln_len = getline(&ln, &sz, stdin);
-        ln[--ln_len] = 0;
+        /*ln_len = getline(&ln, &sz, stdin);*/
+        ln = readline("I-mode ");
+        ln_len = strlen(ln);
+        /*
+         * if (ln[ln_len-1] == '\n') {
+         *     ln[--ln_len] = 0;
+         * }
+        */
         
         // handle frame operations and mode switches here
         if (*ln == '/') {
@@ -411,15 +419,19 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                 case 'e':
                     mode = EDIT;
                     break;
+                case 'u':
+                    populate_mem_map_opt(m, 1, 1, 1);
+                    // fall through
                 // this is a temp case to show how we'll print
                 case 'l':
                     if (found_str) {
-                        p_frame_var(m, frame, "%s", char*);
+                        p_frame_var(m, frame, "s", char*);
                     } else {
-                        p_frame_var(m, frame, "%i", int); 
+                        p_frame_var(m, frame, "i", int); 
                     }
                     break;
             }
+            continue;
         }
         switch(mode) {
             case SEARCH:
