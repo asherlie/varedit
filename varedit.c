@@ -397,10 +397,16 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
 
     void* val;
     uint16_t valsz;
+
+    // enable readline history
+    using_history();
+
     while (1) {
         /*ln_len = getline(&ln, &sz, stdin);*/
         ln = readline("I-mode ");
         ln_len = strlen(ln);
+
+        add_history(ln);
         /*
          * if (ln[ln_len-1] == '\n') {
          *     ln[--ln_len] = 0;
@@ -430,6 +436,12 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                         p_frame_var(m, frame, "i", int); 
                     }
                     break;
+                case 'w':
+                    val = str_to_val(ln + 3, ln_len - 3, &valsz, &found_str);
+                    for (struct found_variable* v = frame->tracked_vars; v; v = v->next) {
+                        write_bytes_to_pid_mem(m->rgn.pid, valsz, (void*)get_remote_addr(m, v), (BYTE*)val);
+                    }
+                    break;
             }
             continue;
         }
@@ -449,6 +461,7 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                 puts("edit");
                 break;
         }
+        free(ln);
     }
 }
 
