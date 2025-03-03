@@ -327,16 +327,15 @@ enum i_mode { SEARCH, EDIT };
 
 /* returns whether a string was found so we know whether to print a string */
 // TODO: support doubles, longs
-void* str_to_val(char* str, ssize_t len, uint16_t* valsz, _Bool* found_str) {
+void* str_to_val(char* str, ssize_t len, uint16_t* valsz, enum type_found* found) {
     _Bool dec = 0, d_found = 0, l_found = 0;
     char* endptr;
     void* ret = NULL;
 
-    *found_str = 0;
     if (*str == '"' && str[len-1] == '"') {
         str[len-1] = 0;
         *valsz = len;
-        *found_str = 1;
+        *found = STRING;
         // TODO: make a copy, this is really bad for multiple reasons
         return str + 1;
     }
@@ -363,6 +362,7 @@ void* str_to_val(char* str, ssize_t len, uint16_t* valsz, _Bool* found_str) {
     if (d_found) {
         *valsz = sizeof(double);
         double d = strtod(str, &endptr);
+        *found = DOUBLE;
         ret = malloc(*valsz);
         memcpy(ret, &d, *valsz);
         if (endptr == str) {
@@ -373,11 +373,15 @@ void* str_to_val(char* str, ssize_t len, uint16_t* valsz, _Bool* found_str) {
         *valsz = sizeof(float);
         ret = malloc(*valsz);
         float f = strtof(str, &endptr);
+        *found = FLOAT;
         memcpy(ret, &f, *valsz);
     } else {
         *valsz = sizeof(int);
         if (l_found) {
             *valsz = sizeof(long);
+            *found = LONG;
+        } else {
+            *found = INT;
         }
         ret = malloc(*valsz);
         long li = strtol(str, &endptr, 10);
@@ -387,12 +391,29 @@ void* str_to_val(char* str, ssize_t len, uint16_t* valsz, _Bool* found_str) {
     return ret;
 }
 
+void frame_operation(struct mem_map_optimized* m, char* arg) {
+    switch(arg[2]) {
+        // /f frame create
+        case 'c':
+            add_frame(m, arg + 4);
+            break;
+        default:
+        // /fl frame list
+        case 'l':
+            printf("%i frames\n", m->n_frames);
+            for (struct narrow_frame* f = m->frames; f; f = f->next) {
+                printf("\"%s\" - tracking %i %s variables\n", f->label, f->n_tracked, type_to_str(f->current_type));
+            }
+            break;
+    }
+}
+
 _Bool interactive_mode_opt(struct mem_map_optimized* m) {
     char* ln = NULL;
     ssize_t ln_len;
     enum i_mode mode = SEARCH;
     uint8_t n_threads = 1;
-    _Bool stack, heap, other, found_str = 1;
+    _Bool stack, heap, other;
     struct narrow_frame* frame = m->frames;
 
     void* val;
@@ -403,7 +424,7 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
 
     while (1) {
         /*ln_len = getline(&ln, &sz, stdin);*/
-        ln = readline("I-mode ");
+        ln = readline("ve ~> ");
         ln_len = strlen(ln);
 
         add_history(ln);
@@ -414,10 +435,21 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
         */
         
         // handle frame operations and mode switches here
+        // TODO: need to be able to create and switch between frames
+        // this will let us print out frame labels and switch between them!
+        // each frame will have a diff thing i can manipulate like money, missiles, etc.!
+        // TODO: add a feature to set all values in a frame to a certain value - like:
+        //  /frameset health 30
+        //  /frameset money 99999
         if (*ln == '/') {
             switch(ln[1]) {
+                // reset
+                case 'r':
+                    /*frame->*/
+                    break;
                 case 'f':
                     printf("current frame: \"%s\"\n", frame->label);
+                    frame_operation(m, ln);
                     break;
                 case 's':
                     mode = SEARCH;
@@ -430,14 +462,25 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                     // fall through
                 // this is a temp case to show how we'll print
                 case 'l':
-                    if (found_str) {
+                    /*
+                     * change f str to enum fir type! print floats and longs doubles etc. ALSO
+                     * store most recent search type to mark frame type in frame ops!
+                     * recent will change with writes too,. maybe change it from here directly!@
+                    */
+                    if (frame->current_type == STRING) {
                         p_frame_var(m, frame, "s", char*);
-                    } else {
+                    } else if (frame->current_type == INT){
                         p_frame_var(m, frame, "i", int); 
+                    } else if (frame->current_type == FLOAT){
+                        p_frame_var(m, frame, "f", float); 
+                    } else if (frame->current_type == DOUBLE){
+                        p_frame_var(m, frame, "lf", double); 
+                    } else if (frame->current_type == LONG){
+                        p_frame_var(m, frame, "li", long); 
                     }
                     break;
                 case 'w':
-                    val = str_to_val(ln + 3, ln_len - 3, &valsz, &found_str);
+                    val = str_to_val(ln + 3, ln_len - 3, &valsz, &frame->current_type);
                     for (struct found_variable* v = frame->tracked_vars; v; v = v->next) {
                         write_bytes_to_pid_mem(m->rgn.pid, valsz, (void*)get_remote_addr(m, v), (BYTE*)val);
                     }
@@ -450,9 +493,11 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                 if (!populate_mem_map_opt(m, 1, 1, 1)) {
                     puts("failed to (re)populate");
                 }
-                val = str_to_val(ln, ln_len, &valsz, &found_str);
+                val = str_to_val(ln, ln_len, &valsz, &frame->current_type);
                 printf("narrowing with value: %p\n", val);
                 if (val) {
+                    // hmm, narrowing after a string search is broken
+                    // AH! it's because len is unequal! for strings we'll need a special case
                     narrow_mem_map_frame_opt(m, frame, n_threads, val, valsz, &heap, &stack, &other);
                     printf("narrowed down to %i values\n", frame->n_tracked);
                 }
