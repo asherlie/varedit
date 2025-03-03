@@ -218,9 +218,8 @@ void insert_i_map(struct i_mmap_map* imm, void* addr, int* value){
 
 void init_frames(struct mem_map_optimized* m) {
     m->n_frames = 0;
-    m->frame_cap = 5;
+    m->frames = NULL;
     // this must be zeroed for NULL first frame
-    m->frames = malloc(sizeof(struct narrow_frame) * m->frame_cap);
 }
 
 void init_mem_map_opt(struct mem_map_optimized* m) {
@@ -290,16 +289,14 @@ _Bool populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap,
 // TODO: write this code - should be a linked list. no need to be threadsafe, this will only be called
 // from the main thread in varedit
 void add_frame(struct mem_map_optimized* m, char* label) {
+    struct narrow_frame* f = malloc(sizeof(struct narrow_frame));
+    f->n_tracked = 0;
+    strncpy(f->label, label, sizeof(f->label) - 1);
+    f->next = m->frames;
+    f->tracked_vars = NULL;
+    f->current_type = NONE_T;
+    m->frames = f;
     ++m->n_frames;
-    if (m->n_frames == m->frame_cap) {
-        puts("GOTTA RESIZE");
-        return;
-    }
-    m->frames[m->n_frames - 1].n_tracked = 0;
-    strncpy(m->frames[m->n_frames - 1].label, label, sizeof(m->frames[0].label) - 1);
-    m->frames[m->n_frames - 1].tracked_vars = NULL;
-    pthread_mutex_init(&m->frames[m->n_frames - 1].lock, NULL);
-    printf("created frame \"%s\" in idx %i\n", label, m->n_frames - 1);
 }
 
 /*
@@ -446,6 +443,8 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
 void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
     _Bool removed = 0;
     for (struct found_variable* v = frame->tracked_vars; v && v->next; v = (removed) ? v : v->next) {
+        // TODO: this may not hold true when it comes to strings
+        //       for strings, scrap this assertion and memcmp with the smaller size
         assert(valsz == v->next->len);
 
         removed = 0;
