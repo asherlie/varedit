@@ -83,6 +83,8 @@ struct found_variable{
  * array would occupy less total memory at its peak, however
  * try LL for now.
  */
+
+enum type_found { NONE_T, STRING, INT, LONG, FLOAT, DOUBLE };
 // TODO: make this a lock free linked list
 struct narrow_frame{
     char label[16];
@@ -90,12 +92,12 @@ struct narrow_frame{
     // TODO: tracked variables must be abled to get linked back to the vmem of external process
     _Atomic (struct found_variable*) tracked_vars;
     _Atomic int n_tracked;
-
-    // TODO: initialize this
-    /* this is only used for the creation of new frames
-     * TODO: remove this lock and make frame creation lock free
+    /* type can change over time with new searches or writes - this only records
+     * type from the most recent operation
      */
-    pthread_mutex_t lock;
+    enum type_found current_type;
+
+    struct narrow_frame* next;
 };
 
 // we'll be using named frames to keep track of different collections of tracked variables
@@ -110,7 +112,7 @@ struct mem_map_optimized{
     //uint8_t n_other;
 
     struct narrow_frame* frames;
-    int n_frames, frame_cap;
+    int n_frames;
 };
 
 _Bool populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other);
@@ -127,6 +129,30 @@ void rm_frame_var_lock(struct narrow_frame* frame, struct found_variable* v);
 //_Bool rm_next_frame_var(struct narrow_frame* frame, struct found_variable* v, struct found_variable* rm_first);
 void rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first);
 uint8_t* get_remote_addr(struct mem_map_optimized* m, struct found_variable* v);
+
+static inline char* type_to_str(enum type_found t) {
+    switch(t) {
+        case STRING:
+            return "STRING";
+            break;
+        case INT:
+            return "INT";
+            break;
+        case LONG:
+            return "LONG";
+            break;
+        case FLOAT:
+            return "FLOAT";
+            break;
+        case DOUBLE:
+            return "DOUBLE";
+            break;
+        case NONE_T:
+            return "NONE";
+            break;
+    }
+    return "NONE";
+}
 
 #define p_frame_var(m, f, fmtstr, type) \
     { \
