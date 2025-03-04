@@ -391,11 +391,39 @@ void* str_to_val(char* str, ssize_t len, uint16_t* valsz, enum type_found* found
     return ret;
 }
 
-void frame_operation(struct mem_map_optimized* m, char* arg) {
+// this is bad, we shouldn't be doing this over and over while iterating. this needs to be two functions still
+// convert, write. this way we can keep all these args out of here too - just have this take in
+// m, v, vsz
+//
+// have caller get val from raw string.
+void write_var(struct mem_map_optimized* m, void* val, int valsz, struct found_variable* v) {
+/*
+ *     uint16_t valsz;
+ *     void* val;
+ * 
+ *     printf("converting %s\n", raw_str);
+ *     val = str_to_val(raw_str, strlen, &valsz, t);
+*/
+    write_bytes_to_pid_mem(m->rgn.pid, valsz, (void*)get_remote_addr(m, v), (BYTE*)val);
+}
+
+void frame_operation(struct mem_map_optimized* m, struct narrow_frame** current_frame, char* arg, int arglen) {
+    void* write_val;
+    uint16_t valsz;
     switch(arg[2]) {
         // /f frame create
         case 'c':
             add_frame(m, arg + 4);
+            break;
+        // /fs frame select
+        case 's':
+            break;
+        // /fw frame write
+        case 'w':
+            write_val = str_to_val(arg + 4, arglen - 4, &valsz, &(*current_frame)->current_type);
+            for (struct found_variable* v = (*current_frame)->tracked_vars; v; v = v->next) {
+                write_var(m, write_val, valsz, v);
+            }
             break;
         default:
         // /fl frame list
@@ -449,7 +477,7 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                     break;
                 case 'f':
                     printf("current frame: \"%s\"\n", frame->label);
-                    frame_operation(m, ln);
+                    frame_operation(m, &frame, ln, ln_len);
                     break;
                 case 's':
                     mode = SEARCH;
@@ -482,7 +510,8 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                 case 'w':
                     val = str_to_val(ln + 3, ln_len - 3, &valsz, &frame->current_type);
                     for (struct found_variable* v = frame->tracked_vars; v; v = v->next) {
-                        write_bytes_to_pid_mem(m->rgn.pid, valsz, (void*)get_remote_addr(m, v), (BYTE*)val);
+                        /*write_bytes_to_pid_mem(m->rgn.pid, valsz, (void*)get_remote_addr(m, v), (BYTE*)val);*/
+                        write_var(m, val, valsz, v);
                     }
                     break;
             }
