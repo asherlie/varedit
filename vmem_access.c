@@ -400,6 +400,7 @@ void _p_frame_var(struct mem_map_optimized* m, struct narrow_frame* frame) {
 */
 
 // this is used only for initial narrow! after this, we can just inspect our linked list
+// TODO: rename this function to be create frame or similar - that's what it does. renarrow() should be narrow
 uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t* start_rgn, uint8_t* end_rgn, void* value, uint16_t valsz) {
     uint64_t n_matches = 0;
     uint8_t* first_byte_match = start_rgn;
@@ -461,6 +462,15 @@ void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
     }
 }
 
+/* either calls directly OR spawns n_threads to run a narrow */
+/* 0 is only passed in if regions are to be narrowed sequentially - NOT RECOMMENDED */
+_Bool narrow_mmo_sub_spawner(struct narrow_frame* frame, uint8_t n_threads, uint8_t* start, uint8_t* end, void* value, uint16_t valsz) {
+    if (n_threads == 0) {
+        return narrow_mem_map_frame_opt_subroutine(frame, start, end, value, valsz);
+    }
+    return 0;
+}
+
 /* narrows variables in memory of all  */
 // TODO: get multithreading working with this function
 void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* frame, uint8_t n_threads, void* value, uint16_t valsz, 
@@ -475,24 +485,23 @@ void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* 
     }
 
     // TODO: implement multithreaded narrowing!
-    assert(n_threads == 1);
+    /*assert(n_threads == 1);*/
+    // n_threads is really threads per region
 
+    // TODO: replace address math with rgn_len()
     if (m->stack) {
-        if (narrow_mem_map_frame_opt_subroutine(frame, m->stack, m->stack + ((uint8_t*)m->rgn.stack.end - (uint8_t*)m->rgn.stack.start),
-                                            value, valsz)) {
+        if (narrow_mmo_sub_spawner(frame, n_threads, m->stack, m->stack + rgn_len(&m->rgn.stack), value, valsz)) {
             *stack_match = 1;
         }
     }
     if (m->heap) {
-        if (narrow_mem_map_frame_opt_subroutine(frame, m->heap, m->heap+ ((uint8_t*)m->rgn.heap.end - (uint8_t*)m->rgn.heap.start),
-                                            value, valsz)) {
+        if (narrow_mmo_sub_spawner(frame, n_threads, m->heap, m->heap + rgn_len(&m->rgn.heap), value, valsz)) {
             *heap_match = 1;
         }
     }
     if (m->other) {
         for (int i = 0; i < m->rgn.n_remaining; ++i) {
-            if (narrow_mem_map_frame_opt_subroutine(frame, m->other[i], 
-                m->other[i] + ((uint8_t*)m->rgn.remaining_addr[i].end - (uint8_t*)m->rgn.remaining_addr[i].start), value, valsz)) {
+            if (narrow_mmo_sub_spawner(frame, n_threads, m->other[i], m->other[i] + rgn_len(&m->rgn.remaining_addr[i]), value, valsz)) {
                 *other_match = 1;
             }
         }
