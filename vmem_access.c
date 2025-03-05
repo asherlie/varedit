@@ -350,6 +350,8 @@ void rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable*
  * variables, the cost of looking this up for each variable is insignificant once we've
  * sufficiently narrowed
 */
+// TODO: this can easily be updated to return which region we're working with
+// so it can be printed for user per variable
 uint8_t* get_remote_addr(struct mem_map_optimized* m, struct found_variable* v) {
     uint8_t* local_rgn_end = NULL;
     struct m_addr_pair* remote_rgn;
@@ -429,6 +431,21 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
     return n_matches;
 }
 
+struct narrow_mmo_sub_args{
+    struct narrow_frame* frame;
+    uint8_t* start_rgn;
+    uint8_t* end_rgn;
+    void* value;
+    uint16_t valsz;
+};
+
+void* narrow_mmo_sub_wrapper(void* varg) {
+    struct narrow_mmo_sub_args arg;
+    memcpy(&arg, varg, sizeof(struct narrow_mmo_sub_args));
+    narrow_mem_map_frame_opt_subroutine(arg.frame, arg.start_rgn, arg.end_rgn, arg.value, arg.valsz);
+    return NULL;
+}
+
 
 // i don't believe there's any concurrency risk with iterating over this simply
 // only one thread will be doing the renarrowing and this is strictly later than initial narrow occurs
@@ -464,11 +481,27 @@ void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
 
 /* either calls directly OR spawns n_threads to run a narrow */
 /* 0 is only passed in if regions are to be narrowed sequentially - NOT RECOMMENDED */
-_Bool narrow_mmo_sub_spawner(struct narrow_frame* frame, uint8_t n_threads, uint8_t* start, uint8_t* end, void* value, uint16_t valsz) {
+pthread_t* narrow_mmo_sub_spawner(struct narrow_frame* frame, uint8_t n_threads, uint8_t* start,
+                                  uint8_t* end, void* value, uint16_t valsz) {
+    /* malloc(0) can be free()d - see man 3 malloc */
+    pthread_t* pth = malloc(sizeof(pthread_t) * n_threads);
+    struct narrow_mmo_sub_args arg;
     if (n_threads == 0) {
-        return narrow_mem_map_frame_opt_subroutine(frame, start, end, value, valsz);
+        narrow_mem_map_frame_opt_subroutine(frame, start, end, value, valsz);
+        free(pth);
+        return NULL;
     }
-    return 0;
+
+    arg.frame = frame;
+    arg.start_rgn = start;
+    arg.value = value;
+    arg.valsz = valsz;
+
+    for (uint8_t i = 0; i < n_threads; ++i) {
+    /*iterate, increment start_rgn and end_rgn by same amount each iteration to ensure that it ends up on last address!*/
+        pthread_create(pth + i, NULL, narrow_mmo_sub_wrapper, &arg);
+    }
+    return pth;
 }
 
 /* narrows variables in memory of all  */
