@@ -271,7 +271,6 @@ void find_var(pid_t pid) {
     size_t sz;
     ssize_t ln_len;
     int val = 54;
-    _Bool heap, stack, other;
     init_mem_map_opt(&m);
     add_frame(&m, "test frame");
     m.rgn = get_vmem_locations(pid, 1);
@@ -286,9 +285,9 @@ void find_var(pid_t pid) {
             break;
         }
         /*narrow_mem_map_frame_opt(&m, &m.frames[0], 1, &val, 4, &heap, &stack, &other);*/
-        narrow_mem_map_frame_opt(&m, &m.frames[0], 1, ln, strlen(ln) - 1, &heap, &stack, &other);
+        narrow_mem_map_frame_opt(&m, &m.frames[0], 1, ln, strlen(ln) - 1);
         /*printf("%i %i %i - %i total matches for %i!\n", heap, stack, other, m.frames[0].n_tracked, val);*/
-        printf("%i %i %i - %i total matches for \"%s\"!\n", heap, stack, other, m.frames[0].n_tracked, ln);
+        printf("%i total matches for \"%s\"!\n", m.frames[0].n_tracked, ln);
         (void)val;
         if (m.frames[0].n_tracked <= 33) {
             /*p_frame_var(&m, &m.frames[0]);*/
@@ -440,8 +439,8 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
     char* ln = NULL;
     ssize_t ln_len;
     enum i_mode mode = SEARCH;
-    uint8_t n_threads = 1;
-    _Bool stack, heap, other;
+    // TODO: ensure that thread number doesn't change found number of variables
+    uint8_t n_threads = 10;
     struct narrow_frame* frame = m->frames;
 
     void* val;
@@ -527,7 +526,7 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                 if (val) {
                     // hmm, narrowing after a string search is broken
                     // AH! it's because len is unequal! for strings we'll need a special case
-                    narrow_mem_map_frame_opt(m, frame, n_threads, val, valsz, &heap, &stack, &other);
+                    narrow_mem_map_frame_opt(m, frame, n_threads, val, valsz);
                     printf("narrowed down to %i values\n", frame->n_tracked);
                 }
                 break;
