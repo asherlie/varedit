@@ -302,6 +302,7 @@ void add_frame(struct mem_map_optimized* m, char* label) {
 /*
  * could just insert replacing frame_var with a copy that has a prev value
 */
+/*is this really threadsafe, seems not to be. */
 void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len) {
     /*pthread_mutex_lock(&frame->lock);*/
     struct found_variable* var = malloc(sizeof(struct found_variable));
@@ -312,12 +313,14 @@ void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len)
 
     while (1) {
         // ah, just understood why they do this for me. no need for updating this
+        // weirdly it crashes less often when i explicitly set var->next each iteration
+        // TODO: investigate if this is still a problem after fixing corrupted arg memory
         /*var->next = frame->tracked_vars;*/
         if (atomic_compare_exchange_strong(&frame->tracked_vars, &var->next, var)) {
             atomic_fetch_add(&frame->n_tracked, 1);
             break;
         }
-        puts("FAIled");
+        /*puts("FAIled");*/
     }
     /*printf("succesfully inserted a new frame var");*/
     /*pthread_mutex_unlock(&frame->lock);*/
@@ -401,6 +404,16 @@ void _p_frame_var(struct mem_map_optimized* m, struct narrow_frame* frame) {
  * 4: iterate through frame, pointers will have updated values automatically!
 */
 
+void* memmem_db(void* haystack, size_t hslen, void* needle, size_t needle_len) {
+    uint8_t* end = (uint8_t*)haystack + hslen;
+    for (uint8_t* i = (uint8_t*)haystack; i < end; ++i) {
+        if (!memcmp(i, needle, needle_len)) {
+            return i;
+        }
+    }
+    return NULL;
+}
+
 // this is used only for initial narrow! after this, we can just inspect our linked list
 // TODO: rename this function to be create frame or similar - that's what it does. renarrow() should be narrow
 uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t* start_rgn, uint8_t* end_rgn, void* value, uint16_t valsz) {
@@ -409,11 +422,34 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
     uint8_t* i_rgn = start_rgn;
     // this is only necessary on the first pass - we can know this by n_tracked!
     // until we exhaust all matches of first byte
-    for (; first_byte_match; first_byte_match = memchr(i_rgn, *((uint8_t*)value), end_rgn - i_rgn)) {
+    // TODO: potentially use memmem()
+    /*for (; first_byte_match; first_byte_match = memchr(i_rgn, *((uint8_t*)value), end_rgn - i_rgn)) {*/
+    // TODO: FIX THIS! memmem() is crashing when i_rgn[2] is bad memory, walk through this logic
+    // why might i_rgn[2] be corrupted? why does this only happen with multiple threads?
+    // who else could be writing to the underlying buffer? answer all these!
+    for (; first_byte_match && i_rgn < end_rgn; first_byte_match = memmem(i_rgn, end_rgn - i_rgn, value, valsz)) {
+    /*for (; first_byte_match; first_byte_match = memmem_db(i_rgn, end_rgn - i_rgn, value, valsz)) {*/
+        /*aha! part of the buffer is \0 followed by nothingness!*/
+        /*this is failing because accessing i_rgn[2] causes a segfault*/
+        if (0 && (uint64_t)first_byte_match % 1000 == 0) {
+            printf("mchr(%li / %li)\n", end_rgn - i_rgn, end_rgn - start_rgn);
+        }
         if (first_byte_match >= end_rgn) {
             /*ALSO need to exit once first_byte_match is not in our defined region. could cause concurrency issues.*/
             return n_matches;
         }
+        ++n_matches;
+        /*puts("found a match!");*/
+        insert_frame_var(frame, first_byte_match, valsz);
+        i_rgn = first_byte_match + valsz;
+        // thea bove could be causing the problem by incrementing i_rgn past valid memory
+        /*OH! check i_rgn + valsz?*/
+        // does this invalidate assumptions for boundary variables?
+        if (!(i_rgn < end_rgn && i_rgn > start_rgn)) {
+            puts("INVALID");
+            return n_matches;
+        }
+        #if 0
         if (!memcmp(first_byte_match, value, valsz)) {
             ++n_matches;
             /*puts("found a match!");*/
@@ -427,6 +463,11 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
             /*puts("incrementing i_rgn");*/
             i_rgn = first_byte_match + 1;
         }
+        #endif
+        /*
+         * printf("TRYING MCH for memchr(%p, %i, %li)\n", i_rgn, *((uint8_t*)value), end_rgn - i_rgn);
+         * printf("mchr: %p\n", memchr(i_rgn, *((uint8_t*)value), end_rgn - i_rgn));
+        */
     }
     return n_matches;
 }
@@ -440,9 +481,9 @@ struct narrow_mmo_sub_args{
 };
 
 void* narrow_mmo_sub_wrapper(void* varg) {
-    struct narrow_mmo_sub_args arg;
-    memcpy(&arg, varg, sizeof(struct narrow_mmo_sub_args));
-    narrow_mem_map_frame_opt_subroutine(arg.frame, arg.start_rgn, arg.end_rgn, arg.value, arg.valsz);
+    struct narrow_mmo_sub_args* arg = varg;
+    narrow_mem_map_frame_opt_subroutine(arg->frame, arg->start_rgn, arg->end_rgn, arg->value, arg->valsz);
+    free(arg);
     return NULL;
 }
 
@@ -483,33 +524,65 @@ void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
 /* 0 is only passed in if regions are to be narrowed sequentially - NOT RECOMMENDED */
 pthread_t* narrow_mmo_sub_spawner(struct narrow_frame* frame, uint8_t n_threads, uint8_t* start,
                                   uint8_t* end, void* value, uint16_t valsz) {
+    uint64_t addr_per_th;
+    uint8_t* running_start = start;
+    struct narrow_mmo_sub_args* targ;
+
     /* malloc(0) can be free()d - see man 3 malloc */
     pthread_t* pth = malloc(sizeof(pthread_t) * n_threads);
-    struct narrow_mmo_sub_args arg;
+
     if (n_threads == 0) {
         narrow_mem_map_frame_opt_subroutine(frame, start, end, value, valsz);
         free(pth);
         return NULL;
     }
 
-    arg.frame = frame;
-    arg.start_rgn = start;
-    arg.value = value;
-    arg.valsz = valsz;
+    addr_per_th = (end - start) / n_threads;
+    /*printf("addr_per_th: %li, should be a multiple of: %i\n", addr_per_th, valsz);*/
 
+    /*printf("start region: %p, end: %p\n", start, end);*/
+    /*oh shit, this needs to be in increments of valsz!*/
+    // this also could cause problems on boundaries of ranges - we can't memchr() for first byte match
+    // if it's on a boundary! OH! we can actually mark down if we found a first byte match at the end of a
+    // range!
+    // this would also make it so we don't need ranges of multiples of valsz
+
+    /* it is not necessary for addr_per_th to be a multiple of valsz
+     * if the first byte of a match is found by a narrow thread and the rest of that match
+     * lies on the other side of a boundary, the thread will still be okay to insert that value into
+     * the frame. this is perfectly safe, as no other thread will insert this duplicate
+     * since its first byte is behind their region's start. also, no writes are made to the buffer during
+     * initial narrowing.
+     */
     for (uint8_t i = 0; i < n_threads; ++i) {
     /*iterate, increment start_rgn and end_rgn by same amount each iteration to ensure that it ends up on last address!*/
-        pthread_create(pth + i, NULL, narrow_mmo_sub_wrapper, &arg);
+        /* in case of truncation during division, make sure to reach the end of memory region in last thread */
+        /*arg.end_rgn = arg.start_rgn + addr_per_th;*/
+        targ = malloc(sizeof(struct narrow_mmo_sub_args));
+        targ->frame = frame;
+        targ->start_rgn = running_start;
+        targ->value = value;
+        targ->valsz = valsz;
+        targ->end_rgn = targ->start_rgn + addr_per_th;
+
+        if (i == n_threads - 1) {
+            targ->end_rgn = end;
+        }
+        printf("spawned thread %i with %p -> %p\n", i, targ->start_rgn, targ->end_rgn);
+        /*pthread_create(pth + i, NULL, narrow_mmo_sub_wrapper, &arg);*/
+        pthread_create(pth + i, NULL, narrow_mmo_sub_wrapper, targ);
+        /*pthread_join(pth[i], NULL);*/
+
+        running_start = targ->end_rgn;
     }
     return pth;
 }
 
 /* narrows variables in memory of all  */
 // TODO: get multithreading working with this function
-void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* frame, uint8_t n_threads, void* value, uint16_t valsz, 
-                              _Bool* heap_match, _Bool* stack_match, _Bool* other_match) {
-
-    *heap_match = *stack_match = *other_match = 0;
+void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* frame, uint8_t n_threads, void* value, uint16_t valsz) {
+    int n_rgns;
+    pthread_t** rgn_threads;
 
     // if we already have a narrowed frame
     if (frame->n_tracked) {
@@ -520,23 +593,32 @@ void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* 
     // TODO: implement multithreaded narrowing!
     /*assert(n_threads == 1);*/
     // n_threads is really threads per region
+    n_rgns = (_Bool)m->stack + (_Bool)m->heap + m->rgn.n_remaining;
+    rgn_threads = calloc(n_rgns, sizeof(pthread_t*));
 
-    // TODO: replace address math with rgn_len()
     if (m->stack) {
-        if (narrow_mmo_sub_spawner(frame, n_threads, m->stack, m->stack + rgn_len(&m->rgn.stack), value, valsz)) {
-            *stack_match = 1;
-        }
+        puts("STACK");
+        rgn_threads[0] = narrow_mmo_sub_spawner(frame, n_threads, m->stack, m->stack + rgn_len(&m->rgn.stack), value, valsz);
     }
     if (m->heap) {
-        if (narrow_mmo_sub_spawner(frame, n_threads, m->heap, m->heap + rgn_len(&m->rgn.heap), value, valsz)) {
-            *heap_match = 1;
-        }
+        puts("HEAP");
+        rgn_threads[1] = narrow_mmo_sub_spawner(frame, n_threads, m->heap, m->heap + rgn_len(&m->rgn.heap), value, valsz);
     }
     if (m->other) {
+        puts("OTHER");
         for (int i = 0; i < m->rgn.n_remaining; ++i) {
-            if (narrow_mmo_sub_spawner(frame, n_threads, m->other[i], m->other[i] + rgn_len(&m->rgn.remaining_addr[i]), value, valsz)) {
-                *other_match = 1;
+            rgn_threads[2 + i] = narrow_mmo_sub_spawner(frame, n_threads, m->other[i], 
+                                                        m->other[i] + rgn_len(&m->rgn.remaining_addr[i]), value, valsz);
+        }
+    }
+
+    for (int i = 0; i < n_rgns; ++i) {
+        for (uint8_t j = 0; j < n_threads; ++j) {
+            if (!rgn_threads[i]) {
+                continue;
             }
+            pthread_join(rgn_threads[i][j], NULL);
+            printf("joined thread %i:%i\n", i, j);
         }
     }
 }
