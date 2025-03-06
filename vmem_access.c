@@ -404,16 +404,6 @@ void _p_frame_var(struct mem_map_optimized* m, struct narrow_frame* frame) {
  * 4: iterate through frame, pointers will have updated values automatically!
 */
 
-void* memmem_db(void* haystack, size_t hslen, void* needle, size_t needle_len) {
-    uint8_t* end = (uint8_t*)haystack + hslen;
-    for (uint8_t* i = (uint8_t*)haystack; i < end; ++i) {
-        if (!memcmp(i, needle, needle_len)) {
-            return i;
-        }
-    }
-    return NULL;
-}
-
 // this is used only for initial narrow! after this, we can just inspect our linked list
 // TODO: rename this function to be create frame or similar - that's what it does. renarrow() should be narrow
 uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t* start_rgn, uint8_t* end_rgn, void* value, uint16_t valsz) {
@@ -422,18 +412,7 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
     uint8_t* i_rgn = start_rgn;
     // this is only necessary on the first pass - we can know this by n_tracked!
     // until we exhaust all matches of first byte
-    // TODO: potentially use memmem()
-    /*for (; first_byte_match; first_byte_match = memchr(i_rgn, *((uint8_t*)value), end_rgn - i_rgn)) {*/
-    // TODO: FIX THIS! memmem() is crashing when i_rgn[2] is bad memory, walk through this logic
-    // why might i_rgn[2] be corrupted? why does this only happen with multiple threads?
-    // who else could be writing to the underlying buffer? answer all these!
     for (; first_byte_match && i_rgn < end_rgn; first_byte_match = memmem(i_rgn, end_rgn - i_rgn, value, valsz)) {
-    /*for (; first_byte_match; first_byte_match = memmem_db(i_rgn, end_rgn - i_rgn, value, valsz)) {*/
-        /*aha! part of the buffer is \0 followed by nothingness!*/
-        /*this is failing because accessing i_rgn[2] causes a segfault*/
-        if (0 && (uint64_t)first_byte_match % 1000 == 0) {
-            printf("mchr(%li / %li)\n", end_rgn - i_rgn, end_rgn - start_rgn);
-        }
         if (first_byte_match >= end_rgn) {
             /*ALSO need to exit once first_byte_match is not in our defined region. could cause concurrency issues.*/
             return n_matches;
