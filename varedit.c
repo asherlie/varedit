@@ -54,249 +54,6 @@ bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional, bool silent){
       return true;
 }
 
-void print_ih_mmap(const struct mem_map* mem, _Bool show_rgns){
-      for(int i = 0; i < mem->i_mmap_hash.n_bux; ++i)
-            for(int j = 0; j < mem->i_mmap_hash.bucket_ref[i]; ++j){
-                  if(show_rgns)printf("%p (%s) : %i\n", mem->i_mmap_hash.i_buckets[i][j].addr, which_rgn(mem->mapped_rgn,
-                                                                     mem->i_mmap_hash.i_buckets[i][j].addr, NULL),
-                                      *mem->i_mmap_hash.i_buckets[i][j].value);
-                  else printf("%p: %i\n", mem->i_mmap_hash.i_buckets[i][j].addr, *mem->i_mmap_hash.i_buckets[i][j].value);
-
-            }
-}
-
-void print_mmap(const struct mem_map* mem, bool show_rgns){
-      if(mem->integers && mem->i_mmap_hash.in_place){
-            print_ih_mmap(mem, show_rgns);
-            return;
-      }
-      for(unsigned int i = 0; i < mem->size; ++i){
-            if(mem->integers){
-                  if(show_rgns)printf("%p (%s) : %i\n", mem->i_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->i_mmap[i].addr, NULL), *mem->i_mmap[i].value);
-                  else printf("%p: %i\n", mem->i_mmap[i].addr, *mem->i_mmap[i].value);
-            }
-            else{
-                  if(show_rgns)printf("%p (%s) : \"%s\"\n", mem->s_mmap[i].addr, which_rgn(mem->mapped_rgn, mem->s_mmap[i].addr, NULL), mem->s_mmap[i].value);
-                  else printf("%p: \"%s\"\n", mem->s_mmap[i].addr, mem->s_mmap[i].value);
-            }
-      }
-}
-
-/* ch_p is an abstraction of the deprecated null_char_parse and caret_parse */
-bool ch_p(char* chr, char* str, bool beg){
-      char* c = str;
-      unsigned int chrlen = strlen(chr);
-      while((c = strstr(c, chr))){
-            if(c > str && *(c-1) == '\\'){
-                  for(char* i = c-1; *i != '\0'; ++i)*i = *(i+1);
-                  c += chrlen;
-                  continue;
-            }
-            if(beg){
-                  unsigned int cl = strlen(c+1);
-                  // memmove because of overlapping pointers
-                  memmove(str, c+1, cl);
-                  str[cl] = '\0';
-                  return true;
-            }
-            else{
-                  *c = '\0';
-                  return true;
-            }
-      }
-      return false;
-}
-
-/* this was added to fix a bug that occured when strings are cut short with a \0 and the literal '\' and '0' were 
- * also written, which was apparent when the null byte was later overwritten, exposing the rest of the string */
-bool null_char_parse(char* str){
-      return ch_p("\\0", str, false);
-}
-
-// used to parse the ^ char that demarcates beginning of string
-bool caret_parse(char* str){
-      return ch_p("^", str, true);
-}
-
-struct narrow_pth_arg{
-      _Bool _int, * first, int_pop;
-      struct mem_map** mem;
-      char* s_match;
-      int d_rgn, additional,
-      
-      /* used only for populating int mmaps */
-      int_bytes,
-
-      sterm_cap,
-
-      /* chars_read refers to total chars read between all calls */
-      chars_read, 
-
-      /* input_{sz,cap} keep track of all search history */
-      input_sz, input_cap;
-
-      /* used for iterative renarrowing */
-      char** sterms, ** all_input;
-
-      struct gr_subroutine_arg* gsa;
-};
-
-bool first_cmd(char* str){
-      return *str == 'w' || *str == 'q' || *str == '?' || *str == 'u' || *str == 'r';
-}
-
-void pis(struct narrow_pth_arg* npa){
-      for(int i = 0; i< npa->input_sz; ++i)
-            printf("%i: \"%s\"\n", i, npa->all_input[i]);
-}
-
-void* narrow_pth(void* npa_v){
-      struct narrow_pth_arg* npa = (struct narrow_pth_arg*)npa_v;
-      /* if int mode, we'll still take advantage of this time to populate */
-      if(*npa->first){
-            populate_mem_map(*npa->mem, npa->d_rgn, npa->additional, npa->_int, npa->int_bytes);
-            npa->int_pop = 1;
-            *npa->first = 0;
-      }
-      if(npa->_int)return NULL;
-      /* TODO: commands should be prepended by '/' */
-      /* if this could be a command, don't even bother */
-      if(first_cmd(*npa->gsa->str_recvd))return NULL;
-      /* TODO: what if del is read as the first character -- test this */
-      _Bool del = *npa->gsa->char_recvd == 8 || *npa->gsa->char_recvd == 127;
-
-      npa->chars_read += (del) ? -1 : 1;
-
-      /*if(!npa->chars_read)return NULL;*/
-      #if 0
-      investigate this
-      if(0 && !npa->chars_read){
-            *npa->first = 1;
-            free_mem_map(*npa->mem);
-            return NULL;
-      }
-      #endif
-
-      /* since we're using the very expensive
-       * re-narrowing method, we'll need to completely
-       * reset our mem map each time we read a del
-       */
-      /* re-narrow */
-      if(del){
-            /*puts("\n\n\ndel read\n\n");*/
-            free(npa->sterms[npa->chars_read]);
-            /*puts("\rusing follwing to revert");*/
-            /*pis(npa);*/
-            /*free_mem_map(*npa->mem);*/
-            populate_mem_map(*npa->mem, npa->d_rgn, npa->additional, 0, -1);
-            /* probably not necessary */
-            *npa->first = 0;
-
-            /* narrow all srings saved in all_input */
-            /* before this iteration we should adjust for consecutive
-             * searches that are redundant
-             * if a search is a subset of a previous one
-             * delete it
-             */
-            char* tmp_str_ptr;
-            for(int i = 0; i < npa->input_sz; ++i){
-                  tmp_str_ptr = npa->all_input[i];
-                  narrow_mem_map_str(*npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
-                  if((*npa->mem)->size == 0){
-                        /**npa->first = true;*/
-                        return NULL;
-                  }
-            }
-      }
-
-      if(!npa->chars_read)return NULL;
-
-      if(!del){
-            if(npa->chars_read == npa->sterm_cap){
-                  npa->sterm_cap *= 2;
-                  char** tmp_sterm = malloc(sizeof(char*)*npa->sterm_cap);
-                  memcpy(tmp_sterm, npa->sterms, sizeof(char*)*npa->chars_read);
-                  free(npa->sterms);
-                  npa->sterms = tmp_sterm;
-            }
-            npa->sterms[npa->chars_read-1] = strdup(*npa->gsa->str_recvd);
-      }
-
-      char* tmp_str_ptr;
-      /*tmp_str_ptr = npa->sterms[npa->chars_read-1];*/
-      tmp_str_ptr = *npa->gsa->str_recvd;
-      narrow_mem_map_str(*npa->mem, tmp_str_ptr, caret_parse(tmp_str_ptr), ch_p("$", tmp_str_ptr, false));
-
-      return NULL;
-}
-
-void free_sterms(struct narrow_pth_arg* npa, _Bool base, _Bool preserve_last){
-      for(int i = 0; i < npa->chars_read-preserve_last; ++i)
-            free(npa->sterms[i]);
-      if(base){
-            free(npa->sterms);
-            for(int i = 0; i < npa->input_sz; ++i)
-                  free(npa->all_input[i]);
-            free(npa->all_input);
-      }
-}
-
-/* each time this is called, we'll back up the current list of sterms */
-void reset_sterms(struct narrow_pth_arg* npa){
-      free_sterms(npa, 0, 1);
-      if(!npa->chars_read)return;
-      if(npa->input_sz == npa->input_cap){
-            npa->input_cap *= 2;
-            char** tmp_inp = malloc(sizeof(char*)*npa->input_cap);
-            memcpy(tmp_inp, npa->all_input, sizeof(char*)*npa->input_sz);
-            free(npa->all_input);
-            npa->all_input = tmp_inp;
-      }
-      npa->all_input[npa->input_sz++] = npa->sterms[npa->chars_read-1];
-      npa->chars_read = 0;
-}
-
-/*
- * i should maybe just store all bytes in one huge array. yes keep them in a bytearray - there shouldn't be an int/char* mode
- * makes so much more sense to just read memory in sizeof(x) chunks, although we don't know at what offset which type of variable lives
- * 
- * okay, the way to do this is to do n_threads passes over the large chunk of memory each initial scan.
- * we don't know where variables begin, so we have to iterate with a sliding scale
-*/
-
-void find_var(pid_t pid) {
-    // can't forget this
-    struct mem_map_optimized m;
-    char* ln = NULL;
-    size_t sz;
-    ssize_t ln_len;
-    int val = 54;
-    init_mem_map_opt(&m);
-    add_frame(&m, "test frame");
-    m.rgn = get_vmem_locations(pid, 1);
-
-    while (1) {
-        ln_len = getline(&ln, &sz, stdin);
-        ln[ln_len-1] = 0;
-        val = atoi(ln);
-        /*hmm, for some reason we're failing to repopulate with strings only*/
-        if (!populate_mem_map_opt(&m, 1, 1, 1)) {
-            puts("failed to populate, exiting.");
-            break;
-        }
-        /*narrow_mem_map_frame_opt(&m, &m.frames[0], 1, &val, 4, &heap, &stack, &other);*/
-        narrow_mem_map_frame_opt(&m, &m.frames[0], 1, ln, strlen(ln) - 1);
-        /*printf("%i %i %i - %i total matches for %i!\n", heap, stack, other, m.frames[0].n_tracked, val);*/
-        printf("%i total matches for \"%s\"!\n", m.frames[0].n_tracked, ln);
-        (void)val;
-        if (m.frames[0].n_tracked <= 33) {
-            /*p_frame_var(&m, &m.frames[0]);*/
-            p_frame_var(&m, (&m.frames[0]), "s", char*);
-            p_frame_var(&m, (&m.frames[0]), "f", float);
-        }
-    }
-}
-
 /*
  * we'll:
  *  getline()
@@ -572,6 +329,8 @@ int main(int argc, char* argv[]){
             return -1;
       }
       bool integers=true, additional=false, verbose=false, print_rgns=false, unmarked=false;
+      (void)print_rgns;
+      (void)unmarked;
       int d_rgn = NONE, n_bytes=4, result_print_limit=100;
       // stores argv index of previous value setting argument
       int p = -1;
@@ -646,8 +405,6 @@ int main(int argc, char* argv[]){
       add_frame(&mm, "DEFAULT");
       mm.rgn = get_vmem_locations(pid, 1);
 
-      struct mem_map vmem;
-      mem_map_init(&vmem, pid, unmarked);
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.c, too many regions are being recorded
       // no warnings are printed unless we're in interactive mode
       if(!mem_rgn_warn(d_rgn, mm.rgn, additional, verbose || mode != 'i')){
@@ -690,19 +447,26 @@ int main(int argc, char* argv[]){
                 free_mem_map_opt(&mm);
             }
       }
+      // TODO: modernize this for new vmem_access system - this no longer needs to be limited to int/string
+      // we can use get_val() or similar and print any type
       else if(mode == 'p'){
-            populate_mem_map(&vmem, d_rgn, additional, integers, n_bytes);
+            // TODO: use d_rgn to populate mm
+            populate_mem_map_opt(&mm, 1, 1, 1);
             // search strings beginning with '-' must be escaped with '\'
             // TODO: document this
             // if we're going to try to narrow
             if(argc > args[0] && *argv[args[0]] != '-'){
                   char* filt = argv[args[0]];
                   filt += *filt == '\\';
-                  if(!integers)narrow_mem_map_str(&vmem, filt, caret_parse(filt), ch_p("$", filt, false));
-                  else if(strtoi(filt, NULL, &args[1]))narrow_mem_map_int(&vmem, args[1]);
+                  if(!integers)narrow_mem_map_frame_opt(&mm, mm.frames, 1, filt, strlen(filt));
+                  else if(strtoi(filt, NULL, &args[1]))narrow_mem_map_frame_opt(&mm, mm.frames, 1, &args[1], sizeof(int));
             }
-            print_mmap(&vmem, print_rgns);
-            if(vmem.size != 0)free_mem_map(&vmem);
+            if (integers) {
+                p_frame_var(&mm, mm.frames, "i", int);
+            } else {
+                p_frame_var(&mm, mm.frames, "s", char*);
+            }
+            free_mem_map_opt(&mm);
       }
       if(not_run == 1 || not_run == 3)puts("enter a valid address");
       if(not_run == 2 || not_run == 3)puts("enter a valid integer to write");
