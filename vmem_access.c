@@ -512,9 +512,7 @@ pthread_t* narrow_mmo_sub_spawner(struct narrow_frame* frame, uint8_t n_threads,
         if (i == n_threads - 1) {
             targ->end_rgn = end;
         }
-        /*printf("spawned thread %i with %p -> %p\n", i, targ->start_rgn, targ->end_rgn);*/
         pthread_create(pth + i, NULL, narrow_mmo_sub_wrapper, targ);
-        /*pthread_join(pth[i], NULL);*/
 
         running_start = targ->end_rgn;
     }
@@ -522,7 +520,6 @@ pthread_t* narrow_mmo_sub_spawner(struct narrow_frame* frame, uint8_t n_threads,
 }
 
 /* narrows variables in memory of all  */
-// TODO: get multithreading working with this function
 void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* frame, uint8_t n_threads, void* value, uint16_t valsz) {
     int n_rgns;
     pthread_t** rgn_threads;
@@ -533,22 +530,17 @@ void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* 
         return;
     }
 
-    // TODO: implement multithreaded narrowing!
-    /*assert(n_threads == 1);*/
     // n_threads is really threads per region
     n_rgns = (_Bool)m->stack + (_Bool)m->heap + m->rgn.n_remaining;
     rgn_threads = calloc(n_rgns, sizeof(pthread_t*));
 
     if (m->stack) {
-        puts("STACK");
         rgn_threads[0] = narrow_mmo_sub_spawner(frame, n_threads, m->stack, m->stack + rgn_len(&m->rgn.stack), value, valsz);
     }
     if (m->heap) {
-        puts("HEAP");
         rgn_threads[1] = narrow_mmo_sub_spawner(frame, n_threads, m->heap, m->heap + rgn_len(&m->rgn.heap), value, valsz);
     }
     if (m->other) {
-        puts("OTHER");
         for (int i = 0; i < m->rgn.n_remaining; ++i) {
             rgn_threads[2 + i] = narrow_mmo_sub_spawner(frame, n_threads, m->other[i], 
                                                         m->other[i] + rgn_len(&m->rgn.remaining_addr[i]), value, valsz);
