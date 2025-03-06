@@ -443,7 +443,7 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
     // uhh, it directly impacts it LOL, seemingly with values that don't even match
     // then after a couple narrows they're all the same. look into this.
     // this problem even exists with 0 threads, but gets worse with each added thread
-    uint8_t n_threads = 2;
+    uint8_t n_threads = 10;
     struct narrow_frame* frame = m->frames;
 
     void* val;
@@ -475,6 +475,8 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
         //  /frameset money 99999
         if (*ln == '/') {
             switch(ln[1]) {
+                case 'q':
+                    return 1;
                 // reset
                 case 'r':
                     /*frame->*/
@@ -1042,9 +1044,9 @@ int main(int argc, char* argv[]){
       mem_map_init(&vmem, pid, unmarked);
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.c, too many regions are being recorded
       // no warnings are printed unless we're in interactive mode
-      if(!mem_rgn_warn(d_rgn, vmem.mapped_rgn, additional, verbose || mode != 'i')){
+      if(!mem_rgn_warn(d_rgn, mm.rgn, additional, verbose || mode != 'i')){
             puts("no usable memory regions found\nyou DO have root privileges, don't you");
-            free_mem_rgn(&vmem.mapped_rgn);
+            free_mem_rgn(&mm.rgn);
             return -1;
       }
       // TODO: possibly translate this to a switch statement
@@ -1078,9 +1080,9 @@ int main(int argc, char* argv[]){
             else if(!not_run)write_str_to_pid_mem(pid, addr, argv[args[1]]);
       }
       else if(mode == 'i'){
-            interactive_mode_opt(&mm);
-            if(interactive_mode(&vmem, integers, n_bytes, d_rgn, additional, verbose, result_print_limit, print_rgns))
-                  free_mem_map(&vmem);
+            if (interactive_mode_opt(&mm)) {
+                free_mem_map_opt(&mm);
+            }
       }
       else if(mode == 'p'){
             populate_mem_map(&vmem, d_rgn, additional, integers, n_bytes);
@@ -1098,7 +1100,7 @@ int main(int argc, char* argv[]){
       }
       if(not_run == 1 || not_run == 3)puts("enter a valid address");
       if(not_run == 2 || not_run == 3)puts("enter a valid integer to write");
-      free_mem_rgn(&vmem.mapped_rgn);
+      free_mem_rgn(&mm.rgn);
       // not_run will be non-zero when an error has been found
       return not_run;
 }
