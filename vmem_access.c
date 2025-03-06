@@ -229,6 +229,36 @@ void init_mem_map_opt(struct mem_map_optimized* m) {
     init_frames(m);
 }
 
+void free_frame(struct narrow_frame* frame) {
+    struct found_variable* prev_v = NULL;
+    for (struct found_variable* v = frame->tracked_vars; v; v = v->next) {
+        if (prev_v) {
+            free(prev_v);
+        }
+        prev_v = v;
+    }
+    free(prev_v);
+}
+
+void free_mem_map_opt(struct mem_map_optimized* m) {
+    if (m->stack) {
+        free(m->stack);
+    }
+    if (m->heap) {
+        free(m->heap);
+    }
+
+    if (m->other) {
+        for (int i = 0; i < m->rgn.n_remaining; ++i) {
+            free(m->other[i]);
+        }
+    }
+
+    for (struct narrow_frame* f = m->frames; f; f = f->next) {
+        free_frame(f);
+    }
+}
+
 uint64_t rgn_len(struct m_addr_pair* addrs) {
     return ((uint8_t*)addrs->end - (uint8_t*)addrs->start);
 }
@@ -338,6 +368,7 @@ void combine_frame_var(struct narrow_frame* frame, struct found_variable* vars, 
             atomic_fetch_add(&frame->n_tracked, n_vars);
             break;
         }
+        puts("FAILED");
     }
 }
 
@@ -426,6 +457,8 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
     uint8_t* first_byte_match = start_rgn;
     uint8_t* i_rgn = start_rgn;
 
+    struct found_variable* found = NULL, * last = NULL, * tmp_v;
+
     // this is only necessary on the first pass - we can know this by n_tracked!
     // until we exhaust all matches of first byte
     for (; first_byte_match; first_byte_match = memmem(i_rgn, end_rgn - i_rgn, value, valsz)) {
@@ -434,11 +467,28 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
             return n_matches;
         }
         ++n_matches;
-        insert_frame_var(frame, first_byte_match, valsz);
+
+        tmp_v = malloc(sizeof(struct found_variable));
+        tmp_v->address = first_byte_match;
+        tmp_v->len = valsz;
+
+        if (!found) {
+            tmp_v->next = NULL;
+            /*last = found = tmp_v;*/
+            last = tmp_v;
+        } 
+        tmp_v->next = found;
+        found = tmp_v;
+
+        /*insert_frame_var(frame, first_byte_match, valsz);*/
         i_rgn = first_byte_match + valsz;
 
         // TODO: i removed the check for i_rgn being between end_rgn, start_rgn - does this need
         // to be added back? I don't believe so because the above check should cover that
+    }
+    if (found) {
+        printf("combining %li matches into frame\n", n_matches);
+        combine_frame_var(frame, found, last, n_matches);
     }
     return n_matches;
 }
@@ -493,6 +543,7 @@ void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
 
 /* either calls directly OR spawns n_threads to run a narrow */
 /* 0 is only passed in if regions are to be narrowed sequentially - NOT RECOMMENDED */
+// TODO: should smaller regions be searched in one thread?
 pthread_t* narrow_mmo_sub_spawner(struct narrow_frame* frame, uint8_t n_threads, uint8_t* start,
                                   uint8_t* end, void* value, uint16_t valsz) {
     uint64_t addr_per_th;
