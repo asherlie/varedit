@@ -320,10 +320,25 @@ void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len)
             atomic_fetch_add(&frame->n_tracked, 1);
             break;
         }
+        // too many wasted attempts are slowing down multithreaded performance
+        // AH! i have a great idea! each thread can build up its own linked list and only combine them
+        // at the end!
+        // this avoids the need for threadsafe insertion until the very end!!
         /*puts("FAIled");*/
     }
     /*printf("succesfully inserted a new frame var");*/
     /*pthread_mutex_unlock(&frame->lock);*/
+}
+
+// inserts a tracked_vars linked list into a frame
+void combine_frame_var(struct narrow_frame* frame, struct found_variable* vars, struct found_variable* vars_last, int n_vars) {
+    vars_last->next = frame->tracked_vars;
+    while (1) {
+        if (atomic_compare_exchange_strong(&frame->tracked_vars, &vars_last->next, vars)) {
+            atomic_fetch_add(&frame->n_tracked, n_vars);
+            break;
+        }
+    }
 }
 
 void rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first) {
@@ -410,6 +425,7 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
     uint64_t n_matches = 0;
     uint8_t* first_byte_match = start_rgn;
     uint8_t* i_rgn = start_rgn;
+
     // this is only necessary on the first pass - we can know this by n_tracked!
     // until we exhaust all matches of first byte
     for (; first_byte_match; first_byte_match = memmem(i_rgn, end_rgn - i_rgn, value, valsz)) {
