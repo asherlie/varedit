@@ -440,11 +440,16 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
     ssize_t ln_len;
     enum i_mode mode = SEARCH;
     // TODO: ensure that thread number doesn't change found number of variables
-    uint8_t n_threads = 10;
+    // uhh, it directly impacts it LOL, seemingly with values that don't even match
+    // then after a couple narrows they're all the same. look into this.
+    // this problem even exists with 0 threads, but gets worse with each added thread
+    uint8_t n_threads = 2;
     struct narrow_frame* frame = m->frames;
 
     void* val;
     uint16_t valsz;
+
+    clock_t c_st, c_end;
 
     // enable readline history
     using_history();
@@ -522,12 +527,14 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                     puts("failed to (re)populate");
                 }
                 val = str_to_val(ln, ln_len, &valsz, &frame->current_type);
-                printf("narrowing with value: %p\n", val);
                 if (val) {
                     // hmm, narrowing after a string search is broken
                     // AH! it's because len is unequal! for strings we'll need a special case
+                    c_st = clock();
                     narrow_mem_map_frame_opt(m, frame, n_threads, val, valsz);
-                    printf("narrowed down to %i values\n", frame->n_tracked);
+                    c_end = clock();
+                    printf("narrowed down to %i values with %i threads per region (%f secs)\n", 
+                           frame->n_tracked, n_threads, ((double)(c_end - c_st)) / CLOCKS_PER_SEC);
                 }
                 break;
             case EDIT:
