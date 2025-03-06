@@ -414,12 +414,10 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
     // until we exhaust all matches of first byte
     for (; first_byte_match; first_byte_match = memmem(i_rgn, end_rgn - i_rgn, value, valsz)) {
         if (first_byte_match >= end_rgn) {
-            puts("INVALID");
             /*ALSO need to exit once first_byte_match is not in our defined region. could cause concurrency issues.*/
             return n_matches;
         }
         ++n_matches;
-        /*puts("found a match!");*/
         insert_frame_var(frame, first_byte_match, valsz);
         i_rgn = first_byte_match + valsz;
 
@@ -495,15 +493,6 @@ pthread_t* narrow_mmo_sub_spawner(struct narrow_frame* frame, uint8_t n_threads,
     }
 
     addr_per_th = (end - start) / n_threads;
-    /*printf("addr_per_th: %li, should be a multiple of: %i\n", addr_per_th, valsz);*/
-
-    /*printf("start region: %p, end: %p\n", start, end);*/
-    /*oh shit, this needs to be in increments of valsz!*/
-    // this also could cause problems on boundaries of ranges - we can't memchr() for first byte match
-    // if it's on a boundary! OH! we can actually mark down if we found a first byte match at the end of a
-    // range!
-    // this would also make it so we don't need ranges of multiples of valsz
-
     /* it is not necessary for addr_per_th to be a multiple of valsz
      * if the first byte of a match is found by a narrow thread and the rest of that match
      * lies on the other side of a boundary, the thread will still be okay to insert that value into
@@ -512,9 +501,6 @@ pthread_t* narrow_mmo_sub_spawner(struct narrow_frame* frame, uint8_t n_threads,
      * initial narrowing.
      */
     for (uint8_t i = 0; i < n_threads; ++i) {
-    /*iterate, increment start_rgn and end_rgn by same amount each iteration to ensure that it ends up on last address!*/
-        /* in case of truncation during division, make sure to reach the end of memory region in last thread */
-        /*arg.end_rgn = arg.start_rgn + addr_per_th;*/
         targ = malloc(sizeof(struct narrow_mmo_sub_args));
         targ->frame = frame;
         targ->start_rgn = running_start;
@@ -522,11 +508,11 @@ pthread_t* narrow_mmo_sub_spawner(struct narrow_frame* frame, uint8_t n_threads,
         targ->valsz = valsz;
         targ->end_rgn = targ->start_rgn + addr_per_th;
 
+        /* in case of truncation during division, make sure to reach the end of memory region in last thread */
         if (i == n_threads - 1) {
             targ->end_rgn = end;
         }
-        printf("spawned thread %i with %p -> %p\n", i, targ->start_rgn, targ->end_rgn);
-        /*pthread_create(pth + i, NULL, narrow_mmo_sub_wrapper, &arg);*/
+        /*printf("spawned thread %i with %p -> %p\n", i, targ->start_rgn, targ->end_rgn);*/
         pthread_create(pth + i, NULL, narrow_mmo_sub_wrapper, targ);
         /*pthread_join(pth[i], NULL);*/
 
@@ -575,7 +561,6 @@ void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* 
                 continue;
             }
             pthread_join(rgn_threads[i][j], NULL);
-            printf("joined thread %i:%i\n", i, j);
         }
     }
 }
