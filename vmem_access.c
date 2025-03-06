@@ -412,8 +412,9 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
     uint8_t* i_rgn = start_rgn;
     // this is only necessary on the first pass - we can know this by n_tracked!
     // until we exhaust all matches of first byte
-    for (; first_byte_match && i_rgn < end_rgn; first_byte_match = memmem(i_rgn, end_rgn - i_rgn, value, valsz)) {
+    for (; first_byte_match; first_byte_match = memmem(i_rgn, end_rgn - i_rgn, value, valsz)) {
         if (first_byte_match >= end_rgn) {
+            puts("INVALID");
             /*ALSO need to exit once first_byte_match is not in our defined region. could cause concurrency issues.*/
             return n_matches;
         }
@@ -421,32 +422,9 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
         /*puts("found a match!");*/
         insert_frame_var(frame, first_byte_match, valsz);
         i_rgn = first_byte_match + valsz;
-        // thea bove could be causing the problem by incrementing i_rgn past valid memory
-        /*OH! check i_rgn + valsz?*/
-        // does this invalidate assumptions for boundary variables?
-        if (!(i_rgn < end_rgn && i_rgn > start_rgn)) {
-            puts("INVALID");
-            return n_matches;
-        }
-        #if 0
-        if (!memcmp(first_byte_match, value, valsz)) {
-            ++n_matches;
-            /*puts("found a match!");*/
-            insert_frame_var(frame, first_byte_match, valsz);
-            if (valsz != 4) {
-                /*printf("inserting valsz of %i\n", valsz);*/
-            }
-            /*insert_frame_var_lock(frame, first_byte_match, valsz);*/
-            i_rgn = first_byte_match + valsz;
-        } else {
-            /*puts("incrementing i_rgn");*/
-            i_rgn = first_byte_match + 1;
-        }
-        #endif
-        /*
-         * printf("TRYING MCH for memchr(%p, %i, %li)\n", i_rgn, *((uint8_t*)value), end_rgn - i_rgn);
-         * printf("mchr: %p\n", memchr(i_rgn, *((uint8_t*)value), end_rgn - i_rgn));
-        */
+
+        // TODO: i removed the check for i_rgn being between end_rgn, start_rgn - does this need
+        // to be added back? I don't believe so because the above check should cover that
     }
     return n_matches;
 }
