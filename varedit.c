@@ -35,23 +35,23 @@ bool strtop(const char* str, void** p){
       return !*res;
 }
 
-bool mem_rgn_warn(int d_rgn, struct mem_rgn mem, bool additional, bool silent){
-      bool no_ad = (mem.n_remaining == 0 && additional);
-      bool stack = true;
+bool mem_rgn_warn(enum m_region d_rgn, struct mem_rgn mem, bool silent){
+      bool no_ad = (mem.n_remaining == 0 && (d_rgn & OTHER));
+      int viable_rgns = 3;
+
       if(no_ad){
             if(!silent)fputs("WARNING: no valid unmarked memory regions were found\n", stderr);
-            if(d_rgn == NONE)return false;
+            --viable_rgns;
       }
-      if((d_rgn == STACK || d_rgn == BOTH) && (mem.stack.start == NULL || mem.stack.end == NULL)){
+      if((d_rgn & STACK) && (mem.stack.start == NULL || mem.stack.end == NULL)){
             if(!silent)fputs("WARNING: no valid stack memory region was found\n", stderr);
-            if(d_rgn == STACK && (no_ad || !additional))return false;
-            stack = false;
+            --viable_rgns;
       }
-      if((d_rgn == HEAP || d_rgn == BOTH) && (mem.heap.start == NULL || mem.heap.end == NULL)){
+      if((d_rgn & HEAP) && (mem.heap.start == NULL || mem.heap.end == NULL)){
             if(!silent)fputs("WARNING: no valid heap memory region was found\n", stderr);
-            if((d_rgn == HEAP || (d_rgn == BOTH && !stack)) && (no_ad || !additional))return false;
+            --viable_rgns;
       }
-      return true;
+      return (bool)viable_rgns;
 }
 
 /*
@@ -200,7 +200,13 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
     // uhh, it directly impacts it LOL, seemingly with values that don't even match
     // then after a couple narrows they're all the same. look into this.
     // this problem even exists with 0 threads, but gets worse with each added thread
-    uint8_t n_threads = 10;
+    // okay, get to the bottom of this. WHY OH WHY is multirehaded narrowing SLOWER???
+    // i'll use a profiler to find this out
+    //
+    // okay, seems like this weirdness might largely be due to additional regions, which are causing too many threads
+    // to be spawned with a lot of overhead - legacy varedit ignored these regions unless specified by the user
+    // follow this model
+    uint8_t n_threads = 0;
     struct narrow_frame* frame = m->frames;
 
     void* val;
@@ -230,6 +236,7 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
         // TODO: add a feature to set all values in a frame to a certain value - like:
         //  /frameset health 30
         //  /frameset money 99999
+        //  TODO: don't use additional regions by default!
         if (*ln == '/') {
             switch(ln[1]) {
                 case 'q':
@@ -249,7 +256,7 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                     mode = EDIT;
                     break;
                 case 'u':
-                    populate_mem_map_opt(m, 1, 1, 1);
+                    populate_mem_map_opt(m);
                     // fall through
                 // this is a temp case to show how we'll print
                 case 'l':
@@ -282,7 +289,7 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
         }
         switch(mode) {
             case SEARCH:
-                if (!populate_mem_map_opt(m, 1, 1, 1)) {
+                if (!populate_mem_map_opt(m)) {
                     puts("failed to (re)populate");
                 }
                 val = str_to_val(ln, ln_len, &valsz, &frame->current_type);
@@ -328,28 +335,27 @@ int main(int argc, char* argv[]){
             puts(help_str);
             return -1;
       }
-      bool integers=true, additional=false, verbose=false, print_rgns=false, unmarked=false;
+      bool integers=true, verbose=false, print_rgns=false;
       (void)print_rgns;
-      (void)unmarked;
-      int d_rgn = NONE, n_bytes=4, result_print_limit=100;
+      enum m_region d_rgn = NONE;
+      int n_bytes=4, result_print_limit=100;
       // stores argv index of previous value setting argument
       int p = -1;
       // default to interactive mode
       char mode = 'i';
       // stores argument indices of argv for p, r, w modes
       int args[2];
-      pid_t pid;
+      pid_t pid = 0;
       for(int i = 1; i < argc; ++i){
             if(*argv[i] == '-'){
                   // if strlen == 2
                   if(argv[i][1] && !argv[i][2]){
                         switch(argv[i][1]){
-                              case 'S': d_rgn = STACK; break;
-                              case 'H': d_rgn = HEAP; break;
-                              case 'B': d_rgn = BOTH; break;
-                              case 'A': additional = true; break;
-                              case 'E': additional = true; d_rgn = BOTH; break;
-                              case 'U': unmarked = true; break;
+                              case 'S': d_rgn |= STACK; break;
+                              case 'H': d_rgn |= HEAP; break;
+                              case 'B': d_rgn |= STACK | HEAP; break;
+                              case 'A': d_rgn |= OTHER; break;
+                              case 'E': d_rgn = STACK | HEAP | OTHER; break;
                               case 'C': integers = false; break;
                               case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], NULL, &n_bytes) || n_bytes == 0 || n_bytes > 4)n_bytes = 4; else if(p != -2)p = i+1; break;
                               case 'V': verbose = true; print_rgns = true; break;
@@ -387,27 +393,20 @@ int main(int argc, char* argv[]){
             return -1;
       }
 
-      // for testing - inserting this right after grabbing pid
-      /*
-       * find_var(pid);
-       * return 0;
-      */
-
       // default to stack, heap and additional if no region is specified
-      if(d_rgn == NONE && !additional){
-            d_rgn = BOTH;
-            additional = true;
+      if(d_rgn == NONE) {
+            d_rgn = STACK | HEAP | OTHER;
       }
 
       struct mem_map_optimized mm;
-      init_mem_map_opt(&mm);
+      init_mem_map_opt(&mm, d_rgn);
       // TODO: this should probably be added to init function
       add_frame(&mm, "DEFAULT");
       mm.rgn = get_vmem_locations(pid, 1);
 
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.c, too many regions are being recorded
       // no warnings are printed unless we're in interactive mode
-      if(!mem_rgn_warn(d_rgn, mm.rgn, additional, verbose || mode != 'i')){
+      if(!mem_rgn_warn(d_rgn, mm.rgn, verbose || mode != 'i')){
             puts("no usable memory regions found\nyou DO have root privileges, don't you");
             free_mem_rgn(&mm.rgn);
             return -1;
@@ -451,7 +450,7 @@ int main(int argc, char* argv[]){
       // we can use get_val() or similar and print any type
       else if(mode == 'p'){
             // TODO: use d_rgn to populate mm
-            populate_mem_map_opt(&mm, 1, 1, 1);
+            populate_mem_map_opt(&mm);
             // search strings beginning with '-' must be escaped with '\'
             // TODO: document this
             // if we're going to try to narrow
