@@ -155,6 +155,15 @@ void free_mem_map_opt(struct mem_map_optimized* m) {
     }
 }
 
+struct narrow_frame* frame_search(struct mem_map_optimized* m, char* str) {
+    for (struct narrow_frame* f = m->frames; f; f = f->next) {
+        if (strstr(f->label, str)) {
+            return f;
+        }
+    }
+    return NULL;
+}
+
 uint64_t rgn_len(struct m_addr_pair* addrs) {
     return ((uint8_t*)addrs->end - (uint8_t*)addrs->start);
 }
