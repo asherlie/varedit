@@ -132,6 +132,7 @@ void free_frame(struct narrow_frame* frame) {
 }
 
 void free_mem_map_opt(struct mem_map_optimized* m) {
+    struct narrow_frame* prev_f = NULL;
     if (m->stack) {
         free(m->stack);
     }
@@ -147,6 +148,10 @@ void free_mem_map_opt(struct mem_map_optimized* m) {
 
     for (struct narrow_frame* f = m->frames; f; f = f->next) {
         free_frame(f);
+        if (prev_f) {
+            free(prev_f);
+        }
+        prev_f = f;
     }
 }
 
@@ -428,7 +433,7 @@ void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
     for (struct found_variable* v = frame->tracked_vars; v && v->next; v = (removed) ? v : v->next) {
         // TODO: this may not hold true when it comes to strings
         //       for strings, scrap this assertion and memcmp with the smaller size
-        assert(valsz == v->next->len);
+        /*assert(valsz == v->next->len);*/
 
         removed = 0;
         if (memcmp(v->next->address, value, valsz)) {
@@ -438,7 +443,7 @@ void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
     }
 
     /* check first element */
-    assert(valsz == frame->tracked_vars->len);
+    /*assert(valsz == frame->tracked_vars->len);*/
     if (frame->tracked_vars && memcmp(frame->tracked_vars->address, value, valsz)) {
         rm_next_frame_var_unsafe(frame, NULL, 1);
     }

@@ -70,6 +70,7 @@ void rm_frame_var_lock(struct narrow_frame* frame, struct found_variable* v);
 //_Bool rm_next_frame_var(struct narrow_frame* frame, struct found_variable* v, struct found_variable* rm_first);
 void rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first);
 uint8_t* get_remote_addr(struct mem_map_optimized* m, struct found_variable* v);
+void free_frame(struct narrow_frame* frame);
 void free_mem_map_opt(struct mem_map_optimized* m);
 
 static inline char* type_to_str(enum type_found t) {
