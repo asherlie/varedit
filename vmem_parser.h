@@ -4,10 +4,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
-#define NONE  -1
-#define STACK  0
-#define HEAP   1
-#define BOTH   2
+enum m_region {NONE = 0x00, STACK = 0x01, HEAP = 0x02, OTHER = 0x04};
 
 struct m_addr_pair{
       void* start;
@@ -27,4 +24,4 @@ struct mem_rgn{
 void free_mem_rgn(struct mem_rgn* mr);
 bool is_substr(const char* substr, const char* str);
 struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional);
-const char* which_rgn(struct mem_rgn rgn, void* addr, int* res);
+const char* which_rgn(struct mem_rgn rgn, void* addr, enum m_region* res);
