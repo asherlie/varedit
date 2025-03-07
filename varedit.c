@@ -212,6 +212,9 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
     void* val;
     uint16_t valsz;
 
+    // used for freeing frame contents during a /reset
+    struct narrow_frame dummy_f;
+
     clock_t c_st, c_end;
 
     // enable readline history
@@ -243,7 +246,16 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                     return 1;
                 // reset
                 case 'r':
-                    /*frame->*/
+                    {
+                    dummy_f.tracked_vars = frame->tracked_vars;
+                    dummy_f.n_tracked = frame->n_tracked;
+                    free_frame(&dummy_f);
+
+                    frame->tracked_vars = NULL;
+                    frame->n_tracked = 0;
+                    frame->current_type = NONE_T;
+
+                    }
                     break;
                 case 'f':
                     printf("current frame: \"%s\"\n", frame->label);
