@@ -112,9 +112,10 @@ void init_frames(struct mem_map_optimized* m) {
     // this must be zeroed for NULL first frame
 }
 
-void init_mem_map_opt(struct mem_map_optimized* m) {
+void init_mem_map_opt(struct mem_map_optimized* m, enum m_region rgn) {
     m->stack = m->heap = NULL;
     m->other = NULL;
+    m->selected_rgns = rgn;
 
     init_frames(m);
 }
@@ -156,14 +157,14 @@ uint64_t rgn_len(struct m_addr_pair* addrs) {
 // TODO: potentially only repopulate regions that have matches in frame
 // TODO: this should fail when process shuts down
 // TODO: detect failures from initial population
-_Bool populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other) {
+_Bool populate_mem_map_opt(struct mem_map_optimized* m) {
     // we'll assume caller sets m->rgn
     /*m->rgn = get_vmem_locations(pid, unmarked_additional);*/
     // using a byte value of 32 - hoping it'll be faster and shouldn't matter for actual data now that
     // we're lumping it all together
     int bytes = 32;
-    int failures = stack + heap + m->rgn.n_remaining;
-    if (stack) {
+    int failures = (m->selected_rgns & STACK) + (m->selected_rgns & HEAP) + (m->selected_rgns & OTHER) ? m->rgn.n_remaining : 0;
+    if (m->selected_rgns & STACK) {
         if (m->stack) {
             /*memset(m->stack, 0, rgn_len(&m->rgn.stack));*/
             /*uint8_t* tmp_stack = read_bytes_from_pid_mem(m->rgn.pid, bytes, m->rgn.stack.start, m->rgn.stack.end);*/
@@ -177,7 +178,7 @@ _Bool populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap,
             --failures;
         }
     }
-    if (heap) {
+    if (m->selected_rgns & HEAP) {
         if (m->heap) {
             if (read_bytes_from_pid_mem_dir(m->heap, m->rgn.pid, bytes, m->rgn.heap.start, m->rgn.heap.end)) {
                 --failures;
@@ -187,7 +188,7 @@ _Bool populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap,
             --failures;
         }
     }
-    if (other) {
+    if (m->selected_rgns & OTHER) {
         if (!m->other) {
             m->other = calloc(m->rgn.n_remaining, sizeof(uint8_t*));
         }
@@ -353,33 +354,43 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
 
     // this is only necessary on the first pass - we can know this by n_tracked!
     // until we exhaust all matches of first byte
-    for (; first_byte_match; first_byte_match = memmem(i_rgn, end_rgn - i_rgn, value, valsz)) {
+    /*for (; first_byte_match; first_byte_match = memmem(i_rgn, end_rgn - i_rgn, value, valsz)) {*/
+    /* NOTE: memmem() was tried, but resulted in flase positives due to broken memmem() implementation */
+    const uint8_t first_byte = *(uint8_t*)value;
+    /*printf("thread doing %p -> %p\n", (void*)start_rgn, (void*)end_rgn);*/
+    for (; first_byte_match; first_byte_match = memchr(i_rgn, first_byte, end_rgn - i_rgn)) {
         if (first_byte_match >= end_rgn) {
             /*ALSO need to exit once first_byte_match is not in our defined region. could cause concurrency issues.*/
-            return n_matches;
+            break;
+            /*return n_matches;*/
         }
-        ++n_matches;
+        if (!memcmp(first_byte_match, value, valsz)) {
+            /*printf("inc'd n_matches for %i\n", memcmp(first_byte_match, value, valsz));*/
+            ++n_matches;
 
-        tmp_v = malloc(sizeof(struct found_variable));
-        tmp_v->address = first_byte_match;
-        tmp_v->len = valsz;
+            tmp_v = malloc(sizeof(struct found_variable));
+            tmp_v->address = first_byte_match;
+            tmp_v->len = valsz;
 
-        if (!found) {
-            tmp_v->next = NULL;
-            /*last = found = tmp_v;*/
-            last = tmp_v;
-        } 
-        tmp_v->next = found;
-        found = tmp_v;
+            if (!found) {
+                tmp_v->next = NULL;
+                /*last = found = tmp_v;*/
+                last = tmp_v;
+            } 
+            tmp_v->next = found;
+            found = tmp_v;
 
-        /*insert_frame_var(frame, first_byte_match, valsz);*/
-        i_rgn = first_byte_match + valsz;
+            /*insert_frame_var(frame, first_byte_match, valsz);*/
+            i_rgn = first_byte_match + valsz;
+        } else {
+            i_rgn = first_byte_match + 1;
+        }
 
         // TODO: i removed the check for i_rgn being between end_rgn, start_rgn - does this need
         // to be added back? I don't believe so because the above check should cover that
     }
     if (found) {
-        printf("combining %li matches into frame\n", n_matches);
+        /*printf("combining %li matches into frame - found: %p, last: %p\n", n_matches, (void*)found, (void*)last);*/
         combine_frame_var(frame, found, last, n_matches);
     }
     return n_matches;
@@ -459,6 +470,7 @@ pthread_t* narrow_mmo_sub_spawner(struct narrow_frame* frame, uint8_t n_threads,
      * since its first byte is behind their region's start. also, no writes are made to the buffer during
      * initial narrowing.
      */
+    /*printf("%i threads for NEW REGION: %p -> %p (%li)\n", n_threads, (void*)start, (void*)end, end - start);*/
     for (uint8_t i = 0; i < n_threads; ++i) {
         targ = malloc(sizeof(struct narrow_mmo_sub_args));
         targ->frame = frame;
@@ -471,6 +483,7 @@ pthread_t* narrow_mmo_sub_spawner(struct narrow_frame* frame, uint8_t n_threads,
         if (i == n_threads - 1) {
             targ->end_rgn = end;
         }
+        /*printf("thread %i: %p -> %p (%li)\n", i, (void*)targ->start_rgn, (void*)targ->end_rgn, targ->end_rgn - targ->start_rgn);*/
         pthread_create(pth + i, NULL, narrow_mmo_sub_wrapper, targ);
 
         running_start = targ->end_rgn;
