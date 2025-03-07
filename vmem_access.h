@@ -46,6 +46,7 @@ struct narrow_frame{
 // this way we can effortlessly switch between them
 // to keep track of a variable we need a pointer into a region and size of that variable
 struct mem_map_optimized{
+    enum m_region selected_rgns;
     struct mem_rgn rgn;
     uint8_t* heap;
     uint8_t* stack;
@@ -57,10 +58,10 @@ struct mem_map_optimized{
     int n_frames;
 };
 
-_Bool populate_mem_map_opt(struct mem_map_optimized* m, _Bool stack, _Bool heap, _Bool other);
+_Bool populate_mem_map_opt(struct mem_map_optimized* m);
 void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len);
 void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* frame, uint8_t n_threads, void* value, uint16_t valsz);
-void init_mem_map_opt(struct mem_map_optimized* m);
+void init_mem_map_opt(struct mem_map_optimized* m, enum m_region rgn);
 void add_frame(struct mem_map_optimized* m, char* label);
 
 //void p_frame_var(struct mem_map_optimized* m, struct narrow_frame* frame);
