@@ -165,6 +165,7 @@ void write_var(struct mem_map_optimized* m, void* val, int valsz, struct found_v
 
 void frame_operation(struct mem_map_optimized* m, struct narrow_frame** current_frame, char* arg, int arglen) {
     void* write_val;
+    struct narrow_frame* tmp_f;
     uint16_t valsz;
     switch(arg[2]) {
         // /f frame create
@@ -173,6 +174,11 @@ void frame_operation(struct mem_map_optimized* m, struct narrow_frame** current_
             break;
         // /fs frame select
         case 's':
+            tmp_f = frame_search(m, arg + 4);
+            if (tmp_f) {
+                printf("current frame set to \"%s\" with %i tracked vars\n", tmp_f->label, tmp_f->n_tracked);
+                *current_frame = tmp_f;
+            }
             break;
         // /fw frame write
         case 'w':
@@ -240,6 +246,9 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
         //  /frameset health 30
         //  /frameset money 99999
         //  TODO: don't use additional regions by default!
+        //
+        //  okay, it's time to write frame operations! like frame write with args
+        //  they all need args - frame write, switch frame, yay!
         if (*ln == '/') {
             switch(ln[1]) {
                 case 'q':
@@ -258,7 +267,6 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                     }
                     break;
                 case 'f':
-                    printf("current frame: \"%s\"\n", frame->label);
                     frame_operation(m, &frame, ln, ln_len);
                     break;
                 case 's':
