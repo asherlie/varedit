@@ -13,7 +13,7 @@ void free_mem_rgn(struct mem_rgn* mr){
  * if (res > HEAP) or (res >= 2), the value of res refers to
  * additional region[res-2]
  */
-const char* which_rgn(struct mem_rgn rgn, void* addr, int* res){
+const char* which_rgn(struct mem_rgn rgn, void* addr, enum m_region* res) {
       if(addr >= rgn.stack.start && addr <= rgn.stack.end){
             if(res)*res = STACK;
             return "stack";
@@ -24,11 +24,11 @@ const char* which_rgn(struct mem_rgn rgn, void* addr, int* res){
       }
       for(int i = 0; i < rgn.n_remaining; ++i){
             if(addr >= rgn.remaining_addr[i].start && addr <= rgn.remaining_addr[i].end){
-                  if(res)*res = 2 + i;
+                  if(res)*res = OTHER;
                   return "unmarked";
             }
       }
-      if(res)*res = -1;
+      if(res)*res = 0;
       return NULL;
 }
 
