@@ -202,17 +202,7 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
     char* ln = NULL;
     ssize_t ln_len;
     enum i_mode mode = SEARCH;
-    // TODO: ensure that thread number doesn't change found number of variables
-    // uhh, it directly impacts it LOL, seemingly with values that don't even match
-    // then after a couple narrows they're all the same. look into this.
-    // this problem even exists with 0 threads, but gets worse with each added thread
-    // okay, get to the bottom of this. WHY OH WHY is multirehaded narrowing SLOWER???
-    // i'll use a profiler to find this out
-    //
-    // okay, seems like this weirdness might largely be due to additional regions, which are causing too many threads
-    // to be spawned with a lot of overhead - legacy varedit ignored these regions unless specified by the user
-    // follow this model
-    uint8_t n_threads = 0;
+    uint8_t n_threads = 2;
     struct narrow_frame* frame = m->frames;
 
     void* val;
@@ -221,7 +211,8 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
     // used for freeing frame contents during a /reset
     struct narrow_frame dummy_f;
 
-    clock_t c_st, c_end;
+    struct timespec c_st, c_end;
+    double elapsed;
 
     // enable readline history
     using_history();
@@ -316,11 +307,12 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                 if (val) {
                     // hmm, narrowing after a string search is broken
                     // AH! it's because len is unequal! for strings we'll need a special case
-                    c_st = clock();
+                    clock_gettime(CLOCK_MONOTONIC, &c_st);
                     narrow_mem_map_frame_opt(m, frame, n_threads, val, valsz);
-                    c_end = clock();
+                    clock_gettime(CLOCK_MONOTONIC, &c_end);
+                    elapsed = c_end.tv_sec - c_st.tv_sec + ((c_end.tv_nsec - c_st.tv_nsec) / 1000000000.0);
                     printf("narrowed down to %i values with %i threads per region (%f secs)\n", 
-                           frame->n_tracked, n_threads, ((double)(c_end - c_st)) / CLOCKS_PER_SEC);
+                           frame->n_tracked, n_threads, elapsed);
                 }
                 break;
             case EDIT:
