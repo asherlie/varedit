@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-#include "ashio.h"
 
 #ifdef shared
 #include <vmem_access.h>
@@ -11,10 +10,6 @@
 #include "vmem_access.h"
 #endif
 
-// TODO: fix weird double frees. this program is so broken.
-// maybe rewrite from ground up to be fast, lock free, functional
-// i can probably use vmem_access but rewrite varedit
-//
 // TODO: locks should be running in one thread - granularity can be updated for them
 //       just have a struct that stores many locks with address and value. one loop can set all of them
 //       periodically
@@ -202,7 +197,7 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
     char* ln = NULL;
     ssize_t ln_len;
     enum i_mode mode = SEARCH;
-    uint8_t n_threads = 2;
+    uint8_t n_threads = 3;
     struct narrow_frame* frame = m->frames;
 
     void* val;
@@ -358,6 +353,8 @@ int main(int argc, char* argv[]){
       // stores argument indices of argv for p, r, w modes
       int args[2];
       pid_t pid = 0;
+      struct mem_map_optimized mm;
+
       for(int i = 1; i < argc; ++i){
             if(*argv[i] == '-'){
                   // if strlen == 2
@@ -372,15 +369,7 @@ int main(int argc, char* argv[]){
                               case 'b': if(!(argc > i+1) || !strtoi(argv[i+1], NULL, &n_bytes) || n_bytes == 0 || n_bytes > 4)n_bytes = 4; else if(p != -2)p = i+1; break;
                               case 'V': verbose = true; print_rgns = true; break;
                               case 'v':{
-                                          _Bool no_sub =
-                                          #ifdef NO_SUB
-                                          1
-                                          #else
-                                          0
-                                          #endif
-                                          ;
-                                          printf("%s using %s and ashio %s\nlow mem mode is %s, subroutine re-narrowing is %s\n",
-                                          ver, MEMCARVE_VER, ASHIO_VER, (LOW_MEM) ?  "enabled" : "disabled", (!no_sub) ? "enabled" : "disabled"); return -1;
+                                          printf("%s using %s\n", ver, MEMCARVE_VER); return -1;
                                        }
                               // TODO: -p will sometimes be used without a filter str
                               case 'p': mode = 'p'; if(p != -2)p = i+1; args[0] = i+1; break; 
@@ -410,7 +399,6 @@ int main(int argc, char* argv[]){
             d_rgn = STACK | HEAP | OTHER;
       }
 
-      struct mem_map_optimized mm;
       init_mem_map_opt(&mm, d_rgn);
       // TODO: this should probably be added to init function
       add_frame(&mm, "DEFAULT");
