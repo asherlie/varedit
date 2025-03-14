@@ -6,8 +6,6 @@
 
 #define MEMCARVE_VER "libmemcarve 1.8.6"
 
-typedef unsigned char BYTE;
-
 /* ~~~~~~~~~~~~~~~~begin optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
 
 struct found_variable{
@@ -26,12 +24,27 @@ struct found_variable{
  */
 
 enum type_found { NONE_T, STRING, INT, LONG, FLOAT, DOUBLE };
-// TODO: make this a lock free linked list
+
+struct narrow_history{
+    // this doesn't need to be atomic, as history is only updated during REnarrowing, which
+    // is never multithreaded:w
+    // we keep a pointer to last for history so that the order of our variables ins't inverted each undo
+    int n_removed;
+    struct found_variable* removed, * last;
+
+    struct narrow_history* next;
+};
+
 struct narrow_frame{
     char label[16];
     // TODO: are these parens right?
     // TODO: tracked variables must be abled to get linked back to the vmem of external process
     //_Atomic (struct found_variable*) tracked_vars;
+
+    int undo_depth_limit;
+    int undo_depth;
+    struct narrow_history* earliest_hist, * latest_hist;
+
     struct found_variable* _Atomic tracked_vars;
     _Atomic int n_tracked;
     /* type can change over time with new searches or writes - this only records
@@ -65,14 +78,15 @@ void init_mem_map_opt(struct mem_map_optimized* m, enum m_region rgn);
 void add_frame(struct mem_map_optimized* m, char* label);
 
 //void p_frame_var(struct mem_map_optimized* m, struct narrow_frame* frame);
-void insert_frame_var_lock(struct narrow_frame* frame, uint8_t* address, uint8_t len);
-void rm_frame_var_lock(struct narrow_frame* frame, struct found_variable* v);
 //_Bool rm_next_frame_var(struct narrow_frame* frame, struct found_variable* v, struct found_variable* rm_first);
-void rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first);
+//struct found_variable* rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first, _Bool free_mem);
+struct found_variable* rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first, struct narrow_history* hist);
 uint8_t* get_remote_addr(struct mem_map_optimized* m, struct found_variable* v);
 void free_frame(struct narrow_frame* frame);
 void free_mem_map_opt(struct mem_map_optimized* m);
 struct narrow_frame* frame_search(struct mem_map_optimized* m, char* str);
+// WARNING: THIS IS NOT THREADSAFE
+void undo_renarrow(struct narrow_frame* frame);
 
 static inline char* type_to_str(enum type_found t) {
     switch(t) {
@@ -114,12 +128,12 @@ static inline char* type_to_str(enum type_found t) {
 /* ~~~~~~~~~~~~~~~~end optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
 
 bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e);
-BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e);
+uint8_t* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e);
 int read_single_val_from_pid_mem(pid_t pid, int bytes, void* vm);
 char* read_str_from_mem_range(pid_t pid, void* mb_start, int len);
 char* read_str_from_mem_range_slow_dir(char* dest, pid_t pid, void* mb_start, int min_strlen, void* last_avail);
 char* read_str_from_mem_range_slow(pid_t pid, void* mb_start, void* mb_end);
 bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_bytes);
-bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, BYTE* value);
+bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, uint8_t* value);
 bool write_int_to_pid_mem(pid_t pid, void* vm, int value);
 bool write_str_to_pid_mem(pid_t pid, void* vm, const char* str);
