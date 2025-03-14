@@ -155,7 +155,7 @@ void write_var(struct mem_map_optimized* m, void* val, int valsz, struct found_v
  *     printf("converting %s\n", raw_str);
  *     val = str_to_val(raw_str, strlen, &valsz, t);
 */
-    write_bytes_to_pid_mem(m->rgn.pid, valsz, (void*)get_remote_addr(m, v), (BYTE*)val);
+    write_bytes_to_pid_mem(m->rgn.pid, valsz, (void*)get_remote_addr(m, v), (uint8_t*)val);
 }
 
 void frame_operation(struct mem_map_optimized* m, struct narrow_frame** current_frame, char* arg, int arglen) {
@@ -163,7 +163,10 @@ void frame_operation(struct mem_map_optimized* m, struct narrow_frame** current_
     struct narrow_frame* tmp_f;
     uint16_t valsz;
     switch(arg[2]) {
-        // /f frame create
+        // /fh update frame history limit!
+        case 'h':
+            break;
+        // /fc frame create
         case 'c':
             add_frame(m, arg + 4);
             break;
@@ -252,6 +255,10 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
 
                     }
                     break;
+                case 'U':
+                    undo_renarrow(frame);
+                    printf("restored frame to %i variables\n", frame->n_tracked);
+                    break;
                 case 'f':
                     frame_operation(m, &frame, ln, ln_len);
                     break;
@@ -286,7 +293,7 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                 case 'w':
                     val = str_to_val(ln + 3, ln_len - 3, &valsz, &frame->current_type);
                     for (struct found_variable* v = frame->tracked_vars; v; v = v->next) {
-                        /*write_bytes_to_pid_mem(m->rgn.pid, valsz, (void*)get_remote_addr(m, v), (BYTE*)val);*/
+                        /*write_bytes_to_pid_mem(m->rgn.pid, valsz, (void*)get_remote_addr(m, v), (uint8_t*)val);*/
                         write_var(m, val, valsz, v);
                     }
                     break;
@@ -434,7 +441,7 @@ int main(int argc, char* argv[]){
                   int tmp_i;
                   if(argc <= args[1] || !strtoi(argv[args[1]], NULL, &tmp_i))not_run += 2;
                   else if(!not_run){
-                        BYTE to_w[n_bytes];
+                        uint8_t to_w[n_bytes];
                         memcpy(to_w, &tmp_i, n_bytes);
                         write_bytes_to_pid_mem(pid, n_bytes, addr, to_w);
                   }
