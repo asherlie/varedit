@@ -1,6 +1,7 @@
 #include "vmem_access.h"
 
 #include <string.h>
+#include <limits.h>
 #include <assert.h>
 #include <sys/uio.h>
 
@@ -23,11 +24,11 @@ bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, v
       return nread == sz_rgn;
 }
 
-BYTE* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e){
+uint8_t* read_bytes_from_pid_mem(pid_t pid, int bytes, void* vm_s, void* vm_e){
       int sz_rgn;
       if(vm_e == NULL)sz_rgn = bytes;
       else sz_rgn = (char*)vm_e-(char*)vm_s;
-      BYTE* ret = malloc(sz_rgn);
+      uint8_t* ret = malloc(sz_rgn);
       read_bytes_from_pid_mem_dir(ret, pid, bytes, vm_s, vm_e);
       return ret;
 }
@@ -76,7 +77,7 @@ char* read_str_from_mem_range_slow(pid_t pid, void* mb_start, void* mb_end){
 bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_bytes){
       bool ret = true;
       // don't use read_bytes_from_pid_mem to read from current process
-      BYTE* bytes = (src_pid == getpid()) ? (BYTE*)src : read_bytes_from_pid_mem(src_pid, n_bytes, src, NULL);
+      uint8_t* bytes = (src_pid == getpid()) ? (uint8_t*)src : read_bytes_from_pid_mem(src_pid, n_bytes, src, NULL);
       // don't use write_bytes_to_pid_mem to write to current process
       if(dest_pid == getpid())memcpy(dest, bytes, n_bytes);
       else ret = write_bytes_to_pid_mem(dest_pid, n_bytes, dest, bytes);
@@ -84,7 +85,7 @@ bool pid_memcpy(pid_t dest_pid, pid_t src_pid, void* dest, void* src, int n_byte
       return ret;
 }
 
-bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, BYTE* value){
+bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, uint8_t* value){
       struct iovec local;
       struct iovec remote;
       local.iov_base = value;
@@ -95,13 +96,13 @@ bool write_bytes_to_pid_mem(pid_t pid, int bytes, void* vm, BYTE* value){
 }
 
 bool write_int_to_pid_mem(pid_t pid, void* vm, int value){
-      BYTE byte_int[4];
+      uint8_t byte_int[4];
       memcpy(byte_int, &value, 4);
       return write_bytes_to_pid_mem(pid, 4, vm, byte_int);
 }
 
 bool write_str_to_pid_mem(pid_t pid, void* vm, const char* str){
-      return write_bytes_to_pid_mem(pid, strlen(str), vm, (BYTE*)str);
+      return write_bytes_to_pid_mem(pid, strlen(str), vm, (uint8_t*)str);
 }
 
 /* ~~~~~~~~~~~~~~~~begin optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
@@ -230,6 +231,10 @@ void add_frame(struct mem_map_optimized* m, char* label) {
     f->next = m->frames;
     f->tracked_vars = NULL;
     f->current_type = NONE_T;
+    /* TODO: have this set by user and make it default to a low number to save memory */
+    f->undo_depth_limit = INT_MAX;
+    f->undo_depth = 0;
+    f->earliest_hist = f->latest_hist = NULL;
     m->frames = f;
     ++m->n_frames;
 }
@@ -277,7 +282,98 @@ void combine_frame_var(struct narrow_frame* frame, struct found_variable* vars, 
     }
 }
 
-void rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first) {
+void init_narrow_history(struct narrow_history* h) {
+    h->next = NULL;
+    h->removed = NULL;
+    /*h->last = NULL;*/
+    h->n_removed = 0;
+}
+
+#if 0
+okay, THINK THROUGH THIS CODE. something about history FRAME order is wrong
+the combining of frames seems to be working as expected!
+#endif
+// adds a new history period, removes oldest if we've reached our limit
+// earliest->next->next->latest
+struct narrow_history* add_history_search(struct narrow_frame* frame) {
+    struct narrow_history* ret = NULL;
+    if (!frame->earliest_hist) {
+        puts("no earliest hist found, creating");
+        ++frame->undo_depth;
+        ret = frame->earliest_hist = malloc(sizeof(struct narrow_history));
+        frame->latest_hist = ret;
+    }
+    else if (frame->undo_depth == frame->undo_depth_limit -1) {
+        puts("hit depth limit, replacing oldest");
+        ret = frame->earliest_hist;
+        frame->earliest_hist = frame->earliest_hist->next;
+    } else {
+        puts("inserting new history frame");
+        ++frame->undo_depth;
+        ret = frame->latest_hist->next = malloc(sizeof(struct narrow_history));
+        frame->latest_hist = ret;
+    }
+
+    init_narrow_history(ret);
+    return ret;
+}
+
+/*found the problem, earliest_hist, latest_hist are IDENTICAL despite count being 3!!!*/
+struct narrow_history* pop_latest_hist(struct narrow_frame* frame) {
+    struct narrow_history* ret = frame->latest_hist, * prev = NULL;
+
+    // TODO: is there anything else needed to handle this?
+    printf("entered pop_latest_hist(), earliest: %p, latest: %p, N: %i\n", (void*)frame->earliest_hist, (void*)frame->latest_hist, frame->undo_depth);
+    if (!ret) {
+        return NULL;
+    }
+
+    --frame->undo_depth;
+
+    if (frame->earliest_hist == frame->latest_hist) {
+        ret = frame->earliest_hist;
+        frame->earliest_hist = frame->latest_hist = NULL;
+        return ret;
+    }
+
+    for (prev = frame->earliest_hist; prev; prev = prev->next) {
+        if (prev->next == ret) {
+            prev->next = ret->next;
+            break;
+        }
+    }
+
+    // no need for NULL check i believe
+    frame->latest_hist = prev;
+    if (!frame->latest_hist) {
+        puts("ZEROED latest");
+    }
+// repeat the many narrow and undo test where altest is printed, seems to be a bit weird
+    if (frame->latest_hist == frame->earliest_hist) {
+        puts("set altest to earliest");
+    }
+    /* is latest / earliest not being set properly? - this should be done when we empty the list and before
+     * this could be because we're not moving pointers properly
+     */
+
+    return ret;
+}
+
+void insert_history(struct narrow_history* h, struct found_variable* v) {
+    ++h->n_removed;
+    v->next = NULL;
+    if (!h->removed) {
+        printf("inserting first entry into %p\n", (void*)h);
+        h->last = v;
+        h->removed = v;
+        return;
+    }
+    h->last->next = v;
+    h->last = v;
+}
+
+// returns v->next if !free
+struct found_variable* rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first, struct narrow_history* hist) {
     struct found_variable* to_free;
     --frame->n_tracked;
     if (!v && rm_first) {
@@ -285,13 +381,24 @@ void rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable*
         frame->tracked_vars = frame->tracked_vars->next;
         // okay, this is causing segfault... WHY?
         /*free(to_free);*/
-        return;
-    }
+
+        // commented out to try out new system where this func adds to hist
+        /*return to_free;*/
+    } else {
 
     /*v == NULL at some point*/
-    to_free = v->next;
-    v->next = v->next->next;
-    free(to_free);
+        to_free = v->next;
+        v->next = v->next->next;
+    }
+
+    if (hist) {
+        insert_history(hist, to_free);
+    } else {
+        free(to_free);
+        to_free = NULL;
+    }
+
+    return to_free;
 }
 
 // this version uses locks as a proof of concept and sets prev
@@ -339,6 +446,7 @@ void _p_frame_var(struct mem_map_optimized* m, struct narrow_frame* frame) {
         printf("%p\n", get_remote_addr(m, v));
     }
 }
+
 
 // searches from start -> end for regions of size valsz with value `value`. adds to frame when found
 // TODO: this shouldn't use locks - make frame struct a lock free linked list
@@ -426,6 +534,7 @@ void* narrow_mmo_sub_wrapper(void* varg) {
 }
 
 
+
 // i don't believe there's any concurrency risk with iterating over this simply
 // only one thread will be doing the renarrowing and this is strictly later than initial narrow occurs
 // the only concurrent section of code is the original narrowing
@@ -439,6 +548,16 @@ void* narrow_mmo_sub_wrapper(void* varg) {
 //
 void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
     _Bool removed = 0;
+    /*struct found_variable* hist_append;*/
+    struct narrow_history* hist = NULL;
+
+    // TODO: possibly move history creation to add_frame() - if it cannot be set with a command that is
+    if (frame->undo_depth_limit != 0) {
+        // add a history period for this renarrow
+        hist = add_history_search(frame);
+        printf("renarrow() got %p to add hist to\n", (void*)hist);
+    }
+
     for (struct found_variable* v = frame->tracked_vars; v && v->next; v = (removed) ? v : v->next) {
         // TODO: this may not hold true when it comes to strings
         //       for strings, scrap this assertion and memcmp with the smaller size
@@ -446,7 +565,9 @@ void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
 
         removed = 0;
         if (memcmp(v->next->address, value, valsz)) {
-            rm_next_frame_var_unsafe(frame, v, 0);
+            /*instead of this, insert it into undo!!*/
+            // TODO: free up this memory in free_frame() AND whenever we apply an undo!
+            rm_next_frame_var_unsafe(frame, v, 0, hist);
             removed = 1;
         }
     }
@@ -454,8 +575,27 @@ void renarrow_frame(struct narrow_frame* frame, void* value, uint16_t valsz) {
     /* check first element */
     /*assert(valsz == frame->tracked_vars->len);*/
     if (frame->tracked_vars && memcmp(frame->tracked_vars->address, value, valsz)) {
-        rm_next_frame_var_unsafe(frame, NULL, 1);
+        rm_next_frame_var_unsafe(frame, NULL, 1, hist);
     }
+}
+
+// undoes most recent renarrow() - does nothing if there is no available history
+/*void undo_renarrow(struct narrow_frame* frame) {*/
+void undo_renarrow(struct narrow_frame* frame) {
+    struct narrow_history* hist;
+
+    if (!frame->undo_depth_limit || !frame->undo_depth || !(hist = pop_latest_hist(frame)) || !hist->removed) {
+        /*printf*/
+        return;
+    }
+    // TODO: no need to use combine_frame_var() - this is not threadsafe
+    /*combine_frame_var();*/
+    /*frame->latest_hist*/
+    /*frame->tracked_vars*/
+    /*hist = pop_latest_hist(frame);*/
+    hist->last->next = frame->tracked_vars;
+    frame->tracked_vars = hist->removed;
+    frame->n_tracked += hist->n_removed;
 }
 
 /* either calls directly OR spawns n_threads to run a narrow */
