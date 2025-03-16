@@ -1,12 +1,10 @@
 #include "vmem_access.h"
 
 #include <string.h>
+#include <pthread.h>
 #include <limits.h>
 #include <assert.h>
 #include <sys/uio.h>
-
-// with less than RELOAD_CUTOFF values, it's faster to do individual reads for integers when updating mem_map
-#define RELOAD_CUTOFF 1e5
 
 bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e){
       int sz_rgn;
@@ -244,7 +242,6 @@ void add_frame(struct mem_map_optimized* m, char* label) {
 */
 /*is this really threadsafe, seems not to be. */
 void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len) {
-    /*pthread_mutex_lock(&frame->lock);*/
     struct found_variable* var = malloc(sizeof(struct found_variable));
     var->address = address;
     var->len = len;
@@ -267,7 +264,6 @@ void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len)
         /*puts("FAIled");*/
     }
     /*printf("succesfully inserted a new frame var");*/
-    /*pthread_mutex_unlock(&frame->lock);*/
 }
 
 // inserts a tracked_vars linked list into a frame
@@ -529,8 +525,6 @@ void* narrow_mmo_sub_wrapper(void* varg) {
     free(arg);
     return NULL;
 }
-
-
 
 // i don't believe there's any concurrency risk with iterating over this simply
 // only one thread will be doing the renarrowing and this is strictly later than initial narrow occurs

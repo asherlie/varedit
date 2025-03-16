@@ -1,6 +1,5 @@
 #include "vmem_parser.h"
 
-#include <pthread.h>
 #include <stdatomic.h>
 #include <stdint.h>
 
@@ -14,14 +13,6 @@ struct found_variable{
 
     struct found_variable* next;
 };
-
-/*
- * there are benefits and drawbacks to using a LL - it's nice because narrowing is easier. can just redirect pointers
- * and free up memory, as opposed to keeping memory allocated
- *
- * array would occupy less total memory at its peak, however
- * try LL for now.
- */
 
 enum type_found { NONE_T, STRING, INT, LONG, FLOAT, DOUBLE };
 
@@ -64,8 +55,6 @@ struct mem_map_optimized{
     uint8_t* heap;
     uint8_t* stack;
     uint8_t** other;
-    // use rgn data for this
-    //uint8_t n_other;
 
     struct narrow_frame* frames;
     int n_frames;
@@ -77,15 +66,12 @@ void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* 
 void init_mem_map_opt(struct mem_map_optimized* m, enum m_region rgn);
 void add_frame(struct mem_map_optimized* m, char* label);
 
-//void p_frame_var(struct mem_map_optimized* m, struct narrow_frame* frame);
-//_Bool rm_next_frame_var(struct narrow_frame* frame, struct found_variable* v, struct found_variable* rm_first);
-//struct found_variable* rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first, _Bool free_mem);
 struct found_variable* rm_next_frame_var_unsafe(struct narrow_frame* frame, struct found_variable* v, _Bool rm_first, struct narrow_history* hist);
 uint8_t* get_remote_addr(struct mem_map_optimized* m, struct found_variable* v);
 void free_frame(struct narrow_frame* frame);
 void free_mem_map_opt(struct mem_map_optimized* m);
 struct narrow_frame* frame_search(struct mem_map_optimized* m, char* str);
-// WARNING: THIS IS NOT THREADSAFE
+/* WARNING: THIS IS NOT THREADSAFE */
 void undo_renarrow(struct narrow_frame* frame);
 
 static inline char* type_to_str(enum type_found t) {
