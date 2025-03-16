@@ -232,7 +232,7 @@ void add_frame(struct mem_map_optimized* m, char* label) {
     f->tracked_vars = NULL;
     f->current_type = NONE_T;
     /* TODO: have this set by user and make it default to a low number to save memory */
-    f->undo_depth_limit = 2;
+    f->undo_depth_limit = INT_MAX;
     f->undo_depth = 0;
     f->earliest_hist = f->latest_hist = NULL;
     m->frames = f;
@@ -298,17 +298,14 @@ the combining of frames seems to be working as expected!
 struct narrow_history* add_history_search(struct narrow_frame* frame) {
     struct narrow_history* ret = NULL;
     if (!frame->earliest_hist) {
-        puts("no earliest hist found, creating");
         ++frame->undo_depth;
         ret = frame->earliest_hist = malloc(sizeof(struct narrow_history));
     }
     else if (frame->undo_depth == frame->undo_depth_limit) {
-        puts("hit depth limit, replacing oldest");
         ret = frame->earliest_hist;
         frame->earliest_hist = frame->earliest_hist->next;
         frame->latest_hist->next = ret;
     } else {
-        puts("inserting new history frame");
         ++frame->undo_depth;
         ret = frame->latest_hist->next = malloc(sizeof(struct narrow_history));
     }
