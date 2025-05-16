@@ -1,10 +1,22 @@
 #include "vmem_parser.h"
 
-struct framedump{
-    // if region >= OTHER, subtract OTHER to get rgn number
+/*should this be a linked list? don't think so*/
+struct vardump{
     enum m_region region;
     uint64_t address_offset;
-    // these are redundant
-    enum type_found;
-    uint8_t len;
 };
+
+/* these will be written to disk */
+// TODO: account for byte order
+struct framedump{
+    char label[16];
+    // if region >= OTHER, subtract OTHER to get rgn number
+    // TODO: these are redundant, just use sizeof(type found)
+    enum type_found type;
+    uint8_t valsz;
+
+    int n_vars;
+    struct vardump* vars;
+};
+
+void fill_framedump(struct framedump* fdump, struct mem_map_optimized* m, struct narrow_frame* f);
