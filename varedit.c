@@ -158,39 +158,66 @@ void write_var(struct mem_map_optimized* m, void* val, int valsz, struct found_v
     write_bytes_to_pid_mem(m->rgn.pid, valsz, (void*)get_remote_addr(m, v), (uint8_t*)val);
 }
 
+char* get_frame_arg(char* full_arg, int arglen) {
+    int idx = 4;
+    if (arglen <= 4) {
+        return NULL;
+    }
+
+    for (; idx < arglen && isspace(full_arg[idx]); ++idx);
+
+    return full_arg + idx;
+}
+
 void frame_operation(struct mem_map_optimized* m, struct narrow_frame** current_frame, char* arg, int arglen) {
     void* write_val;
     struct narrow_frame* tmp_f;
     uint16_t valsz;
+    char* frame_arg;
+
+    frame_arg = get_frame_arg(arg, arglen);
+
     switch(arg[2]) {
+        // /fr rename current frame, helpful for using DEFAULT frame
+        case 'r':
+            if (frame_arg) {
+                strncpy((*current_frame)->label, frame_arg, sizeof((*current_frame)->label));
+            }
+            break;
         // /fh update frame history limit!
         case 'h':
             break;
         // /fc frame create
         case 'c':
-            add_frame(m, arg + 4);
+            if (frame_arg) {
+                add_frame(m, frame_arg);
+            }
             break;
         // /fs frame select
         case 's':
-            tmp_f = frame_search(m, arg + 4);
-            if (tmp_f) {
-                printf("current frame set to \"%s\" with %i tracked vars\n", tmp_f->label, tmp_f->n_tracked);
-                *current_frame = tmp_f;
+            if (frame_arg) {
+                tmp_f = frame_search(m, frame_arg);
+                if (tmp_f) {
+                    printf("current frame set to \"%s\" with %i tracked vars\n", tmp_f->label, tmp_f->n_tracked);
+                    *current_frame = tmp_f;
+                }
             }
             break;
         // /fw frame write
         case 'w':
-            write_val = str_to_val(arg + 4, arglen - 4, &valsz, &(*current_frame)->current_type);
-            for (struct found_variable* v = (*current_frame)->tracked_vars; v; v = v->next) {
-                write_var(m, write_val, valsz, v);
+            if (frame_arg) {
+                write_val = str_to_val(frame_arg, arglen - (frame_arg - arg), &valsz, &(*current_frame)->current_type);
+                for (struct found_variable* v = (*current_frame)->tracked_vars; v; v = v->next) {
+                    write_var(m, write_val, valsz, v);
+                }
             }
             break;
         default:
         // /fl frame list
         case 'l':
-            printf("%i frames\n", m->n_frames);
+            printf("%i frames, \"**\" indicates current frame\n", m->n_frames);
             for (struct narrow_frame* f = m->frames; f; f = f->next) {
-                printf("\"%s\" - tracking %i %s variables\n", f->label, f->n_tracked, type_to_str(f->current_type));
+                printf("%s\"%s\" - tracking %i %s variables\n", (*current_frame == f) ? "** " : "", f->label, f->n_tracked, type_to_str(f->current_type));
             }
             break;
     }
