@@ -4,6 +4,7 @@
 struct vardump{
     enum m_region region;
     uint64_t address_offset;
+    uint8_t valsz;
 };
 
 /* these will be written to disk */
@@ -13,7 +14,6 @@ struct framedump{
     // if region >= OTHER, subtract OTHER to get rgn number
     // TODO: these are redundant, just use sizeof(type found)
     enum type_found type;
-    uint8_t valsz;
 
     int n_vars;
     struct vardump* vars;

@@ -9,6 +9,7 @@
 #else
 #include "vmem_access.h"
 #endif
+#include "frame_dump.h"
 
 // TODO: locks should be running in one thread - granularity can be updated for them
 //       just have a struct that stores many locks with address and value. one loop can set all of them
@@ -175,9 +176,14 @@ void frame_operation(struct mem_map_optimized* m, struct narrow_frame** current_
     uint16_t valsz;
     char* frame_arg;
 
+    struct framedump fd_test;
+
     frame_arg = get_frame_arg(arg, arglen);
 
     switch(arg[2]) {
+        case 'D':
+            fill_framedump(&fd_test, m, *current_frame);
+            break;
         // /fr rename current frame, helpful for using DEFAULT frame
         case 'r':
             if (frame_arg) {
