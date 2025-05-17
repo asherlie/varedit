@@ -24,4 +24,4 @@ struct mem_rgn{
 void free_mem_rgn(struct mem_rgn* mr);
 bool is_substr(const char* substr, const char* str);
 struct mem_rgn get_vmem_locations(pid_t pid, bool unmarked_additional);
-const char* which_rgn(struct mem_rgn rgn, void* addr, enum m_region* res);
+int which_rgn(struct mem_rgn rgn, void* addr, enum m_region* res);
