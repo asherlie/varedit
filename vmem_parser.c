@@ -1,5 +1,7 @@
-#include "vmem_parser.h"
+#include <stdint.h>
 #include <string.h>
+
+#include "vmem_parser.h"
 
 void free_mem_rgn(struct mem_rgn* mr){
       free(mr->p_name);
@@ -13,23 +15,24 @@ void free_mem_rgn(struct mem_rgn* mr){
  * if (res > HEAP) or (res >= 2), the value of res refers to
  * additional region[res-2]
  */
-const char* which_rgn(struct mem_rgn rgn, void* addr, enum m_region* res) {
+// the new which_rgn() returns the offset from the start of the region in question
+int which_rgn(struct mem_rgn rgn, void* addr, enum m_region* res) {
       if(addr >= rgn.stack.start && addr <= rgn.stack.end){
             if(res)*res = STACK;
-            return "stack";
+            return (uint8_t*)addr - (uint8_t*)rgn.stack.start;
       }
       if(addr >= rgn.heap.start && addr <= rgn.heap.end){
             if(res)*res = HEAP;
-            return "heap";
+            return (uint8_t*)addr - (uint8_t*)rgn.heap.start;
       }
       for(int i = 0; i < rgn.n_remaining; ++i){
             if(addr >= rgn.remaining_addr[i].start && addr <= rgn.remaining_addr[i].end){
-                  if(res)*res = OTHER;
-                  return "unmarked";
+                  if(res)*res = OTHER + i;
+                  return (uint8_t*)addr - (uint8_t*)rgn.remaining_addr[i].start;
             }
       }
       if(res)*res = 0;
-      return NULL;
+      return -1;
 }
 
 char* get_proc_name(pid_t pid){        
