@@ -221,7 +221,7 @@ _Bool populate_mem_map_opt(struct mem_map_optimized* m) {
 }
 
 // TODO: write this code - should be a linked list. no need to be threadsafe, this will only be called
-// from the main thread in varedit
+// from the main thread in varedit and during frame operations in dump restores
 void add_frame(struct mem_map_optimized* m, char* label) {
     struct narrow_frame* f = malloc(sizeof(struct narrow_frame));
     f->n_tracked = 0;
@@ -432,6 +432,12 @@ uint8_t* get_remote_addr(struct mem_map_optimized* m, struct found_variable* v) 
     return (uint8_t*)remote_rgn->end - (local_rgn_end - v->address);
 }
 
+/*should i write a feature that keeps a list of addresses for a given process name - it can do this based on the variable offsets from start of region*/
+/*TODO: fix up readme*/
+/*
+ * yes - i'll call it /fd - frame dump - dumps all current frames to a file, they'll be stored in relative offsets to a region!
+ * this will hopefully enable loading a dump and immediately editing variables!
+*/
 // for debugging, prints a full frame including pointers to see what's getting corrupted. use before and after removal.
 void _p_frame_var(struct mem_map_optimized* m, struct narrow_frame* frame) {
     for (struct found_variable* v = frame->tracked_vars; v; v = v->next) {

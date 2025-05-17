@@ -183,6 +183,7 @@ void frame_operation(struct mem_map_optimized* m, struct narrow_frame** current_
     switch(arg[2]) {
         case 'D':
             fill_framedump(&fd_test, m, *current_frame);
+            insert_fd_to_m(&fd_test, m);
             break;
         // /fr rename current frame, helpful for using DEFAULT frame
         case 'r':

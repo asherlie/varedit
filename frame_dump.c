@@ -77,7 +77,15 @@ void insert_fd_to_m(struct framedump* fdump, struct mem_map_optimized* m) {
     add_frame(m, fdump->label);
 
     f = m->frames;
-    *f->label = '@';
+    // for testing, to differentiate
     
     fd_to_f(fdump, m, f);
+    *f->label = '@';
+}
+
+// writes raw fdump to disk for reading later
+void write_framedump_to_disk(struct framedump* fdump, char* dump_label) {
+}
+
+struct framedump* load_framedump(char* dump_label) {
 }
