@@ -20,3 +20,4 @@ struct framedump{
 };
 
 void fill_framedump(struct framedump* fdump, struct mem_map_optimized* m, struct narrow_frame* f);
+void insert_fd_to_m(struct framedump* fdump, struct mem_map_optimized* m);

@@ -68,12 +68,16 @@ void fd_to_f(struct framedump* fdump, struct mem_map_optimized* m, struct narrow
         /*frame stores local addresses, SO easy, just add the offest to the region!*/
         fv->address = get_local_address(&fdump->vars[i], m);
         fv->len = fdump->vars[i].valsz;
-    /*
-     * uint8_t* address;
-     * uint8_t len;
-    */
     }
     fv->next = NULL;
-    /*void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len);*/
-    /*insert_frame_var(f, fdump);*/
+}
+
+void insert_fd_to_m(struct framedump* fdump, struct mem_map_optimized* m) {
+    struct narrow_frame* f;
+    add_frame(m, fdump->label);
+
+    f = m->frames;
+    *f->label = '@';
+    
+    fd_to_f(fdump, m, f);
 }
