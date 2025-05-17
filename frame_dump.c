@@ -28,20 +28,52 @@ void fill_framedump(struct framedump* fdump, struct mem_map_optimized* m, struct
     }
 }
 
+uint8_t* get_local_address(struct vardump* v, struct mem_map_optimized* m) {
+    uint8_t* base_addr = NULL;
+    if (v->region == STACK) {
+        base_addr = m->stack;
+    }
+    else if (v->region == HEAP) {
+        base_addr = m->heap;
+    } else if (v->region >= OTHER) {
+        base_addr = m->other[v->region - OTHER];
+    }
+
+    if (!base_addr) {
+        return NULL;
+    }
+
+    return base_addr + v->address_offset;
+}
+
 // this takes in an empty initialized narrow frame
 // maybe this shouldn't return narrow_frame - it should just append frames to m, maybe no need to expose this m stuff
 // eh, couldn't hurt to break up code
 // this is not threadsafe, just manually altering pointers here
 void fd_to_f(struct framedump* fdump, struct mem_map_optimized* m, struct narrow_frame* f) {
-    struct found_variable* fv;
+    struct found_variable* fv, * prev_fv = NULL;
+
     memcpy(f->label, fdump->label, sizeof(f->label));
     f->current_type = fdump->type;
     f->n_tracked = fdump->n_vars;
 
     for (int i = 0; i < fdump->n_vars; ++i) {
+        fv = malloc(sizeof(struct found_variable));
+        if (prev_fv) {
+            prev_fv->next = fv;
+        } else {
+            f->tracked_vars = fv;
+        }
+        prev_fv = fv;
         /*frame stores local addresses, SO easy, just add the offest to the region!*/
-        fdump->vars[i].
+        fv->address = get_local_address(&fdump->vars[i], m);
+        fv->len = fdump->vars[i].valsz;
+    /*
+     * uint8_t* address;
+     * uint8_t len;
+    */
     }
+    fv->next = NULL;
     /*void insert_frame_var(struct narrow_frame* frame, uint8_t* address, uint8_t len);*/
     /*insert_frame_var(f, fdump);*/
 }
