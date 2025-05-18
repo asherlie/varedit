@@ -84,7 +84,26 @@ void insert_fd_to_m(struct framedump* fdump, struct mem_map_optimized* m) {
 }
 
 // writes raw fdump to disk for reading later
-void write_framedump_to_disk(struct framedump* fdump, char* dump_label) {
+_Bool write_framedump_to_disk(struct framedump* fdump, char* dump_label) {
+    FILE* fp = fopen(dump_label, "w");
+    size_t nb;
+
+    if (!fp) {
+        return 0;
+    }
+    nb = sizeof(struct framedump) - sizeof(struct vardump*);
+    if (fwrite(fdump, nb, 1, fp) != nb) {
+        fclose(fp);
+        return 0;
+    }
+
+    nb = sizeof(struct vardump);
+    for (int i = 0; i < fdump->n_vars; ++i) {
+        if (fwrite(&fdump->vars[i], nb, 1, fp) != nb) {
+            fclose(fp);
+            return 0;
+        }
+    }
 }
 
 struct framedump* load_framedump(char* dump_label) {
