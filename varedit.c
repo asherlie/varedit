@@ -176,14 +176,18 @@ void frame_operation(struct mem_map_optimized* m, struct narrow_frame** current_
     uint16_t valsz;
     char* frame_arg;
 
-    struct framedump fd_test;
-
     frame_arg = get_frame_arg(arg, arglen);
 
     switch(arg[2]) {
         case 'D':
-            fill_framedump(&fd_test, m, *current_frame);
-            insert_fd_to_m(&fd_test, m);
+            if (frame_arg) {
+                if (!write_frame_to_fdump(*current_frame, m, frame_arg)) {
+                    puts("failed to write fdump");
+                }
+                if (!add_fdump_to_m(frame_arg, m)) {
+                    puts("failed to read fdump");
+                }
+            }
             break;
         // /fr rename current frame, helpful for using DEFAULT frame
         case 'r':
