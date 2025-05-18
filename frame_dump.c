@@ -111,10 +111,18 @@ _Bool write_framedump_to_disk(struct framedump* fdump, char* dump_label) {
     return 1;
 }
 
+// loads only work once a search is performed - regions aren't populated yet otherwise
+// fix this
 struct framedump* load_framedump(char* dump_label) {
     FILE* fp = fopen(dump_label, "rb");
     size_t nb;
-    struct framedump* fdump = malloc(sizeof(struct framedump));
+    struct framedump* fdump;
+
+    if (!fp) {
+        return NULL;
+    }
+
+    fdump = malloc(sizeof(struct framedump));
 
     nb = sizeof(struct framedump) - sizeof(struct vardump*);
     if (fread(fdump, 1, nb, fp) != nb) {
@@ -149,6 +157,11 @@ _Bool add_fdump_to_m(char* dump_label, struct mem_map_optimized* m) {
     if (!fdump) {
         return 0;
     }
+
+    if (!m->stack && !m->heap && !m->other && !populate_mem_map_opt(m)) {
+        return 0;
+    }
+
     insert_fd_to_m(fdump, m);
 
     return 1;
