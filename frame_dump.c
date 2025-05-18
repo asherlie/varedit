@@ -94,14 +94,14 @@ _Bool write_framedump_to_disk(struct framedump* fdump, char* dump_label) {
         return 0;
     }
     nb = sizeof(struct framedump) - sizeof(struct vardump*);
-    if (fwrite(fdump, nb, 1, fp) != nb) {
+    if (fwrite(fdump, 1, nb, fp) != nb) {
         fclose(fp);
         return 0;
     }
 
     nb = sizeof(struct vardump);
     for (int i = 0; i < fdump->n_vars; ++i) {
-        if (fwrite(&fdump->vars[i], nb, 1, fp) != nb) {
+        if (fwrite(&fdump->vars[i], 1, nb, fp) != nb) {
             fclose(fp);
             return 0;
         }
@@ -117,7 +117,7 @@ struct framedump* load_framedump(char* dump_label) {
     struct framedump* fdump = malloc(sizeof(struct framedump));
 
     nb = sizeof(struct framedump) - sizeof(struct vardump*);
-    if (fread(fdump, nb, 1, fp) != nb) {
+    if (fread(fdump, 1, nb, fp) != nb) {
         free(fdump);
         fclose(fp);
         return NULL;
@@ -127,13 +127,14 @@ struct framedump* load_framedump(char* dump_label) {
 
     nb = sizeof(struct vardump);
     for (int i = 0; i < fdump->n_vars; ++i) {
-        if (fread(&fdump->vars[i], nb, 1, fp) != nb) {
+        if (fread(&fdump->vars[i], 1, nb, fp) != nb) {
             free(fdump);
             fclose(fp);
             return NULL;
         }
     }
 
+    fclose(fp);
     return fdump;
 }
 
