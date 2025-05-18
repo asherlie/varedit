@@ -184,6 +184,10 @@ void frame_operation(struct mem_map_optimized* m, struct narrow_frame** current_
                 if (!write_frame_to_fdump(*current_frame, m, frame_arg)) {
                     puts("failed to write fdump");
                 }
+            }
+            break;
+        case 'L':
+            if (frame_arg) {
                 if (!add_fdump_to_m(frame_arg, m)) {
                     puts("failed to read fdump");
                 }

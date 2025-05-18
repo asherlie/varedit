@@ -158,8 +158,8 @@ _Bool add_fdump_to_m(char* dump_label, struct mem_map_optimized* m) {
         return 0;
     }
 
-    if (!m->stack && !m->heap && !m->other && !populate_mem_map_opt(m)) {
-        return 0;
+    if (!m->stack && !m->heap && !m->other) {
+        populate_mem_map_opt(m);
     }
 
     insert_fd_to_m(fdump, m);
