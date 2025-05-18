@@ -5,6 +5,8 @@
 #include "vmem_parser.h"
 #include "frame_dump.h"
 
+// TODO: free up all allocated memory
+
 // TODO: is it safe to access tracked_vars like this?
 void fill_framedump(struct framedump* fdump, struct mem_map_optimized* m, struct narrow_frame* f) {
     int idx = 0;
@@ -85,7 +87,7 @@ void insert_fd_to_m(struct framedump* fdump, struct mem_map_optimized* m) {
 
 // writes raw fdump to disk for reading later
 _Bool write_framedump_to_disk(struct framedump* fdump, char* dump_label) {
-    FILE* fp = fopen(dump_label, "w");
+    FILE* fp = fopen(dump_label, "wb");
     size_t nb;
 
     if (!fp) {
@@ -104,7 +106,49 @@ _Bool write_framedump_to_disk(struct framedump* fdump, char* dump_label) {
             return 0;
         }
     }
+
+    fclose(fp);
+    return 1;
 }
 
 struct framedump* load_framedump(char* dump_label) {
+    FILE* fp = fopen(dump_label, "rb");
+    size_t nb;
+    struct framedump* fdump = malloc(sizeof(struct framedump));
+
+    nb = sizeof(struct framedump) - sizeof(struct vardump*);
+    if (fread(fdump, nb, 1, fp) != nb) {
+        free(fdump);
+        fclose(fp);
+        return NULL;
+    }
+
+    fdump->vars = malloc(sizeof(struct vardump) * fdump->n_vars);
+
+    nb = sizeof(struct vardump);
+    for (int i = 0; i < fdump->n_vars; ++i) {
+        if (fread(&fdump->vars[i], nb, 1, fp) != nb) {
+            free(fdump);
+            fclose(fp);
+            return NULL;
+        }
+    }
+
+    return fdump;
+}
+
+_Bool write_frame_to_fdump(struct narrow_frame* f, struct mem_map_optimized* m, char* dump_label) {
+    struct framedump fdump;
+    fill_framedump(&fdump, m, f);
+    return write_framedump_to_disk(&fdump, dump_label);
+}
+
+_Bool add_fdump_to_m(char* dump_label, struct mem_map_optimized* m) {
+    struct framedump* fdump = load_framedump(dump_label);
+    if (!fdump) {
+        return 0;
+    }
+    insert_fd_to_m(fdump, m);
+
+    return 1;
 }

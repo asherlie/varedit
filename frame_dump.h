@@ -19,5 +19,5 @@ struct framedump{
     struct vardump* vars;
 };
 
-void fill_framedump(struct framedump* fdump, struct mem_map_optimized* m, struct narrow_frame* f);
-void insert_fd_to_m(struct framedump* fdump, struct mem_map_optimized* m);
+_Bool write_frame_to_fdump(struct narrow_frame* f, struct mem_map_optimized* m, char* dump_label);
+_Bool add_fdump_to_m(char* dump_label, struct mem_map_optimized* m);
