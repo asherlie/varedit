@@ -56,6 +56,38 @@ struct mem_map_optimized{
     uint8_t* stack;
     uint8_t** other;
 
+    /* an experimental feature for tracking variables dumped to a file
+     * i'll be testing this with GBA emulation .sav files
+     * this will be used by just running ./v -D <file list>
+     *                                   ./v -D *
+     * all args after -D will be treated as files on disk
+     *
+     * selected_rgns can be set to NONE and we'll still load disk regions if they exist
+     *
+     * for now each disk pointer will be filled with the entirety of the file - in the future we can just
+     * have multiple file pointers to the same file
+     * or actually maybe just memory map the file and treat it the same as any other region
+     * maybe memory map it and place it in m->other
+     * UGH - i think i should just do this right off the bat
+     *
+     * HAVE A PREPROCCESSING FUNCTION called at the beginning of populate_mem_map_opt() that IFF we have disk files
+     * sets up disk to behvae like stack with mem mapped everything
+     *
+     *
+     * so:
+     * populate_mem_map_opt_disk():
+     *  iterate over file names
+     *  memory map file into m->other
+     *  return success
+     *
+     * populate_mem_map_opt():
+     *  populate_mem_map_opt_disk()
+     *  proceed as per usual - a user may have enabled both modes
+     */
+    uint16_t n_disk;
+    // disk_fns will just be set to argv + 1
+    char** disk_fns;
+
     struct narrow_frame* frames;
     int n_frames;
 };
