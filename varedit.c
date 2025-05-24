@@ -1,3 +1,4 @@
+/*why do we have duplicate memory addresses showing up?*/
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -403,6 +404,8 @@ int main(int argc, char* argv[]){
       int args[2];
       pid_t pid = 0;
       struct mem_map_optimized mm;
+      char** disk_fns = NULL;
+      int n_disk = 0;
 
       for(int i = 1; i < argc; ++i){
             if(*argv[i] == '-'){
@@ -425,6 +428,12 @@ int main(int argc, char* argv[]){
                               case 'r': mode = 'r'; if(p != -2)p = i+1; args[0] = i+1; break;
                               case 'w': mode = 'w'; if(p != -2)p = i+2; args[0] = i+1; args[1] = i+2; break;
                               case 'i': mode = 'i'; break;
+
+                              // these are being overwritten by init_mem_map_opt() below
+                              case 'D':
+                                n_disk = argc - i - 1;
+                                disk_fns = argv + i + 1;
+                                break;
                         }
                   }
                   // strlen == 3 and begins with -p
@@ -449,6 +458,8 @@ int main(int argc, char* argv[]){
       }
 
       init_mem_map_opt(&mm, d_rgn);
+      mm.n_disk = n_disk;
+      mm.disk_fns = disk_fns;
       // TODO: this should probably be added to init function
       add_frame(&mm, "DEFAULT");
       mm.rgn = get_vmem_locations(pid, 1);
