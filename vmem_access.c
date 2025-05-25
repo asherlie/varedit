@@ -486,14 +486,25 @@ struct found_variable* rm_next_frame_var_unsafe(struct narrow_frame* frame, stru
 /*first element must have next = NULL;*/
 // must init frame to NULL!
 
+
 char* get_disk_fn(struct mem_map_optimized* m, struct found_variable* v, size_t* offset) {
     for (struct disk_map_inf* dm = m->disk_fns; dm; dm = dm->next) {
-        if (v->address > dm->address && v->address < dm->address + dm->sz) {
+        if (v->address >= dm->address && v->address <= dm->address + dm->sz) {
             *offset = v->address - dm->address;
             return dm->fn;
         }
     }
     return NULL;
+}
+
+_Bool is_disk_address(struct mem_map_optimized* m, struct found_variable* v) {
+    size_t off;
+    return get_disk_fn(m, v, &off);
+}
+
+_Bool write_bytes_to_disk_address(uint8_t* address, uint8_t* bytes, size_t len) {
+    memcpy(address, bytes, len);
+    return 1;
 }
 
 /*
