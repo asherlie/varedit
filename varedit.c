@@ -167,6 +167,12 @@ void write_var(struct mem_map_optimized* m, void* val, int valsz, struct found_v
  *     printf("converting %s\n", raw_str);
  *     val = str_to_val(raw_str, strlen, &valsz, t);
 */
+    // this needs to either write_bytes_to_pid_mem() OR just easily write to mem if mmapped!
+    // NOTE: call msync() right after
+    if (is_disk_address(m, v)) {
+        write_bytes_to_disk_address(v->address, (uint8_t*)val, valsz);
+        return;
+    }
     write_bytes_to_pid_mem(m->rgn.pid, valsz, (void*)get_remote_addr(m, v), (uint8_t*)val);
 }
 
@@ -351,6 +357,7 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                     val = str_to_val(ln + 3, ln_len - 3, &valsz, &frame->current_type);
                     for (struct found_variable* v = frame->tracked_vars; v; v = v->next) {
                         /*write_bytes_to_pid_mem(m->rgn.pid, valsz, (void*)get_remote_addr(m, v), (uint8_t*)val);*/
+                        printf("writing %i of len %i\n", *(uint8_t*)val, valsz);
                         write_var(m, val, valsz, v);
                     }
                     break;
