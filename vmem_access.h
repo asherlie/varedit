@@ -124,6 +124,7 @@ struct narrow_frame* frame_search(struct mem_map_optimized* m, char* str);
 void undo_renarrow(struct narrow_frame* frame);
 void add_disk_fn(struct disk_map_inf** dmi, char* fn);
 char* get_disk_fn(struct mem_map_optimized* m, struct found_variable* v, size_t* offset);
+_Bool is_disk_address(struct mem_map_optimized* m, struct found_variable* v);
 
 static inline char* type_to_str(enum type_found t) {
     switch(t) {
@@ -158,7 +159,7 @@ static inline char* type_to_str(enum type_found t) {
 #define p_frame_var(m, f, fmtstr, type) \
     { \
         char pstr[32] = "%p: %"; \
-        char pstr_disk[64] = "%s + %li: %"; \
+        char pstr_disk[64] = "\"%s\"+%li: %"; \
         uint8_t* remote_addr; \
         char* disk_fn; \
         size_t off; \
@@ -167,7 +168,6 @@ static inline char* type_to_str(enum type_found t) {
         for (struct found_variable* v = f->tracked_vars; v; v = v->next) { \
             remote_addr = get_remote_addr(m, v); \
             if (!remote_addr) { \
-                puts(disk_fn); \
                 disk_fn = get_disk_fn(m, v, &off); \
             } \
             if (!strncmp(fmtstr, "s", 1)) { \
@@ -180,12 +180,12 @@ static inline char* type_to_str(enum type_found t) {
                 if (remote_addr) { \
                     printf(pstr, remote_addr, *((type*)v->address)); \
                 } else { \
-                    printf("got disk fn of %s with %li\n", disk_fn, off); \
                     printf(pstr_disk, disk_fn, off, *((type*)v->address)); \
                 } \
             } \
         } \
     }
+_Bool write_bytes_to_disk_address(uint8_t* address, uint8_t* bytes, size_t len);
 
 /* ~~~~~~~~~~~~~~~~end optimized feb 2025 changes~~~~~~~~~~~~~~~~~ */
 
