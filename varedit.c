@@ -81,7 +81,7 @@ enum i_mode { SEARCH, EDIT };
 /* returns whether a string was found so we know whether to print a string */
 // TODO: support doubles, longs
 void* str_to_val(char* str, ssize_t len, uint16_t* valsz, enum type_found* found) {
-    _Bool dec = 0, d_found = 0, l_found = 0;
+    _Bool dec = 0, d_found = 0, l_found = 0, b_found = 0, s_found = 0;
     char* endptr;
     void* ret = NULL;
 
@@ -97,6 +97,10 @@ void* str_to_val(char* str, ssize_t len, uint16_t* valsz, enum type_found* found
            d_found = 1; 
         } else if (str[len-1] == 'L') {
            l_found = 1; 
+        } else if (str[len-1] == 'b') {
+           b_found = 1;
+        } else if (str[len-1] == 's') {
+           s_found = 1;
         }
         str[len-1] = 0;
     }
@@ -133,13 +137,19 @@ void* str_to_val(char* str, ssize_t len, uint16_t* valsz, enum type_found* found
         if (l_found) {
             *valsz = sizeof(long);
             *found = LONG;
+        } else if (s_found) {
+            *valsz = sizeof(short);
+            *found = SHORT;
+        } else if (b_found) {
+            *valsz = 1;
+            *found = BYTE;
         } else {
             *found = INT;
         }
         ret = malloc(*valsz);
         long li = strtol(str, &endptr, 10);
         memcpy(ret, &li, *valsz);
-    }
+    } 
 
     return ret;
 }
@@ -331,6 +341,10 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                         p_frame_var(m, frame, "lf", double); 
                     } else if (frame->current_type == LONG){
                         p_frame_var(m, frame, "li", long); 
+                    } else if (frame->current_type == SHORT){
+                        p_frame_var(m, frame, "hd", short);
+                    } else if (frame->current_type == BYTE){
+                        p_frame_var(m, frame, "hhu", uint8_t);
                     }
                     break;
                 case 'w':
@@ -356,6 +370,7 @@ _Bool interactive_mode_opt(struct mem_map_optimized* m) {
                     narrow_mem_map_frame_opt(m, frame, n_threads, val, valsz);
                     clock_gettime(CLOCK_MONOTONIC, &c_end);
                     elapsed = c_end.tv_sec - c_st.tv_sec + ((c_end.tv_nsec - c_st.tv_nsec) / 1000000000.0);
+                    // this is printed the wrong number of values
                     printf("narrowed down to %i values with %i threads per region (%f secs)\n", 
                            frame->n_tracked, n_threads, elapsed);
                 }
@@ -447,7 +462,7 @@ int main(int argc, char* argv[]){
             // p == -2 when pid has been set, >= i when used as an argument for a flag
             else if(p != -2 && p < i && strtoi(argv[i], NULL, &pid))p = -2;
       }
-      if(p != -2){
+      if(!n_disk && p != -2){
             puts("enter a valid pid");
             return -1;
       }
@@ -458,15 +473,17 @@ int main(int argc, char* argv[]){
       }
 
       init_mem_map_opt(&mm, d_rgn);
-      mm.n_disk = n_disk;
-      mm.disk_fns = disk_fns;
+      for (int i = 0; i < n_disk; ++i) {
+          add_disk_fn(&mm.disk_fns, disk_fns[i]);
+      }
       // TODO: this should probably be added to init function
       add_frame(&mm, "DEFAULT");
       mm.rgn = get_vmem_locations(pid, 1);
 
       // TODO: fix criteria for unmarked additional mem rgns in vmem_parser.c, too many regions are being recorded
       // no warnings are printed unless we're in interactive mode
-      if(!mem_rgn_warn(d_rgn, mm.rgn, verbose || mode != 'i')){
+      // TODO: move opening of FDs to here so we can warn and exit early
+      if(!n_disk && !mem_rgn_warn(d_rgn, mm.rgn, verbose || mode != 'i')){
             puts("no usable memory regions found\nyou DO have root privileges, don't you");
             free_mem_rgn(&mm.rgn);
             return -1;
