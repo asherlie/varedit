@@ -1,10 +1,13 @@
+/*TODO: can test this by having a file with letters and searching for 97b for 'a' for example!*/
 #include "vmem_access.h"
 
+#include <fcntl.h>
 #include <string.h>
 #include <pthread.h>
 #include <limits.h>
 #include <assert.h>
 #include <sys/uio.h>
+#include <sys/mman.h>
 
 bool read_bytes_from_pid_mem_dir(void* dest, pid_t pid, int bytes, void* vm_s, void* vm_e){
       int sz_rgn;
@@ -114,7 +117,12 @@ void init_frames(struct mem_map_optimized* m) {
 void init_mem_map_opt(struct mem_map_optimized* m, enum m_region rgn) {
     m->stack = m->heap = NULL;
     m->other = NULL;
+    /*m->mapped_disk = NULL;*/
     m->selected_rgns = rgn;
+
+    m->n_disk = 0;
+    m->disk_fns = NULL;
+    m->disk_mapped = 0;
 
     init_frames(m);
 }
@@ -140,7 +148,7 @@ void free_mem_map_opt(struct mem_map_optimized* m) {
     }
 
     if (m->other) {
-        for (int i = 0; i < m->rgn.n_remaining; ++i) {
+        for (int i = 0; i < m->rgn.n_remaining - m->n_disk; ++i) {
             free(m->other[i]);
         }
     }
@@ -167,10 +175,81 @@ uint64_t rgn_len(struct m_addr_pair* addrs) {
     return ((uint8_t*)addrs->end - (uint8_t*)addrs->start);
 }
 
+// returns file descriptor, sets sz
+int filesz(char* fn, size_t* sz) {
+    int fd = open(fn, O_RDWR, S_IRWXU);
+
+    if (fd == -1) {
+        return -1;
+    }
+
+    *sz = lseek(fd, 0, SEEK_END);
+
+    if (*sz <= 0) {
+        return -1;
+    }
+
+    lseek(fd, 0, SEEK_SET);
+
+    return fd;
+}
+
+void add_disk_fn(struct disk_map_inf** dmi, char* fn) {
+    struct disk_map_inf* new_dmi = malloc(sizeof(struct disk_map_inf));
+    new_dmi->fn = fn;
+    new_dmi->sz = -1;
+    new_dmi->next = NULL;
+    if (!*dmi) {
+        *dmi = new_dmi;
+        return;
+    }
+    new_dmi->next = *dmi;
+    *dmi = new_dmi;
+}
+
+// ugh, maybe can't decrement n_disk if it's used to go from files here
+// ok, the reader will know if they've gotten to the end if they've reached n_disk - 1 OR a NULL entry
+int populate_mem_map_opt_disk(struct mem_map_optimized* m) {
+    int fd;
+    int err = 0;
+    // realloc()ing m->other 
+    if (m->disk_mapped) {
+        for (struct disk_map_inf* dm = m->disk_fns; dm; dm = dm->next) {
+            printf("msync() returned %i\n", msync(dm->address, dm->sz, MS_SYNC));
+            // okay, updating this to just munmap() and re-map. the above isn't working.
+            // removing the else condition below
+            // OKAY - seems to fix problem! not a great solution but okay for now
+            munmap(dm->address, dm->sz);
+        }
+    } /* else { */
+        /*replace mapped_disk with pointers into m->disk_fns.address*/
+        /*m->mapped_disk = calloc(m->n_disk, sizeof(uint8_t*));*/
+
+        for (struct disk_map_inf* dm = m->disk_fns; dm; dm = dm->next) {
+        /*for (uint16_t i = 0; i < m->n_disk; ++i) {*/
+            // TODO: can i close this FD?
+            fd = filesz(dm->fn, &dm->sz);
+            if (fd == -1) {
+                ++err;
+                continue;
+            }
+            // set disk_mapped to 1 if we have any valid disk files
+            m->disk_mapped = 1;
+            // TODO: if this doesn't work it's likely a page size issue - may need to use multiples of page size
+            dm->address = mmap(0, dm->sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+            printf("address to %p\n", dm->address);
+        }
+        printf("subtracting %i errs from n_disk\n", err);
+        /*m->rgn.n_remaining += m->n_disk;*/
+    // }
+    return m->n_disk - err;
+}
+
 // TODO: potentially only repopulate regions that have matches in frame
 // TODO: this should fail when process shuts down
 // TODO: detect failures from initial population
-_Bool populate_mem_map_opt(struct mem_map_optimized* m) {
+// this is called only once for both disk regions and traditional regions
+_Bool populate_mem_map_opt_memory(struct mem_map_optimized* m) {
     // we'll assume caller sets m->rgn
     /*m->rgn = get_vmem_locations(pid, unmarked_additional);*/
     // using a byte value of 32 - hoping it'll be faster and shouldn't matter for actual data now that
@@ -218,6 +297,15 @@ _Bool populate_mem_map_opt(struct mem_map_optimized* m) {
         }
     }
     return !failures;
+}
+
+
+_Bool populate_mem_map_opt(struct mem_map_optimized* m) {
+    _Bool ret;
+    // memory mmo is populated first to ensure that the initial additional regions are dedicated to memory
+    ret = populate_mem_map_opt_memory(m);
+    populate_mem_map_opt_disk(m);
+    return ret;
 }
 
 // TODO: write this code - should be a linked list. no need to be threadsafe, this will only be called
@@ -398,6 +486,16 @@ struct found_variable* rm_next_frame_var_unsafe(struct narrow_frame* frame, stru
 /*first element must have next = NULL;*/
 // must init frame to NULL!
 
+char* get_disk_fn(struct mem_map_optimized* m, struct found_variable* v, size_t* offset) {
+    for (struct disk_map_inf* dm = m->disk_fns; dm; dm = dm->next) {
+        if (v->address > dm->address && v->address < dm->address + dm->sz) {
+            *offset = v->address - dm->address;
+            return dm->fn;
+        }
+    }
+    return NULL;
+}
+
 /*
  * calculates address given two ranges and a local address
  * it saves memory and time to only calculate this once we're printing out narrowed
@@ -480,8 +578,12 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
     const uint8_t first_byte = *(uint8_t*)value;
     /*printf("thread doing %p -> %p\n", (void*)start_rgn, (void*)end_rgn);*/
     for (; first_byte_match; first_byte_match = memchr(i_rgn, first_byte, end_rgn - i_rgn)) {
-        if (first_byte_match >= end_rgn) {
+        if (first_byte_match + valsz > end_rgn) {
             /*ALSO need to exit once first_byte_match is not in our defined region. could cause concurrency issues.*/
+            /*
+             * is failing to do this check causing duplicates?
+             * what if a value is on the boundary of two regions? doubt it
+            */
             break;
             /*return n_matches;*/
         }
@@ -513,6 +615,7 @@ uint64_t narrow_mem_map_frame_opt_subroutine(struct narrow_frame* frame, uint8_t
     if (found) {
         /*printf("combining %li matches into frame - found: %p, last: %p\n", n_matches, (void*)found, (void*)last);*/
         combine_frame_var(frame, found, last, n_matches);
+        printf("calling combine_frame_var() with %li matches\n", n_matches);
     }
     return n_matches;
 }
@@ -645,6 +748,7 @@ pthread_t* narrow_mmo_sub_spawner(struct narrow_frame* frame, uint8_t n_threads,
 /* narrows variables in memory of all  */
 void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* frame, uint8_t n_threads, void* value, uint16_t valsz) {
     int n_rgns;
+    int idx = 0;
     pthread_t** rgn_threads;
 
     // if we already have a narrowed frame
@@ -654,7 +758,7 @@ void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* 
     }
 
     // n_threads is really threads per region
-    n_rgns = (_Bool)m->stack + (_Bool)m->heap + m->rgn.n_remaining;
+    n_rgns = (_Bool)m->stack + (_Bool)m->heap + m->rgn.n_remaining + m->n_disk;
     rgn_threads = calloc(n_rgns, sizeof(pthread_t*));
 
     if (m->stack) {
@@ -667,6 +771,14 @@ void narrow_mem_map_frame_opt(struct mem_map_optimized* m, struct narrow_frame* 
         for (int i = 0; i < m->rgn.n_remaining; ++i) {
             rgn_threads[2 + i] = narrow_mmo_sub_spawner(frame, n_threads, m->other[i], 
                                                         m->other[i] + rgn_len(&m->rgn.remaining_addr[i]), value, valsz);
+        }
+    }
+    if (m->disk_mapped) {
+        for (struct disk_map_inf* dm = m->disk_fns; dm; dm = dm ->next) {
+        /*for (int i = 0; i < m->n_disk; ++i) {*/
+            // TODO: fix range of addresses, need to store file size somewhere, potentially have disk_fns be a struct with name and size
+            puts("narrowing on mapped_disk");
+            rgn_threads[3 + m->rgn.n_remaining + idx++] = narrow_mmo_sub_spawner(frame, n_threads, dm->address, dm->address + dm->sz, value, valsz);
         }
     }
 
