@@ -14,7 +14,7 @@ struct found_variable{
     struct found_variable* next;
 };
 
-enum type_found { NONE_T, STRING, INT, LONG, FLOAT, DOUBLE };
+enum type_found { NONE_T, STRING, INT, LONG, FLOAT, DOUBLE, SHORT, BYTE };
 
 struct narrow_history{
     // this doesn't need to be atomic, as history is only updated during REnarrowing, which
@@ -46,6 +46,14 @@ struct narrow_frame{
     struct narrow_frame* next;
 };
 
+struct disk_map_inf{
+    char* fn;
+    size_t sz;
+    uint8_t* address;
+
+    struct disk_map_inf* next;
+};
+
 // we'll be using named frames to keep track of different collections of tracked variables
 // this way we can effortlessly switch between them
 // to keep track of a variable we need a pointer into a region and size of that variable
@@ -55,6 +63,8 @@ struct mem_map_optimized{
     uint8_t* heap;
     uint8_t* stack;
     uint8_t** other;
+
+    /*uint8_t** mapped_disk;*/
 
     /* an experimental feature for tracking variables dumped to a file
      * i'll be testing this with GBA emulation .sav files
@@ -83,10 +93,17 @@ struct mem_map_optimized{
      * populate_mem_map_opt():
      *  populate_mem_map_opt_disk()
      *  proceed as per usual - a user may have enabled both modes
+     *
+     *  TODO: some changes:
+     *      move mmapping out of populate() potentially, or at least the opening of the file descriptors
+     *      this will let us exit early if no good files are passed in
      */
+    // TODO: rename this to mapped disk now that it contains the pointers
     uint16_t n_disk;
     // disk_fns will just be set to argv + 1
-    char** disk_fns;
+    /*char** disk_fns;*/
+    struct disk_map_inf* disk_fns;
+    _Bool disk_mapped;
 
     struct narrow_frame* frames;
     int n_frames;
@@ -105,6 +122,8 @@ void free_mem_map_opt(struct mem_map_optimized* m);
 struct narrow_frame* frame_search(struct mem_map_optimized* m, char* str);
 /* WARNING: THIS IS NOT THREADSAFE */
 void undo_renarrow(struct narrow_frame* frame);
+void add_disk_fn(struct disk_map_inf** dmi, char* fn);
+char* get_disk_fn(struct mem_map_optimized* m, struct found_variable* v, size_t* offset);
 
 static inline char* type_to_str(enum type_found t) {
     switch(t) {
@@ -123,6 +142,12 @@ static inline char* type_to_str(enum type_found t) {
         case DOUBLE:
             return "DOUBLE";
             break;
+        case SHORT:
+            return "SHORT";
+            break;
+        case BYTE:
+            return "BYTE";
+            break;
         case NONE_T:
             return "NONE";
             break;
@@ -133,12 +158,31 @@ static inline char* type_to_str(enum type_found t) {
 #define p_frame_var(m, f, fmtstr, type) \
     { \
         char pstr[32] = "%p: %"; \
+        char pstr_disk[64] = "%s + %li: %"; \
+        uint8_t* remote_addr; \
+        char* disk_fn; \
+        size_t off; \
         sprintf(pstr + 5, "%s\n", fmtstr); \
+        sprintf(pstr_disk + 11, "%s\n", fmtstr); \
         for (struct found_variable* v = f->tracked_vars; v; v = v->next) { \
+            remote_addr = get_remote_addr(m, v); \
+            if (!remote_addr) { \
+                puts(disk_fn); \
+                disk_fn = get_disk_fn(m, v, &off); \
+            } \
             if (!strncmp(fmtstr, "s", 1)) { \
-                printf(pstr, get_remote_addr(m, v), (char*)v->address); \
+                if (remote_addr) { \
+                    printf(pstr, remote_addr, (char*)v->address); \
+                } else { \
+                    printf(pstr_disk, disk_fn, off, (char*)v->address); \
+                } \
             } else { \
-                printf(pstr, get_remote_addr(m, v), *((type*)v->address)); \
+                if (remote_addr) { \
+                    printf(pstr, remote_addr, *((type*)v->address)); \
+                } else { \
+                    printf("got disk fn of %s with %li\n", disk_fn, off); \
+                    printf(pstr_disk, disk_fn, off, *((type*)v->address)); \
+                } \
             } \
         } \
     }
